@@ -1,0 +1,64 @@
+#vtc-badge {
+position: fixed;
+right: 14px;
+bottom: 14px;
+z-index: 2147483647; /* above everything */
+font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+
+#vtc-badge .vtc-chip {
+background: rgba(20, 20, 20, 0.9);
+color: #fff;
+padding: 10px 12px;
+border-radius: 14px;
+font-size: 13px;
+box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+cursor: pointer;
+user-select: none;
+}
+
+
+#vtc-badge .vtc-chip .vtc-score {
+font-weight: 700;
+margin-right: 6px;
+}
+
+
+#vtc-panel {
+position: fixed;
+right: 14px;
+bottom: 56px;
+width: min(380px, calc(100vw - 28px));
+max-height: min(50vh, 420px);
+overflow: auto;
+background: rgba(255,255,255,0.98);
+color: #111;
+border-radius: 14px;
+padding: 12px 14px;
+box-shadow: 0 12px 28px rgba(0,0,0,0.25);
+border: 1px solid rgba(0,0,0,0.08);
+display: none;
+}
+
+
+#vtc-panel header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+font-weight: 700;
+margin-bottom: 8px;
+}
+
+
+#vtc-panel .vtc-explanation {
+font-size: 12px;
+line-height: 1.45;
+white-space: pre-wrap;
+}
+
+
+/* score tints */
+.vtc-good { background: linear-gradient(0deg, rgba(18,163,84,0.92), rgba(18,163,84,0.92)) !important; }
+.vtc-warn { background: linear-gradient(0deg, rgba(232,161,24,0.92), rgba(232,161,24,0.92)) !important; }
+.vtc-bad { background: linear-gradient(0deg, rgba(203,44,44,0.92), rgba(203,44,44,0.92)) !important; }
