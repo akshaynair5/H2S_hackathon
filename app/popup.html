@@ -1,25 +1,25 @@
-<!-- popup.html -->
-<!doctype html>
+<!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>TrustMeter</title>
-    <style>
-      body { font-family: Arial, sans-serif; width: 340px; padding: 12px; }
-      #last { margin-top: 8px; }
-      button { padding: 6px 8px; }
-    </style>
-  </head>
-  <body>
-    <h3>TrustMeter</h3>
-    <div>
-      Last score: <span id="last">—</span>
-    </div>
-    <div id="explain" style="font-size:12px;color:#444;margin-top:8px"></div>
-    <div style="margin-top:12px">
-      <button id="openOptions">Options</button>
-    </div>
+<head>
+  <title>Misinformation Detector</title>
+  <link rel="stylesheet" href="main.css">
+</head>
+<body>
+  <h2>Misinformation Detector</h2>
+  <br><br>
 
-    <script src="popup.js"></script>
-  </body>
+  <button id="clickToCheck">Click-to-Check</button>
+  <br><br>
+  <h3>Paste Text to Check:</h3>
+  <textarea id="textInput" rows="5" cols="30" placeholder="Paste text here..."></textarea>
+  <br>
+  <button id="checkText">Check Text</button>
+  <br><br>
+
+  <h3>Last Result:</h3>
+  <p id="last"></p>
+  <pre id="explain" style="white-space: pre-wrap;"></pre>
+
+  <script src="popup.js"></script>
+</body>
 </html>
