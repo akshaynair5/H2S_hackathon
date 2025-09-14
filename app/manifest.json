@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "TrustMeter - Page Text Trust Estimator",
+  "version": "1.0",
+  "description": "Extracts visible text from the current view and asks an LLM how trustworthy it is, showing a trust score in the corner.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "TrustMeter"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
