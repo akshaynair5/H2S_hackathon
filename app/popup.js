@@ -53,38 +53,38 @@ document.getElementById("checkText").addEventListener("click", async () => {
 // ---------------------------
 // IMAGE CHECK (ALL)
 // ---------------------------
-document.getElementById("checkAllImages").addEventListener("click", async () => {
-  let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: () => Array.from(document.querySelectorAll("img"))
-                    .map(img => img.src)
-                    .filter(src => src.startsWith("http"))
-  }, async (results) => {
-    const imageUrls = results[0].result;
-    if (!imageUrls.length) {
-      displayError("⚠️ No images found on this page.");
-      return;
-    }
+// document.getElementById("checkAllImages").addEventListener("click", async () => {
+//   let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+//   chrome.scripting.executeScript({
+//     target: { tabId: tab.id },
+//     func: () => Array.from(document.querySelectorAll("img"))
+//                     .map(img => img.src)
+//                     .filter(src => src.startsWith("http"))
+//   }, async (results) => {
+//     const imageUrls = results[0].result;
+//     if (!imageUrls.length) {
+//       displayError("No images found on this page.");
+//       return;
+//     }
 
-    try {
-      const response = await fetch("http://127.0.0.1:5000/detect_image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls: imageUrls })
-      });
-      const data = await response.json();
+//     try {
+//       const response = await fetch("http://127.0.0.1:5000/detect_image", {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify({ urls: imageUrls })
+//       });
+//       const data = await response.json();
 
-      displayResult({
-        score: data[0]?.score || 0,
-        explanation: "Multiple images analyzed",
-        details: Array.isArray(data) ? data : [data]
-      });
-    } catch (err) {
-      displayError("Error: " + err.message);
-    }
-  });
-});
+//       displayResult({
+//         score: data[0]?.score || 0,
+//         explanation: "Multiple images analyzed",
+//         details: Array.isArray(data) ? data : [data]
+//       });
+//     } catch (err) {
+//       displayError("Error: " + err.message);
+//     }
+//   });
+// });
 
 // ---------------------------
 // IMAGE CHECK (CLICK-TO-CHECK)
@@ -132,7 +132,15 @@ chrome.runtime.onMessage.addListener((message) => {
       .then(res => res.json())
       .then(data => {
         const result = Array.isArray(data) ? data[0] : data;
-        displayResult(result);
+
+        // Wrap into unified structure
+        const wrapped = {
+          score: result.score || 0,
+          explanation: result.explanation || "Image analyzed.",
+          details: [result] // always an array
+        };
+
+        displayResult(wrapped);
       })
       .catch(err => displayError("Request failed: " + err));
   }
@@ -145,26 +153,43 @@ function displayResult(data) {
   const lastDiv = document.getElementById("last");
   const explainDiv = document.getElementById("explain");
 
-  // Overall score
-  lastDiv.textContent = Math.round((data.score || 0) * 100) + "%";
-  lastDiv.style.color = (data.score >= 0.75) ? "#0b8043" : (data.score >= 0.45) ? "#e09b00" : "#c42f2f";
+  // Normalize score
+  let score = data.score || 0;
+  if (score <= 1) {
+    score = Math.round(score * 100); // handle 0–1 floats
+  } else {
+    score = Math.round(score);       // handle 0–100 ints
+  }
 
+  // Clamp between 0–100
+  score = Math.max(0, Math.min(100, score));
+
+  // Show percentage
+  lastDiv.textContent = score + "%";
+
+  // Color thresholds
+  lastDiv.style.color = (score >= 75) ? "#0b8043" : (score >= 45) ? "#e09b00" : "#c42f2f";
+
+  // Explanation
   explainDiv.innerHTML = "";
 
   if (data.details && Array.isArray(data.details)) {
     data.details.forEach((imgRes, idx) => {
+      let imgScore = imgRes.score || 0;
+      if (imgScore <= 1) imgScore = Math.round(imgScore * 100);
+      imgScore = Math.max(0, Math.min(100, imgScore));
       const div = document.createElement("div");
       div.style.marginBottom = "6px";
       div.style.fontSize = "12px";
-      div.innerHTML = `<b>Image ${idx + 1}:</b> ${Math.round(imgRes.score * 100)}% valid — ${imgRes.explanation}`;
+      div.innerHTML = `<b>Image ${idx + 1}:</b> ${imgScore}% valid — ${imgRes.explanation}`;
       explainDiv.appendChild(div);
     });
   } else {
     explainDiv.textContent = data.explanation || "No explanation returned.";
   }
+
   chrome.storage.local.set({ lastResult: data });
 }
-
 // ---------------------------
 // DISPLAY ERROR FUNCTION
 // ---------------------------
