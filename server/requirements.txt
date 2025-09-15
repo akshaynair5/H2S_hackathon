@@ -6,3 +6,4 @@ opencv-python==4.10.0.84
 google-cloud-vision==3.7.4
 protobuf>=3.20.2,<6.0.0
 google-generativeai>=0.7.0
+python-dotenv >= 1.0.0

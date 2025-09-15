@@ -1,6 +1,11 @@
 import google.generativeai as genai
+from dotenv import load_dotenv
+from flask import Flask
 import os
 
+load_dotenv()
+
+app = Flask(__name__)
 api_key = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=api_key)
 
