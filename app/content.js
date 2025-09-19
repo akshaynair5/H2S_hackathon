@@ -23,7 +23,7 @@ badge.style.right = "24px";
 badge.style.zIndex = "2147483647";
 badge.style.padding = "10px 16px";
 badge.style.borderRadius = "12px";
-badge.style.background = "linear-gradient(135deg, #667eea, #764ba2)"; // Match main.css gradient
+badge.style.background = "linear-gradient(135deg, #667eea, #764ba2)";
 badge.style.color = "#ffffff";
 badge.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 badge.style.fontSize = "14px";
@@ -35,7 +35,7 @@ badge.style.display = "flex";
 badge.style.alignItems = "center";
 badge.style.gap = "8px";
 badge.textContent = "Trust Score: —";
-badge.setAttribute("role", "button"); 
+badge.setAttribute("role", "button");
 badge.setAttribute("aria-label", "Open TrustMeter panel");
 badge.addEventListener("mouseover", () => {
   badge.style.transform = "translateY(-2px)";
@@ -59,7 +59,7 @@ panel.style.zIndex = "2147483647";
 panel.style.minWidth = "300px";
 panel.style.maxWidth = "400px";
 panel.style.background = "rgba(255, 255, 255, 0.95)";
-panel.style.backdropFilter = "blur(10px)"; 
+panel.style.backdropFilter = "blur(10px)";
 panel.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.2)";
 panel.style.borderRadius = "16px";
 panel.style.border = "1px solid rgba(255, 255, 255, 0.2)";
@@ -74,7 +74,7 @@ panel.style.overflowY = "auto";
 panel.style.transition = "opacity 0.3s ease, transform 0.3s ease";
 panel.style.opacity = "0";
 panel.style.transform = "translateY(10px)";
-panel.setAttribute("role", "dialog"); 
+panel.setAttribute("role", "dialog");
 panel.setAttribute("aria-label", "TrustMeter Analysis Panel");
 
 // Show panel animation
@@ -97,7 +97,7 @@ const title = document.createElement("div");
 title.textContent = "TrustMeter";
 title.style.fontWeight = "700";
 title.style.fontSize = "16px";
-title.style.background = "linear-gradient(135deg, #667eea, #764ba2)"; // Match main.css gradient
+title.style.background = "linear-gradient(135deg, #667eea, #764ba2)";
 title.style.webkitBackgroundClip = "text";
 title.style.webkitTextFillColor = "transparent";
 const closeBtn = document.createElement("button");
@@ -142,7 +142,7 @@ refreshBtn.textContent = "Analyze";
 refreshBtn.style.padding = "6px 12px";
 refreshBtn.style.borderRadius = "8px";
 refreshBtn.style.border = "none";
-refreshBtn.style.background = "linear-gradient(135deg, #667eea, #764ba2)"; // Match main.css button gradient
+refreshBtn.style.background = "linear-gradient(135deg, #667eea, #764ba2)";
 refreshBtn.style.color = "#ffffff";
 refreshBtn.style.fontSize = "13px";
 refreshBtn.style.fontWeight = "600";
@@ -158,6 +158,7 @@ refreshBtn.addEventListener("mouseout", () => {
   refreshBtn.style.boxShadow = "none";
 });
 refreshBtn.onclick = () => {
+  showPanel(); // auto expand when clicked
   analyzeTextNow();
   analyzeImagesNow();
 };
@@ -194,7 +195,6 @@ let collectedScores = [];
 
 // ---------------------------
 // HELPERS (UI)
-// ---------------------------
 function setWorking(msg) {
   scoreText.textContent = "Score: …";
   document.getElementById("text-result").textContent = msg || "Analyzing...";
@@ -202,9 +202,9 @@ function setWorking(msg) {
 
 function setError(err) {
   scoreText.textContent = "Score: —";
-  document.getElementById("text-result").textContent = "Error: " + err;
+  document.getElementById("text-result").textContent = "Error: " + (err || "Analysis failed or not supported.");
   badge.textContent = "Trust Score: —";
-  badge.style.color = "#ffffff"; // Use white for consistency with gradient
+  badge.style.color = "#ffffff";
 }
 
 function setResult(score, explanation) {
@@ -227,14 +227,11 @@ function updateBadge() {
     collectedScores.reduce((a, b) => a + b, 0) / collectedScores.length
   );
   badge.textContent = `Trust Score: ${avg}%`;
-  if (avg >= 75) badge.style.color = "#ffffff"; // White text for contrast on gradient
-  else if (avg >= 45) badge.style.color = "#ffffff";
-  else badge.style.color = "#ffffff";
+  badge.style.color = "#ffffff";
 }
 
 // ---------------------------
 // HELPERS (text + images)
-// ---------------------------
 function collectVisibleText(maxChars = 20000) {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
     acceptNode: (node) => {
@@ -261,7 +258,6 @@ function collectVisibleImages(maxCount = 3) {
 
 // ---------------------------
 // ANALYZE FUNCTIONS
-// ---------------------------
 function analyzeTextNow() {
   setWorking("Analyzing visible text...");
   collectedScores = [];
@@ -286,19 +282,20 @@ function analyzeTextNow() {
 
 function analyzeImagesNow() {
   const container = document.getElementById("image-results");
-  container.innerHTML = "";
+  container.innerHTML = ""; // clear previous results or placeholder
 
   const visibleImages = collectVisibleImages(3);
   if (visibleImages.length === 0) {
-    container.textContent = "No images found.";
+    container.textContent = "No images found on this page.";
     return;
   }
 
   chrome.runtime.sendMessage(
     { type: "ANALYZE_IMAGE", payload: { urls: visibleImages } },
     (response) => {
+      container.innerHTML = ""; // clear placeholder before results
       if (!response || response.error) {
-        container.textContent = response?.error || "Image analysis failed.";
+        container.textContent = "Image analysis failed or not supported on this page.";
         return;
       }
 
@@ -329,15 +326,13 @@ function analyzeImagesNow() {
 
 // ---------------------------
 // TOGGLE PANEL
-// ---------------------------
 badge.onclick = () => {
   badge.style.display = "none";
   showPanel();
 };
 
 // ---------------------------
-// MESSAGE HANDLER (popup/bg → content)
-// ---------------------------
+// MESSAGE HANDLER
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || !message.type) return;
 
@@ -347,10 +342,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
 
     case "IMAGE_ANALYSIS_RESULT": {
-      const { url, score } = message.payload;
-      const container = document.getElementById("image-results");
-      const validity = normalizeScore(score);
+      const { url, score, explanation } = message.payload;
 
+      // Expand panel automatically
+      const panel = document.getElementById("trustmeter-panel");
+      const badge = document.getElementById("trustmeter-badge");
+      if (panel && badge) {
+        badge.style.display = "none";
+        panel.style.display = "flex";
+        setTimeout(() => {
+          panel.style.opacity = "1";
+          panel.style.transform = "translateY(0)";
+        }, 10);
+      }
+
+      const container = document.getElementById("image-results");
+      
+      // remove placeholder if present
+      if (container.textContent === "No images analyzed." || container.textContent === "No images found on this page.") {
+        container.innerHTML = "";
+      }
+
+      const validity = normalizeScore(score);
       const imgEntry = document.createElement("div");
       imgEntry.style.display = "flex";
       imgEntry.style.alignItems = "center";
@@ -370,13 +383,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
     }
 
+
     case "ANALYSIS_ERROR":
-      setError(message.payload);
+      setError("Analysis failed or not supported on this page.");
       break;
   }
 });
 
 // ---------------------------
-// AUTO RUN (text only on load)
+// EXPAND PANEL ON IMAGE ANALYSIS
 // ---------------------------
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === "EXPAND_PANEL_UI") {
+    // Ensure panel exists
+    const panel = document.getElementById("trustmeter-panel");
+    const badge = document.getElementById("trustmeter-badge");
+    if (!panel || !badge) return;
+
+    // Hide badge, show panel
+    badge.style.display = "none";
+    panel.style.display = "flex";
+    setTimeout(() => {
+      panel.style.opacity = "1";
+      panel.style.transform = "translateY(0)";
+    }, 10);
+  }
+});
+
+// ---------------------------
+// AUTO RUN (text only on load)
 setTimeout(analyzeTextNow, 1000);
