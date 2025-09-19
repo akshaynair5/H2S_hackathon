@@ -1,19 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Misinformation Detector</title>
   <link rel="stylesheet" href="main.css">
 </head>
 <body>
-  <h2>Misinformation Detector</h2>
-  <br><br>
-  <button id="clickToCheck">Click-to-Check Images</button>
-  <br><br>
-  <button id="checkText">Check Selected Text</button>
-  <br><br>
-
-  <h3 id="result">Result:</h3>
-  <!-- Script -->
+  <div class="container">
+    <h2>Misinformation Detector</h2>
+    <p class="subtitle">AI-powered content verification</p>
+    
+    <div class="action-buttons">
+      <button id="clickToCheck" class="action-btn">
+        <span class="btn-icon"></span>
+        Analyze Image Content
+      </button>
+      
+      <button id="checkText" class="action-btn">
+        <span class="btn-icon"></span>
+        Check Selected Text
+      </button>
+    </div>
+    
+    <!-- Loading state -->
+    <div id="loadingContainer" class="loading-container">
+      <div class="spinner"></div>
+      <div class="loading-title">Analyzing Content</div>
+      <div id="factDisplay" class="facts"></div>
+    </div>
+    
+    <div id="results"></div>
+  </div>
+  
+  
   <script src="popup.js"></script>
 </body>
 </html>

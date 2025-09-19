@@ -13,6 +13,7 @@ CORS(app)
 def detect_image():
     data = request.json
     urls = data.get("urls") or data.get("images") 
+    print("Urls is " , urls)
     if not urls:
         return jsonify({"error": "No images provided"}), 400
     if isinstance(urls, str):

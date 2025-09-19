@@ -6,7 +6,8 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "runtime"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -18,7 +19,7 @@
     "default_popup": "popup.html",
     "default_title": "TrustMeter"
   },
-  "options_page": "options.html",
+  
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
