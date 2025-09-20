@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TrustMeter - Browser Extension</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #111;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    header {
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    h2 {
+      font-size: 1rem;
+      font-weight: normal;
+      color: #bbb;
+      margin: 0.3rem 0;
+    }
+
+    .content {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      max-width: 1200px;
+      width: 100%;
+    }
+
+    .box {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 1.5rem;
+      border-radius: 12px;
+      text-align: left;
+    }
+
+    .box h3 {
+      margin-bottom: 0.5rem;
+      color: #4da6ff;
+    }
+
+    .box ul, .box ol {
+      padding-left: 1.2rem;
+    }
+
+    .box li {
+      margin-bottom: 0.6rem;
+    }
+
+    .btn-download {
+      margin-top: 1rem;
+      padding: 0.7rem 1.5rem;
+      font-size: 0.95rem;
+      border: none;
+      border-radius: 25px;
+      background: #4da6ff;
+      color: #fff;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .btn-download:hover {
+      background: #3385cc;
+    }
+
+    footer {
+      margin-top: 2rem;
+      font-size: 0.85rem;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TrustMeter</h1>
+    <h2>AI-Powered Browser Extension for Truth & Transparency</h2>
+    <h2>Problem Statement: Combating Misinformation in Real-Time</h2>
+  </header>
+
+  <div class="content">
+    <!-- Features -->
+    <section class="box">
+      <h3>Key Features</h3>
+      <ul>
+        <li><strong>Text Verification</strong> → Spot misleading or biased claims instantly.</li>
+        <li><strong>Image Authenticity</strong> → Detect fake, altered, or AI-generated visuals.</li>
+        <li><strong>Trust Score + Explanations</strong> → Clear reasoning and credible sources.</li>
+        <li><strong>On-Page Transparency</strong> → Results shown directly in your browser.</li>
+        <li><strong>Real-Time Analysis</strong> → Powered by AI + Google Cloud Vision APIs.</li>
+      </ul>
+    </section>
+
+    <!-- Installation Steps -->
+    <section class="box">
+      <h3>How to Install</h3>
+      <ol>
+        <li>Click the download button below.</li>
+        <li>Unzip the downloaded file (it contains the <code>/app</code> folder).</li>
+        <li>Open Chrome and go to <strong>chrome://extensions/</strong>.</li>
+        <li>Enable <strong>Developer mode</strong> (top right corner).</li>
+        <li>Click <strong>Load unpacked</strong> and select the <code>/app</code> folder.</li>
+        <li>The extension will now appear in your browser.</li>
+      </ol>
+      <button class="btn-download" onclick="downloadExtension()">⬇ Download Extension</button>
+    </section>
+  </div>
+
+  <footer>
+    Built for the GenAI Hackathon | Team IPV3
+  </footer>
+
+  <script>
+    function downloadExtension() {
+      // Replace with your actual GitHub repo ZIP link
+      window.location.href = "https://github.com/akshaynair5/H2S_hackathon/archive/refs/heads/main.zip";
+    }
+  </script>
+</body>
+</html>
