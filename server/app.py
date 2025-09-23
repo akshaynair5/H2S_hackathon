@@ -43,8 +43,9 @@ def detect_image():
 # ---------------------------
 @app.route("/detect_text", methods=["POST"])
 def detect_text():
-    data = request.json
+    data = request.json 
     text = data.get("text", "")
+
     if not text.strip():
         return jsonify({"error": "No text provided"}), 400
 
@@ -64,6 +65,7 @@ def detect_text():
     # No reliable match found, fallback to ML model
     print(f"No reliable match found in Pinecone for text: '{text}' - Falling back to ML model")
     result = detect_fake_text(text)
+    print(jsonify(result))
     return jsonify(result)
 
 # ---------------------------
@@ -105,6 +107,9 @@ Collected Data:
 def cleanup_expired_endpoint():
     result = cleanup_expired()
     return jsonify(result), 200
+
+
+
 
 # ---------------------------
 if __name__ == "__main__":

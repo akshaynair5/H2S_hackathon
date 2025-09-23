@@ -110,12 +110,12 @@ function displayFeedbackMessage() {
       Thank you for your feedback! It helps us improve our community-driven fact-checking.
     </p>
   `;
-  // Auto-hide after 3 seconds
+  // Auto-hide after 4 seconds
   setTimeout(() => {
     resultsDiv.innerHTML = "";
     resultsDiv.classList.remove("show");
     resultsDiv.classList.add("hidden");
-  }, 3000);
+  }, 4000);
 }
 
 // ---------------------------

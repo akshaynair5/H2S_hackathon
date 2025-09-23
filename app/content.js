@@ -1,5 +1,5 @@
 // ================================
-// content.js (Unified Handling with Improved Styles)
+// content.js (Fixed + Improved)
 // ================================
 
 // ---------------------------
@@ -17,26 +17,30 @@ function normalizeScore(raw) {
 // ---------------------------
 const badge = document.createElement("div");
 badge.id = "trustmeter-badge";
-badge.style.position = "fixed";
-badge.style.bottom = "24px";
-badge.style.right = "24px";
-badge.style.zIndex = "2147483647";
-badge.style.padding = "10px 16px";
-badge.style.borderRadius = "12px";
-badge.style.background = "linear-gradient(135deg, #667eea, #764ba2)"; // Match main.css gradient
-badge.style.color = "#ffffff";
-badge.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-badge.style.fontSize = "14px";
-badge.style.fontWeight = "600";
-badge.style.cursor = "pointer";
-badge.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.2)";
-badge.style.transition = "transform 0.2s ease, box-shadow 0.2s ease";
-badge.style.display = "flex";
-badge.style.alignItems = "center";
-badge.style.gap = "8px";
+Object.assign(badge.style, {
+  position: "fixed",
+  bottom: "60px",
+  right: "24px",
+  zIndex: "2147483647",
+  padding: "10px 16px",
+  borderRadius: "12px",
+  background: "linear-gradient(135deg, #667eea, #764ba2)",
+  color: "#ffffff",
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  fontSize: "14px",
+  fontWeight: "600",
+  cursor: "pointer",
+  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
+  transition: "transform 0.2s ease, box-shadow 0.2s ease",
+  display: "flex",
+  alignItems: "center",
+  gap: "8px"
+});
 badge.textContent = "Trust Score: —";
-badge.setAttribute("role", "button"); 
+badge.setAttribute("role", "button");
 badge.setAttribute("aria-label", "Open TrustMeter panel");
+
+// Hover effect
 badge.addEventListener("mouseover", () => {
   badge.style.transform = "translateY(-2px)";
   badge.style.boxShadow = "0 6px 16px rgba(0, 0, 0, 0.25)";
@@ -52,134 +56,178 @@ document.documentElement.appendChild(badge);
 // ---------------------------
 const panel = document.createElement("div");
 panel.id = "trustmeter-panel";
-panel.style.position = "fixed";
-panel.style.bottom = "24px";
-panel.style.right = "24px";
-panel.style.zIndex = "2147483647";
-panel.style.minWidth = "300px";
-panel.style.maxWidth = "400px";
-panel.style.background = "rgba(255, 255, 255, 0.95)";
-panel.style.backdropFilter = "blur(10px)"; 
-panel.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.2)";
-panel.style.borderRadius = "16px";
-panel.style.border = "1px solid rgba(255, 255, 255, 0.2)";
-panel.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-panel.style.padding = "16px";
-panel.style.color = "#2d3748";
-panel.style.display = "none";
-panel.style.flexDirection = "column";
-panel.style.gap = "12px";
-panel.style.maxHeight = "80vh";
-panel.style.overflowY = "auto";
-panel.style.transition = "opacity 0.3s ease, transform 0.3s ease";
-panel.style.opacity = "0";
-panel.style.transform = "translateY(10px)";
-panel.setAttribute("role", "dialog"); 
+Object.assign(panel.style, {
+  position: "fixed",
+  left: "auto",
+  top: "auto",
+  right: "24px",
+  bottom: "60px",
+  zIndex: "2147483647",
+  minWidth: "300px",
+  maxWidth: "400px",
+  background: "rgba(255, 255, 255, 0.95)",
+  backdropFilter: "blur(10px)",
+  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.2)",
+  borderRadius: "16px",
+  border: "1px solid rgba(255, 255, 255, 0.2)",
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  padding: "16px",
+  color: "#2d3748",
+  display: "none",
+  flexDirection: "column",
+  gap: "12px",
+  maxHeight: "80vh",
+  overflowY: "auto",
+  transition: "opacity 0.3s ease, transform 0.3s ease, left 0.3s ease, top 0.3s ease",
+  opacity: "0",
+  transform: "translateY(10px)"
+});
+panel.setAttribute("role", "dialog");
 panel.setAttribute("aria-label", "TrustMeter Analysis Panel");
 
-// Show panel animation
+// ---------------------------
+// SHOW PANEL FUNCTION
+// ---------------------------
 function showPanel() {
-  panel.style.display = "flex";
-  setTimeout(() => {
-    panel.style.opacity = "1";
+  // Reset pos if dragged
+  if (panel.style.left !== "auto" || panel.style.top !== "auto") {
+    panel.style.left = "auto";
+    panel.style.top = "auto";
+    panel.style.right = "24px";
+    panel.style.bottom = "60px";
+  }
+
+  panel.style.display = "flex";       // make visible
+  panel.style.opacity = "0";          // start hidden
+
+  // Let browser apply display:flex first before transition
+  requestAnimationFrame(() => {
+    panel.style.opacity = "1";        // transition in
     panel.style.transform = "translateY(0)";
-  }, 10);
+  });
 }
 
-// Header
-const header = document.createElement("div");
-header.style.display = "flex";
-header.style.alignItems = "center";
-header.style.justifyContent = "space-between";
-header.style.paddingBottom = "8px";
-header.style.borderBottom = "1px solid rgba(0, 0, 0, 0.1)";
-const title = document.createElement("div");
-title.textContent = "TrustMeter";
-title.style.fontWeight = "700";
-title.style.fontSize = "16px";
-title.style.background = "linear-gradient(135deg, #667eea, #764ba2)"; // Match main.css gradient
-title.style.webkitBackgroundClip = "text";
-title.style.webkitTextFillColor = "transparent";
-const closeBtn = document.createElement("button");
-closeBtn.textContent = "×";
-closeBtn.style.border = "none";
-closeBtn.style.background = "transparent";
-closeBtn.style.fontSize = "18px";
-closeBtn.style.fontWeight = "600";
-closeBtn.style.color = "#6b7280";
-closeBtn.style.cursor = "pointer";
-closeBtn.style.transition = "color 0.2s ease";
-closeBtn.setAttribute("aria-label", "Close TrustMeter panel");
-closeBtn.addEventListener("mouseover", () => {
-  closeBtn.style.color = "#3b82f6";
-});
-closeBtn.addEventListener("mouseout", () => {
-  closeBtn.style.color = "#6b7280";
-});
-closeBtn.onclick = () => {
+// ---------------------------
+// HIDE PANEL FUNCTION
+// ---------------------------
+function hidePanel() {
   panel.style.opacity = "0";
   panel.style.transform = "translateY(10px)";
   setTimeout(() => {
-    panel.style.display = "none";
-    badge.style.display = "flex";
+    if (panel.style.opacity === "0") {
+      panel.style.display = "none";
+    }
   }, 300);
-};
+}
+
+// ---------------------------
+// HEADER
+// ---------------------------
+const header = document.createElement("div");
+Object.assign(header.style, {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  paddingBottom: "8px",
+  borderBottom: "1px solid rgba(0, 0, 0, 0.1)",
+  cursor: "grab"
+});
+
+const title = document.createElement("div");
+title.textContent = "TrustMeter";
+Object.assign(title.style, {
+  fontWeight: "700",
+  fontSize: "16px",
+  background: "linear-gradient(135deg, #667eea, #764ba2)",
+  WebkitBackgroundClip: "text",
+  WebkitTextFillColor: "transparent"
+});
+
+const closeBtn = document.createElement("button");
+closeBtn.textContent = "×";
+Object.assign(closeBtn.style, {
+  border: "none",
+  background: "transparent",
+  fontSize: "18px",
+  fontWeight: "600",
+  color: "#6b7280",
+  cursor: "pointer",
+  transition: "color 0.2s ease"
+});
+closeBtn.setAttribute("aria-label", "Close TrustMeter panel");
+closeBtn.addEventListener("mouseover", () => (closeBtn.style.color = "#3b82f6"));
+closeBtn.addEventListener("mouseout", () => (closeBtn.style.color = "#6b7280"));
+closeBtn.onclick = hidePanel;
+
 header.appendChild(title);
 header.appendChild(closeBtn);
 
-// Score Row
+// ---------------------------
+// SCORE ROW
+// ---------------------------
 const scoreRow = document.createElement("div");
-scoreRow.style.display = "flex";
-scoreRow.style.alignItems = "center";
-scoreRow.style.justifyContent = "space-between";
-scoreRow.style.padding = "8px 0";
+Object.assign(scoreRow.style, {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "8px 0"
+});
+
 const scoreText = document.createElement("div");
 scoreText.textContent = "Score: —";
 scoreText.style.fontWeight = "700";
 scoreText.style.fontSize = "14px";
+
 const refreshBtn = document.createElement("button");
 refreshBtn.textContent = "Analyze";
-refreshBtn.style.padding = "6px 12px";
-refreshBtn.style.borderRadius = "8px";
-refreshBtn.style.border = "none";
-refreshBtn.style.background = "linear-gradient(135deg, #667eea, #764ba2)"; // Match main.css button gradient
-refreshBtn.style.color = "#ffffff";
-refreshBtn.style.fontSize = "13px";
-refreshBtn.style.fontWeight = "600";
-refreshBtn.style.cursor = "pointer";
-refreshBtn.style.transition = "transform 0.2s ease, box-shadow 0.2s ease";
+Object.assign(refreshBtn.style, {
+  padding: "6px 12px",
+  borderRadius: "8px",
+  border: "none",
+  background: "linear-gradient(135deg, #667eea, #764ba2)",
+  color: "#ffffff",
+  fontSize: "13px",
+  fontWeight: "600",
+  cursor: "pointer",
+  transition: "transform 0.2s ease, boxShadow 0.2s ease"
+});
 refreshBtn.setAttribute("aria-label", "Re-analyze content");
-refreshBtn.addEventListener("mouseover", () => {
+refreshBtn.onmouseover = () => {
   refreshBtn.style.transform = "translateY(-1px)";
   refreshBtn.style.boxShadow = "0 4px 12px rgba(102, 126, 234, 0.3)";
-});
-refreshBtn.addEventListener("mouseout", () => {
+};
+refreshBtn.onmouseout = () => {
   refreshBtn.style.transform = "translateY(0)";
   refreshBtn.style.boxShadow = "none";
-});
+};
 refreshBtn.onclick = () => {
+  showPanel();
   analyzeTextNow();
   analyzeImagesNow();
 };
 scoreRow.appendChild(scoreText);
 scoreRow.appendChild(refreshBtn);
 
-// Sections
+// ---------------------------
+// SECTIONS
+// ---------------------------
 const textSection = document.createElement("div");
-textSection.innerHTML =
-  "<strong>Text Analysis:</strong><br><span id='text-result'>No analysis yet.</span>";
-textSection.style.fontSize = "13px";
-textSection.style.color = "#2d3748";
-textSection.style.lineHeight = "1.5";
-textSection.style.padding = "8px 0";
+textSection.innerHTML = "<strong>Text Analysis:</strong><br><span id='text-result'>No analysis yet.</span>";
+Object.assign(textSection.style, {
+  fontSize: "13px",
+  color: "#2d3748",
+  lineHeight: "1.5",
+  padding: "8px 0"
+});
 
 const imageSection = document.createElement("div");
-imageSection.innerHTML =
-  "<strong>Image Analysis:</strong><br><div id='image-results'>No images analyzed.</div>";
-imageSection.style.fontSize = "13px";
-imageSection.style.color = "#2d3748";
-imageSection.style.lineHeight = "1.5";
-imageSection.style.padding = "8px 0";
+imageSection.innerHTML = "<strong>Image Analysis:</strong><br><div id='image-results'>No images analyzed.</div>";
+Object.assign(imageSection.style, {
+  fontSize: "13px",
+  color: "#2d3748",
+  lineHeight: "1.5",
+  padding: "8px 0"
+});
 
 panel.appendChild(header);
 panel.appendChild(scoreRow);
@@ -193,7 +241,7 @@ document.documentElement.appendChild(panel);
 let collectedScores = [];
 
 // ---------------------------
-// HELPERS (UI)
+// UI HELPERS
 // ---------------------------
 function setWorking(msg) {
   scoreText.textContent = "Score: …";
@@ -202,9 +250,10 @@ function setWorking(msg) {
 
 function setError(err) {
   scoreText.textContent = "Score: —";
-  document.getElementById("text-result").textContent = "Error: " + err;
+  document.getElementById("text-result").textContent =
+    "Error: " + (err || "Analysis failed or not supported.");
   badge.textContent = "Trust Score: —";
-  badge.style.color = "#ffffff"; // Use white for consistency with gradient
+  badge.style.color = "#ffffff";
 }
 
 function setResult(score, explanation) {
@@ -216,7 +265,6 @@ function setResult(score, explanation) {
 
   document.getElementById("text-result").textContent =
     explanation || "No explanation returned.";
-
   collectedScores.push(percent);
   updateBadge();
 }
@@ -227,17 +275,15 @@ function updateBadge() {
     collectedScores.reduce((a, b) => a + b, 0) / collectedScores.length
   );
   badge.textContent = `Trust Score: ${avg}%`;
-  if (avg >= 75) badge.style.color = "#ffffff"; // White text for contrast on gradient
-  else if (avg >= 45) badge.style.color = "#ffffff";
-  else badge.style.color = "#ffffff";
+  badge.style.color = "#ffffff";
 }
 
 // ---------------------------
-// HELPERS (text + images)
+// TEXT + IMAGE HELPERS
 // ---------------------------
 function collectVisibleText(maxChars = 20000) {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-    acceptNode: (node) => {
+    acceptNode: node => {
       if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
       const style = window.getComputedStyle(node.parentElement);
       if (style && style.display === "none") return NodeFilter.FILTER_REJECT;
@@ -254,7 +300,12 @@ function collectVisibleText(maxChars = 20000) {
 
 function collectVisibleImages(maxCount = 3) {
   return Array.from(document.images)
-    .filter(img => img.src.startsWith("http") && img.offsetWidth > 10 && img.offsetHeight > 10)
+    .filter(
+      img =>
+        img.src.startsWith("http") &&
+        img.offsetWidth > 10 &&
+        img.offsetHeight > 10
+    )
     .slice(0, maxCount)
     .map(img => img.src);
 }
@@ -274,7 +325,7 @@ function analyzeTextNow() {
 
   chrome.runtime.sendMessage(
     { type: "ANALYZE_TEXT", payload: { text: visibleText, url: location.href } },
-    (response) => {
+    response => {
       if (!response || response.error) {
         setError(response?.error || "No response from backend.");
         return;
@@ -287,33 +338,43 @@ function analyzeTextNow() {
 function analyzeImagesNow() {
   const container = document.getElementById("image-results");
   container.innerHTML = "";
-
   const visibleImages = collectVisibleImages(3);
   if (visibleImages.length === 0) {
-    container.textContent = "No images found.";
+    container.textContent = "No images found on this page.";
     return;
   }
 
   chrome.runtime.sendMessage(
     { type: "ANALYZE_IMAGE", payload: { urls: visibleImages } },
-    (response) => {
+    response => {
+      container.innerHTML = "";
       if (!response || response.error) {
-        container.textContent = response?.error || "Image analysis failed.";
+        container.textContent = "Image analysis failed or not supported.";
         return;
       }
 
       response.forEach((imgResult, idx) => {
         const imgUrl = visibleImages[idx];
         const validity = normalizeScore(imgResult.score);
-
         const imgEntry = document.createElement("div");
-        imgEntry.style.display = "flex";
-        imgEntry.style.alignItems = "center";
-        imgEntry.style.padding = "8px 0";
-        imgEntry.style.borderTop = idx > 0 ? "1px solid rgba(0, 0, 0, 0.1)" : "none";
+        
+        Object.assign(imgEntry.style, {
+          display: "flex",
+          alignItems: "center",
+          padding: "8px 0",
+          borderTop: idx > 0 ? "1px solid rgba(0,0,0,0.1)" : "none"
+        });
+        
+        let validityText = `Validity: <strong>${validity}%</strong>`;
+        let highlightStyle = "";
+        if (validity < 45) {
+          validityText = `AI Generated <strong>(${validity}%)</strong>`;
+          highlightStyle = "background-color: #fee2e2; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #c42f2f;";
+        }
+        
         imgEntry.innerHTML = `
-          <img src="${imgUrl}" style="max-width: 80px; max-height: 50px; margin-right: 12px; border-radius: 4px; object-fit: cover;">
-          <span>Validity: <strong>${validity}%</strong></span>
+          <img src="${imgUrl}" style="max-width:80px; max-height:50px; margin-right:12px; border-radius:4px; object-fit:cover;">
+          <span style="${highlightStyle}">${validityText}</span>
         `;
         if (validity >= 75) imgEntry.style.color = "#0b8043";
         else if (validity >= 45) imgEntry.style.color = "#e09b00";
@@ -328,18 +389,10 @@ function analyzeImagesNow() {
 }
 
 // ---------------------------
-// TOGGLE PANEL
+// MESSAGE HANDLER
 // ---------------------------
-badge.onclick = () => {
-  badge.style.display = "none";
-  showPanel();
-};
-
-// ---------------------------
-// MESSAGE HANDLER (popup/bg → content)
-// ---------------------------
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message || !message.type) return;
+chrome.runtime.onMessage.addListener(message => {
+  if (!message?.type) return;
 
   switch (message.type) {
     case "TEXT_ANALYSIS_RESULT":
@@ -349,16 +402,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "IMAGE_ANALYSIS_RESULT": {
       const { url, score } = message.payload;
       const container = document.getElementById("image-results");
-      const validity = normalizeScore(score);
+      if (container.textContent.includes("No images")) container.innerHTML = "";
 
+      const validity = normalizeScore(score);
       const imgEntry = document.createElement("div");
-      imgEntry.style.display = "flex";
-      imgEntry.style.alignItems = "center";
-      imgEntry.style.padding = "8px 0";
-      imgEntry.style.borderTop = container.children.length > 0 ? "1px solid rgba(0, 0, 0, 0.1)" : "none";
+      Object.assign(imgEntry.style, {
+        display: "flex",
+        alignItems: "center",
+        padding: "8px 0",
+        borderTop:
+          container.children.length > 0 ? "1px solid rgba(0,0,0,0.1)" : "none"
+      });
+      
+      let validityText = `Validity: <strong>${validity}%</strong>`;
+      let highlightStyle = "";
+      if (validity < 45) {
+        validityText = `AI Generated <strong>(${validity}%)</strong>`;
+        highlightStyle = "background-color: #fee2e2; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #c42f2f;";
+      }
+      
       imgEntry.innerHTML = `
-        <img src="${url}" style="max-width: 80px; max-height: 50px; margin-right: 12px; border-radius: 4px; object-fit: cover;">
-        <span>Validity: <strong>${validity}%</strong></span>
+        <img src="${url}" style="max-width:80px; max-height:50px; margin-right:12px; border-radius:4px; object-fit:cover;">
+        <span style="${highlightStyle}">${validityText}</span>
       `;
       if (validity >= 75) imgEntry.style.color = "#0b8043";
       else if (validity >= 45) imgEntry.style.color = "#e09b00";
@@ -371,12 +436,97 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case "ANALYSIS_ERROR":
-      setError(message.payload);
+      setError("Analysis failed or not supported on this page.");
+      break;
+
+    case "EXPAND_PANEL_UI":
+      showPanel();
       break;
   }
 });
 
 // ---------------------------
-// AUTO RUN (text only on load)
+// AUTO RUN TEXT ANALYSIS (once)
 // ---------------------------
 setTimeout(analyzeTextNow, 1000);
+
+// ---------------------------
+// TOGGLE PANEL (badge click)
+// ---------------------------
+badge.onclick = () => {
+  const isVisible = getComputedStyle(panel).display !== "none" && panel.style.opacity === "1";
+  if (isVisible) hidePanel();
+  else showPanel();
+};
+
+// ---------------------------
+// ESC KEY CLOSE SUPPORT
+// ---------------------------
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && panel.style.display === "flex") {
+    hidePanel();
+  }
+});
+
+// ---------------------------
+// DRAGGABLE + AUTO-HIDE
+// ---------------------------
+let isDragging = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+
+header.addEventListener("mousedown", (e) => {
+  isDragging = true;
+  dragOffsetX = e.clientX - panel.getBoundingClientRect().left;
+  dragOffsetY = e.clientY - panel.getBoundingClientRect().top;
+  header.style.cursor = "grabbing";
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (!isDragging) return;
+  panel.style.transition = "none";
+  let left = e.clientX - dragOffsetX;
+  let top = e.clientY - dragOffsetY;
+
+  const maxLeft = window.innerWidth - panel.offsetWidth / 3;
+  const maxTop = window.innerHeight - panel.offsetHeight / 3;
+  const minLeft = -panel.offsetWidth * 2 / 3;
+  const minTop = 0;
+
+  left = Math.min(Math.max(left, minLeft), maxLeft);
+  top = Math.min(Math.max(top, minTop), maxTop);
+
+  panel.style.left = left + "px";
+  panel.style.top = top + "px";
+  panel.style.bottom = "auto";
+  panel.style.right = "auto";
+});
+
+document.addEventListener("mouseup", () => {
+  if (!isDragging) return;
+  isDragging = false;
+  header.style.cursor = "grab";
+  panel.style.transition =
+    "opacity 0.3s ease, transform 0.3s ease, left 0.3s ease, top 0.3s ease";
+
+  const rect = panel.getBoundingClientRect();
+  if (rect.right > window.innerWidth) {
+    panel.style.left = window.innerWidth - panel.offsetWidth / 4 + "px";
+  } else if (rect.left < 0) {
+    panel.style.left = -panel.offsetWidth / 4 + "px";
+  }
+});
+
+// ---------------------------
+// RESTORE CLICK WHEN PARTIALLY HIDDEN
+// ---------------------------
+panel.addEventListener("click", () => {
+  const rect = panel.getBoundingClientRect();
+  if (rect.left < 0 || rect.right > window.innerWidth) {
+    panel.style.left = "auto";
+    panel.style.top = "auto";
+    panel.style.bottom = "60px";
+    panel.style.right = "24px";
+    panel.style.transform = "translateY(0)";
+  }
+});

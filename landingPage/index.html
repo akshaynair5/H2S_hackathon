@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TrustMeter - Browser Extension</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #111;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    header {
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    h2 {
+      font-size: 1rem;
+      font-weight: normal;
+      color: #bbb;
+      margin: 0.3rem 0;
+    }
+
+    .content {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2rem;
+      max-width: 1200px;
+      width: 100%;
+    }
+
+    .video-demo-section {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 1.5rem;
+      border-radius: 12px;
+      margin-bottom: 2rem;
+      position: relative;
+    }
+
+    .video-demo-section h3 {
+      color: #4da6ff;
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .video-item {
+      position: relative;
+      overflow: hidden;
+      border-radius: 8px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      cursor: pointer;
+    }
+
+    .video-item:hover {
+      transform: scale(1.02);
+      box-shadow: 0 6px 20px rgba(77, 166, 255, 0.4);
+    }
+
+    .video-item video {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      display: block;
+    }
+
+    /* Enhanced enlarged video container */
+    .enlarged-video-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      backdrop-filter: blur(5px);
+    }
+
+    .enlarged-video-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .enlarged-video-container {
+      position: relative;
+      max-width: 70vw;
+      max-height: 70vh;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: 0 8px 40px rgba(77, 166, 255, 0.3);
+      transform: scale(0.8);
+      transition: transform 0.3s ease;
+    }
+
+    .enlarged-video-overlay.active .enlarged-video-container {
+      transform: scale(1);
+    }
+
+    .enlarged-video-container video {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .video-info {
+      text-align: center;
+      margin-top: 1rem;
+      color: #4da6ff;
+    }
+
+    .video-info h4 {
+      margin: 0.5rem 0;
+      font-size: 1.3rem;
+    }
+
+    .video-info p {
+      margin: 0;
+      color: #bbb;
+      font-size: 1rem;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      background: #4da6ff;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.3s ease;
+      z-index: 1001;
+    }
+
+    .close-btn:hover {
+      background: #ff4444;
+    }
+
+    .video-item h4 {
+      margin: 0.5rem 0;
+      font-size: 1.1rem;
+      color: #4da6ff;
+    }
+
+    .video-item p {
+      font-size: 0.9rem;
+      color: #bbb;
+      margin: 0;
+    }
+
+    .box {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 1.5rem;
+      border-radius: 12px;
+      text-align: left;
+    }
+
+    .box h3 {
+      margin-bottom: 0.5rem;
+      color: #4da6ff;
+    }
+
+    .box ul, .box ol {
+      padding-left: 1.2rem;
+    }
+
+    .box li {
+      margin-bottom: 0.6rem;
+    }
+
+    .btn-download {
+      margin-top: 1rem;
+      padding: 0.7rem 1.5rem;
+      font-size: 0.95rem;
+      border: none;
+      border-radius: 25px;
+      background: #4da6ff;
+      color: #fff;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .btn-download:hover {
+      background: #3385cc;
+    }
+
+    footer {
+      margin-top: 2rem;
+      font-size: 0.85rem;
+      color: #777;
+    }
+
+    .hover-hint {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(77, 166, 255, 0.8);
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .video-item:hover .hover-hint {
+      opacity: 1;
+    }
+
+    @media (max-width: 768px) {
+      .video-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .enlarged-video-container {
+        max-width: 90vw;
+        max-height: 60vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TrustMeter</h1>
+    <h2>AI-Powered Browser Extension for Truth & Transparency</h2>
+    <h2>Problem Statement: Combating Misinformation in Real-Time</h2>
+  </header>
+
+  <div class="content">
+    <!-- Video Demonstration Section -->
+    <section class="video-demo-section">
+      <h3>Discover TrustMeter's Features</h3>
+      <div class="video-grid">
+        <!-- Video 1: Text Verification -->
+        <div class="video-item" data-title="Text Verification" data-description="Instantly spot misleading or biased claims with AI-powered analysis.">
+          <div class="hover-hint">Hover to preview</div>
+          <video muted loop playsinline>
+            <source src="textVerification.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+          <h4>Text Verification</h4>
+          <p>Instantly spot misleading or biased claims with AI-powered analysis.</p>
+        </div>
+        
+        <div class="video-item" data-title="Image Authenticity" data-description="Detect fake or AI-generated visuals directly on any webpage.">
+          <div class="hover-hint">Hover to preview</div>
+          <video muted loop playsinline>
+            <source src="imageVerification.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+          <h4>Image Authenticity</h4>
+          <p>Detect fake or AI-generated visuals directly on any webpage.</p>
+        </div>
+    
+        <div class="video-item" data-title="Trust Score & Explanations" data-description="AI-powered credibility check for any website, in seconds.">
+          <div class="hover-hint">Hover to preview</div>
+          <video muted loop playsinline>
+            <source src="websiteCheck.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+          <h4>Trust Score & Explanations</h4>
+          <p>Get an instant AI trust score to know how credible a website really is.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Enhanced enlarged video overlay -->
+    <div class="enlarged-video-overlay" id="enlargedVideoOverlay">
+      <div class="enlarged-video-container">
+        <button class="close-btn" onclick="closeEnlargedVideo()">&times;</button>
+        <video id="enlargedVideo" muted loop playsinline></video>
+        <div class="video-info">
+          <h4 id="enlargedVideoTitle"></h4>
+          <p id="enlargedVideoDescription"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Features -->
+    <section class="box">
+      <h3>Key Features</h3>
+      <ul>
+        <li><strong>Text Verification</strong> → Spot misleading or biased claims instantly.</li>
+        <li><strong>Image Authenticity</strong> → Detect fake, altered, or AI-generated visuals.</li>
+        <li><strong>Trust Score + Explanations</strong> → Clear reasoning and credible sources.</li>
+        <li><strong>On-Page Transparency</strong> → Results shown directly in your browser.</li>
+        <li><strong>Real-Time Analysis</strong> → Powered by AI + Google Cloud Vision APIs.</li>
+      </ul>
+    </section>
+
+    <!-- Installation Steps -->
+    <section class="box">
+      <h3>How to Install</h3>
+      <ol>
+        <li>Click the download button below.</li>
+        <li>Unzip the downloaded file (it contains the <code>/app</code> folder).</li>
+        <li>Open Chrome and go to <strong>chrome://extensions/</strong>.</li>
+        <li>Enable <strong>Developer mode</strong> (top right corner).</li>
+        <li>Click <strong>Load unpacked</strong> and select the <code>/app</code> folder.</li>
+        <li>The extension will now appear in your browser.</li>
+      </ol>
+      <button class="btn-download" onclick="downloadExtension()">⬇ Download Extension</button>
+    </section>
+  </div>
+
+  <footer>
+    Built for the GenAI Hackathon | Team IPV3
+  </footer>
+
+  <script>
+    function downloadExtension() {
+      window.location.href = "https://github.com/akshaynair5/H2S_hackathon/archive/refs/heads/main.zip";
+    }
+
+    // Enhanced video hover functionality
+    const videoItems = document.querySelectorAll('.video-item');
+    const enlargedVideoOverlay = document.getElementById('enlargedVideoOverlay');
+    const enlargedVideo = document.getElementById('enlargedVideo');
+    const enlargedVideoTitle = document.getElementById('enlargedVideoTitle');
+    const enlargedVideoDescription = document.getElementById('enlargedVideoDescription');
+
+    let hoverTimeout;
+    let isVideoEnlarged = false;
+
+    videoItems.forEach(videoItem => {
+      const video = videoItem.querySelector('video');
+      
+      videoItem.addEventListener('mouseenter', () => {
+        // Clear any existing timeout
+        clearTimeout(hoverTimeout);
+        
+        // Set a small delay before showing enlarged video
+        hoverTimeout = setTimeout(() => {
+          if (!isVideoEnlarged) {
+            showEnlargedVideo(videoItem, video);
+          }
+        }, 300); // 300ms delay
+        
+        // Play the small video immediately
+        video.play().catch(e => console.log('Video play failed:', e));
+      });
+
+      videoItem.addEventListener('mouseleave', () => {
+        // Clear timeout if mouse leaves before delay
+        clearTimeout(hoverTimeout);
+        
+        // Pause the small video
+        video.pause();
+        
+        // Hide enlarged video after a short delay
+        setTimeout(() => {
+          if (isVideoEnlarged && !enlargedVideoOverlay.matches(':hover')) {
+            hideEnlargedVideo();
+          }
+        }, 200);
+      });
+
+      // Click to show enlarged video
+      videoItem.addEventListener('click', () => {
+        showEnlargedVideo(videoItem, video);
+      });
+    });
+
+    // Handle mouse leave from enlarged video
+    enlargedVideoOverlay.addEventListener('mouseleave', () => {
+      setTimeout(() => {
+        if (isVideoEnlarged && !document.querySelector('.video-item:hover')) {
+          hideEnlargedVideo();
+        }
+      }, 200);
+    });
+
+    function showEnlargedVideo(videoItem, originalVideo) {
+      const videoSource = originalVideo.querySelector('source');
+      const title = videoItem.getAttribute('data-title');
+      const description = videoItem.getAttribute('data-description');
+      
+      // Set video source and info
+      enlargedVideo.src = videoSource.src;
+      enlargedVideoTitle.textContent = title;
+      enlargedVideoDescription.textContent = description;
+      
+      // Show overlay
+      enlargedVideoOverlay.classList.add('active');
+      isVideoEnlarged = true;
+      
+      // Play enlarged video
+      enlargedVideo.play().catch(e => console.log('Enlarged video play failed:', e));
+    }
+
+    function hideEnlargedVideo() {
+      enlargedVideoOverlay.classList.remove('active');
+      enlargedVideo.pause();
+      enlargedVideo.src = '';
+      isVideoEnlarged = false;
+    }
+
+    function closeEnlargedVideo() {
+      hideEnlargedVideo();
+    }
+
+    // Close on escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isVideoEnlarged) {
+        closeEnlargedVideo();
+      }
+    });
+
+
+    // Close when clicking outside the video container
+    enlargedVideoOverlay.addEventListener('click', (e) => {
+      if (e.target === enlargedVideoOverlay) {
+        closeEnlargedVideo();
+      }
+    });
+  </script>
+</body>
+</html>
