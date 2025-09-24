@@ -19,7 +19,7 @@ const badge = document.createElement("div");
 badge.id = "trustmeter-badge";
 Object.assign(badge.style, {
   position: "fixed",
-  bottom: "24px",
+  bottom: "60px",
   right: "24px",
   zIndex: "2147483647",
   padding: "10px 16px",
@@ -61,7 +61,7 @@ Object.assign(panel.style, {
   left: "auto",
   top: "auto",
   right: "24px",
-  bottom: "24px",
+  bottom: "60px",
   zIndex: "2147483647",
   minWidth: "300px",
   maxWidth: "400px",
@@ -94,7 +94,7 @@ function showPanel() {
     panel.style.left = "auto";
     panel.style.top = "auto";
     panel.style.right = "24px";
-    panel.style.bottom = "24px";
+    panel.style.bottom = "60px";
   }
 
   panel.style.display = "flex";       // make visible
@@ -357,15 +357,24 @@ function analyzeImagesNow() {
         const imgUrl = visibleImages[idx];
         const validity = normalizeScore(imgResult.score);
         const imgEntry = document.createElement("div");
+        
         Object.assign(imgEntry.style, {
           display: "flex",
           alignItems: "center",
           padding: "8px 0",
           borderTop: idx > 0 ? "1px solid rgba(0,0,0,0.1)" : "none"
         });
+        
+        let validityText = `Validity: <strong>${validity}%</strong>`;
+        let highlightStyle = "";
+        if (validity < 45) {
+          validityText = `AI Generated <strong>(${validity}%)</strong>`;
+          highlightStyle = "background-color: #fee2e2; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #c42f2f;";
+        }
+        
         imgEntry.innerHTML = `
           <img src="${imgUrl}" style="max-width:80px; max-height:50px; margin-right:12px; border-radius:4px; object-fit:cover;">
-          <span>Validity: <strong>${validity}%</strong></span>
+          <span style="${highlightStyle}">${validityText}</span>
         `;
         if (validity >= 75) imgEntry.style.color = "#0b8043";
         else if (validity >= 45) imgEntry.style.color = "#e09b00";
@@ -404,9 +413,17 @@ chrome.runtime.onMessage.addListener(message => {
         borderTop:
           container.children.length > 0 ? "1px solid rgba(0,0,0,0.1)" : "none"
       });
-            imgEntry.innerHTML = `
+      
+      let validityText = `Validity: <strong>${validity}%</strong>`;
+      let highlightStyle = "";
+      if (validity < 45) {
+        validityText = `AI Generated <strong>(${validity}%)</strong>`;
+        highlightStyle = "background-color: #fee2e2; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #c42f2f;";
+      }
+      
+      imgEntry.innerHTML = `
         <img src="${url}" style="max-width:80px; max-height:50px; margin-right:12px; border-radius:4px; object-fit:cover;">
-        <span>Validity: <strong>${validity}%</strong></span>
+        <span style="${highlightStyle}">${validityText}</span>
       `;
       if (validity >= 75) imgEntry.style.color = "#0b8043";
       else if (validity >= 45) imgEntry.style.color = "#e09b00";
@@ -508,7 +525,7 @@ panel.addEventListener("click", () => {
   if (rect.left < 0 || rect.right > window.innerWidth) {
     panel.style.left = "auto";
     panel.style.top = "auto";
-    panel.style.bottom = "24px";
+    panel.style.bottom = "60px";
     panel.style.right = "24px";
     panel.style.transform = "translateY(0)";
   }
