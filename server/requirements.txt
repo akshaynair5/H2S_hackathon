@@ -11,3 +11,6 @@ transformers
 torch
 bs4
 Pillow
+sentence-transformers
+pinecone
+cryptography
