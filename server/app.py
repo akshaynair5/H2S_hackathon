@@ -1,9 +1,10 @@
 from flask import Flask, request, jsonify
-from visionAi import detect_fake_image
+from server.FakeImageDetection import detect_fake_image
 from misinfo_model import detect_fake_text
 from flask_cors import CORS
 from vectorDb import search_feedback, store_feedback, cleanup_expired , index
 import hashlib
+import traceback
 
 app = Flask(__name__)
 CORS(app)
@@ -26,7 +27,6 @@ def detect_image():
         results = [results]
 
     avg_score = sum(r.get("score", 0) for r in results) / len(results)
-
     response = {
         "score": avg_score,
         "explanation": f"{len(results)} image(s) analyzed",
@@ -35,38 +35,72 @@ def detect_image():
 
     return jsonify(response)
 
-# ---------------------------
-# TEXT DETECTION
-# ---------------------------
-# ---------------------------
-# TEXT DETECTION
-# ---------------------------
+import numpy as np
+
+def make_json_safe(obj):
+    if isinstance(obj, dict):
+        return {k: make_json_safe(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [make_json_safe(v) for v in obj]
+    elif isinstance(obj, (np.floating, np.integer)):
+        return float(obj)
+    elif isinstance(obj, bytes):
+        return obj.decode("utf-8", errors="ignore")
+    else:
+        return obj
+    
 @app.route("/detect_text", methods=["POST"])
 def detect_text():
-    data = request.json 
-    text = data.get("text", "")
+    try:
+        print("🟢 [START] Incoming /detect_text request")
 
-    if not text.strip():
-        return jsonify({"error": "No text provided"}), 400
+        data = request.get_json(force=True, silent=True)
+        if not data:
+            return jsonify({"error": "Invalid or missing JSON payload."}), 400
 
-    # Check Pinecone for cached feedback first
-    cached_result = search_feedback(text)
-    if "error" in cached_result:
-        print(f"Pinecone search failed for text: '{text}' - Error: {cached_result['error']}")
-        return jsonify({"error": cached_result["error"]}), 400
-    if cached_result.get("source") == "cache":
-        # Determine if it was an exact or similar match
-        vec_id = hashlib.sha256(text.encode()).hexdigest()
-        exact_match = index.fetch(ids=[vec_id], namespace="default")
-        match_type = "exact" if exact_match.vectors else "similar"
-        print(f"Found {match_type} match in Pinecone for text: '{text}' - Explanation: {cached_result['explanation']}")
-        return jsonify(cached_result)
+        text = str(data.get("text", "")).strip()
+        if not text:
+            return jsonify({"error": "No text provided."}), 400
 
-    # No reliable match found, fallback to ML model
-    print(f"No reliable match found in Pinecone for text: '{text}' - Falling back to ML model")
-    result = detect_fake_text(text)
-    print(jsonify(result))
-    return jsonify(result)
+        if len(text) > 4000:
+            print("⚠️ Text too long; truncating to 4000 chars")
+            text = text[:4000]
+
+        print(f"[Info] Analyzing new text input: '{text[:80]}...'")
+        result = detect_fake_text(text)
+        print("✅ detect_fake_text() completed successfully")
+
+        safe_result = make_json_safe(result)
+        print("🟢 JSON-safe conversion complete")
+
+        # --- Extract simplified summary ---
+        summary = safe_result.get("summary", {})
+        score = summary.get("score", 0)
+        prediction = summary.get("prediction", "Unknown")
+        explanation = summary.get("explanation", "No explanation available.")
+
+        response = jsonify({
+            "success": True,
+            "source": "analysis",
+            "input_text": text,
+            "score": score,
+            "prediction": prediction,
+            "explanation": explanation,
+            "runtime": safe_result.get("runtime", 0),
+            "claims_checked": safe_result.get("claims_checked", 0),
+            "result": safe_result 
+        })
+        print("✅ Response prepared successfully")
+        return response, 200
+
+    except Exception as e:
+        print("❌ ERROR inside /detect_text:", e)
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "details": traceback.format_exc(),
+        }), 500
 
 # ---------------------------
 # USER FEEDBACK

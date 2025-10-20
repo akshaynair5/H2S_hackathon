@@ -84,7 +84,6 @@
       display: block;
     }
 
-    /* Enhanced enlarged video container */
     .enlarged-video-overlay {
       position: fixed;
       top: 0;
@@ -262,11 +261,11 @@
   </header>
 
   <div class="content">
-    <!-- Video Demonstration Section -->
+
     <section class="video-demo-section">
       <h3>Discover TrustMeter's Features</h3>
       <div class="video-grid">
-        <!-- Video 1: Text Verification -->
+
         <div class="video-item" data-title="Text Verification" data-description="Instantly spot misleading or biased claims with AI-powered analysis.">
           <div class="hover-hint">Hover to preview</div>
           <video muted loop playsinline>
@@ -299,7 +298,6 @@
       </div>
     </section>
 
-    <!-- Enhanced enlarged video overlay -->
     <div class="enlarged-video-overlay" id="enlargedVideoOverlay">
       <div class="enlarged-video-container">
         <button class="close-btn" onclick="closeEnlargedVideo()">&times;</button>
@@ -311,7 +309,6 @@
       </div>
     </div>
 
-    <!-- Features -->
     <section class="box">
       <h3>Key Features</h3>
       <ul>
@@ -323,7 +320,6 @@
       </ul>
     </section>
 
-    <!-- Installation Steps -->
     <section class="box">
       <h3>How to Install</h3>
       <ol>
@@ -347,7 +343,6 @@
       window.location.href = "https://github.com/akshaynair5/H2S_hackathon/archive/refs/heads/main.zip";
     }
 
-    // Enhanced video hover functionality
     const videoItems = document.querySelectorAll('.video-item');
     const enlargedVideoOverlay = document.getElementById('enlargedVideoOverlay');
     const enlargedVideo = document.getElementById('enlargedVideo');
@@ -361,28 +356,24 @@
       const video = videoItem.querySelector('video');
       
       videoItem.addEventListener('mouseenter', () => {
-        // Clear any existing timeout
+
         clearTimeout(hoverTimeout);
-        
-        // Set a small delay before showing enlarged video
+
         hoverTimeout = setTimeout(() => {
           if (!isVideoEnlarged) {
             showEnlargedVideo(videoItem, video);
           }
-        }, 300); // 300ms delay
-        
-        // Play the small video immediately
+        }, 300);
+
         video.play().catch(e => console.log('Video play failed:', e));
       });
 
       videoItem.addEventListener('mouseleave', () => {
-        // Clear timeout if mouse leaves before delay
+
         clearTimeout(hoverTimeout);
-        
-        // Pause the small video
+
         video.pause();
         
-        // Hide enlarged video after a short delay
         setTimeout(() => {
           if (isVideoEnlarged && !enlargedVideoOverlay.matches(':hover')) {
             hideEnlargedVideo();
@@ -390,13 +381,11 @@
         }, 200);
       });
 
-      // Click to show enlarged video
       videoItem.addEventListener('click', () => {
         showEnlargedVideo(videoItem, video);
       });
     });
 
-    // Handle mouse leave from enlarged video
     enlargedVideoOverlay.addEventListener('mouseleave', () => {
       setTimeout(() => {
         if (isVideoEnlarged && !document.querySelector('.video-item:hover')) {
@@ -410,16 +399,13 @@
       const title = videoItem.getAttribute('data-title');
       const description = videoItem.getAttribute('data-description');
       
-      // Set video source and info
       enlargedVideo.src = videoSource.src;
       enlargedVideoTitle.textContent = title;
       enlargedVideoDescription.textContent = description;
-      
-      // Show overlay
+
       enlargedVideoOverlay.classList.add('active');
       isVideoEnlarged = true;
-      
-      // Play enlarged video
+
       enlargedVideo.play().catch(e => console.log('Enlarged video play failed:', e));
     }
 
@@ -434,15 +420,12 @@
       hideEnlargedVideo();
     }
 
-    // Close on escape key
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && isVideoEnlarged) {
         closeEnlargedVideo();
       }
     });
 
-
-    // Close when clicking outside the video container
     enlargedVideoOverlay.addEventListener('click', (e) => {
       if (e.target === enlargedVideoOverlay) {
         closeEnlargedVideo();
@@ -547,7 +530,6 @@
   </header>
 
   <div class="content">
-    <!-- Features -->
     <section class="box">
       <h3>Key Features</h3>
       <ul>
@@ -559,7 +541,6 @@
       </ul>
     </section>
 
-    <!-- Installation Steps -->
     <section class="box">
       <h3>How to Install</h3>
       <ol>
@@ -580,7 +561,6 @@
 
   <script>
     function downloadExtension() {
-      // Replace with your actual GitHub repo ZIP link
       window.location.href = "https://github.com/akshaynair5/H2S_hackathon/archive/refs/heads/main.zip";
     }
   </script>

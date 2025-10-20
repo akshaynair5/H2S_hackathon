@@ -173,7 +173,7 @@ h2 {
 
 #results {
   margin-top: 16px;
-  display: none; /* Initially hidden */
+  display: none; 
 }
 
 #results.show {

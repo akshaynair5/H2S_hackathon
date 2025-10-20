@@ -1,7 +1,3 @@
-// ================================
-// content.js (Fixed + Improved)
-// ================================
-
 // ---------------------------
 // NORMALIZE SCORE
 // ---------------------------
@@ -10,6 +6,37 @@ function normalizeScore(raw) {
   if (s <= 1) s = Math.round(s * 100);
   else s = Math.round(s);
   return Math.max(0, Math.min(100, s));
+}
+
+// ---------------------------
+// SPINNER
+// ---------------------------
+const spinner = document.createElement("div");
+spinner.className = "trustmeter-spinner";
+Object.assign(spinner.style, {
+  border: "3px solid rgba(0,0,0,0.1)",
+  borderTop: "3px solid #667eea",
+  borderRadius: "50%",
+  width: "18px",
+  height: "18px",
+  animation: "spin 1s linear infinite",
+  display: "inline-block",
+  marginLeft: "8px",
+  verticalAlign: "middle",
+});
+
+function setWorking(msg) {
+  scoreText.textContent = "Score: …";
+  document.getElementById("text-result").textContent = msg || "Analyzing...";
+
+  if (!badge.contains(spinner)) {
+    badge.textContent = "Trust Score: …";
+    badge.appendChild(spinner);
+  }
+}
+
+function stopWorking() {
+  if (spinner.parentElement) spinner.remove();
 }
 
 // ---------------------------
@@ -67,7 +94,7 @@ Object.assign(panel.style, {
   maxWidth: "400px",
   background: "rgba(255, 255, 255, 0.95)",
   backdropFilter: "blur(10px)",
-  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.2)",
+  boxShadow: "0 8px 20px rgba(0, 0, 0, 0.2)",
   borderRadius: "16px",
   border: "1px solid rgba(255, 255, 255, 0.2)",
   fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -89,7 +116,6 @@ panel.setAttribute("aria-label", "TrustMeter Analysis Panel");
 // SHOW PANEL FUNCTION
 // ---------------------------
 function showPanel() {
-  // Reset pos if dragged
   if (panel.style.left !== "auto" || panel.style.top !== "auto") {
     panel.style.left = "auto";
     panel.style.top = "auto";
@@ -97,12 +123,11 @@ function showPanel() {
     panel.style.bottom = "60px";
   }
 
-  panel.style.display = "flex";       // make visible
-  panel.style.opacity = "0";          // start hidden
+  panel.style.display = "flex";      
+  panel.style.opacity = "0";        
 
-  // Let browser apply display:flex first before transition
   requestAnimationFrame(() => {
-    panel.style.opacity = "1";        // transition in
+    panel.style.opacity = "1";        
     panel.style.transform = "translateY(0)";
   });
 }
@@ -173,6 +198,23 @@ Object.assign(scoreRow.style, {
   padding: "8px 0"
 });
 
+const subScores = document.createElement("div");
+subScores.style.borderBottom = "1px solid rgba(0,0,0,0.1)";
+subScores.style.paddingBottom = "8px";
+Object.assign(subScores.style, {
+  fontSize: "13px",
+  color: "#444",
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+  paddingBottom: "8px"
+});
+subScores.id = "sub-scores";
+subScores.innerHTML = `
+  <div>📝 <strong>Text Score:</strong> —</div>
+  <div>🖼️ <strong>Image Score:</strong> —</div>
+`;
+
 const scoreText = document.createElement("div");
 scoreText.textContent = "Score: —";
 scoreText.style.fontWeight = "700";
@@ -202,6 +244,13 @@ refreshBtn.onmouseout = () => {
 };
 refreshBtn.onclick = () => {
   showPanel();
+
+  const textContainer = document.getElementById("analysis-results");
+  const imageContainer = document.getElementById("image-results");
+  if (textContainer) textContainer.innerHTML = "";
+  if (imageContainer) imageContainer.innerHTML = "";
+  collectedScores = [];
+
   analyzeTextNow();
   analyzeImagesNow();
 };
@@ -230,6 +279,7 @@ Object.assign(imageSection.style, {
 });
 
 panel.appendChild(header);
+panel.appendChild(subScores);
 panel.appendChild(scoreRow);
 panel.appendChild(textSection);
 panel.appendChild(imageSection);
@@ -239,14 +289,8 @@ document.documentElement.appendChild(panel);
 // STATE
 // ---------------------------
 let collectedScores = [];
-
-// ---------------------------
-// UI HELPERS
-// ---------------------------
-function setWorking(msg) {
-  scoreText.textContent = "Score: …";
-  document.getElementById("text-result").textContent = msg || "Analyzing...";
-}
+let textScores = [];
+let imageScores = [];
 
 function setError(err) {
   scoreText.textContent = "Score: —";
@@ -258,6 +302,9 @@ function setError(err) {
 
 function setResult(score, explanation) {
   const percent = normalizeScore(score);
+
+  textScores.push(percent);
+
   scoreText.textContent = `Score: ${percent}%`;
   if (percent >= 75) scoreText.style.color = "#0b8043";
   else if (percent >= 45) scoreText.style.color = "#e09b00";
@@ -265,37 +312,104 @@ function setResult(score, explanation) {
 
   document.getElementById("text-result").textContent =
     explanation || "No explanation returned.";
-  collectedScores.push(percent);
+
+  updateTextAverage();
+  updateImageAverage();
   updateBadge();
 }
 
 function updateBadge() {
-  if (collectedScores.length === 0) return;
-  const avg = Math.round(
-    collectedScores.reduce((a, b) => a + b, 0) / collectedScores.length
-  );
-  badge.textContent = `Trust Score: ${avg}%`;
-  badge.style.color = "#ffffff";
+  const avgText =
+    textScores.length > 0
+      ? Math.round(textScores.reduce((a, b) => a + b, 0) / textScores.length)
+      : "—";
+
+  const avgImage =
+    imageScores.length > 0
+      ? Math.round(imageScores.reduce((a, b) => a + b, 0) / imageScores.length)
+      : "—";
+
+  badge.textContent = `📝 ${avgText !== "—" ? avgText + "%" : "—"} | 🖼️ ${avgImage !== "—" ? avgImage + "%" : "—"}`;
+
+  if (avgText !== "—") {
+    if (avgText >= 75) badge.style.background = "linear-gradient(135deg, #43a047, #2e7d32)";
+    else if (avgText >= 45) badge.style.background = "linear-gradient(135deg, #f6ad55, #dd6b20)";
+    else badge.style.background = "linear-gradient(135deg, #e53e3e, #c53030)";
+  }
 }
+
+function updateTextAverage() {
+  const avgText =
+    textScores.length > 0
+      ? Math.round(textScores.reduce((a, b) => a + b, 0) / textScores.length)
+      : "—";
+  document.querySelector("#sub-scores div:nth-child(1)").innerHTML =
+    `📝 <strong>Text Score:</strong> ${avgText}${avgText !== "—" ? "%" : ""}`;
+}
+
+function updateImageAverage() {
+  const avgImage =
+    imageScores.length > 0
+      ? Math.round(imageScores.reduce((a, b) => a + b, 0) / imageScores.length)
+      : "—";
+  document.querySelector("#sub-scores div:nth-child(2)").innerHTML =
+    `🖼️ <strong>Image Score:</strong> ${avgImage}${avgImage !== "—" ? "%" : ""}`;
+}
+
 
 // ---------------------------
 // TEXT + IMAGE HELPERS
 // ---------------------------
 function collectVisibleText(maxChars = 20000) {
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-    acceptNode: node => {
-      if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
-      const style = window.getComputedStyle(node.parentElement);
-      if (style && style.display === "none") return NodeFilter.FILTER_REJECT;
-      return NodeFilter.FILTER_ACCEPT;
+  try {
+    let text = "";
+
+    if (typeof Readability !== "undefined") {
+      const clone = document.cloneNode(true);
+      const article = new Readability(clone).parse();
+      if (article && article.textContent) {
+        text = article.textContent.replace(/\s+/g, " ").trim().substring(0, maxChars);
+        if (text.length > 300) return text;
+      }
     }
-  });
-  let text = "";
-  let node;
-  while ((node = walker.nextNode()) && text.length < maxChars) {
-    text += node.nodeValue + " ";
+
+    const mainContent = document.querySelector("article, main, [role='main']") || document.body;
+
+    const removeSelectors = [
+      "nav","header","footer","aside","form","button","input","textarea",
+      "select","script","style","noscript","iframe","svg","canvas",
+      "video","audio",".advertisement",".ads",".sponsored",".comments",
+      ".related",".popup",".newsletter",".cookie",".banner",".share"
+    ];
+
+    const walker = document.createTreeWalker(mainContent, NodeFilter.SHOW_TEXT, {
+      acceptNode: node => {
+        const value = node.nodeValue.trim();
+        if (!value) return NodeFilter.FILTER_REJECT;
+        const el = node.parentElement;
+        if (!el || el.closest(removeSelectors.join(","))) return NodeFilter.FILTER_REJECT;
+        const style = window.getComputedStyle(el);
+        if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0" || el.offsetParent === null) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+
+    let node;
+    const chunkSize = 5000; 
+    while ((node = walker.nextNode()) && text.length < maxChars) {
+      text += node.nodeValue.replace(/\s+/g, " ") + " ";
+      if (text.length > chunkSize) {
+        text = text.substring(0, maxChars);
+      }
+    }
+
+    return text.replace(/\s+/g, " ").trim().substring(0, maxChars);
+  } catch (err) {
+    console.error("Error collecting text:", err);
+    return "";
   }
-  return text.trim().substring(0, maxChars);
 }
 
 function collectVisibleImages(maxCount = 3) {
@@ -315,19 +429,24 @@ function collectVisibleImages(maxCount = 3) {
 // ---------------------------
 function analyzeTextNow() {
   setWorking("Analyzing visible text...");
-  collectedScores = [];
+  textScores = [];
+  updateTextAverage();
+  updateBadge();
 
   const visibleText = collectVisibleText(45000);
   if (!visibleText) {
     setError("No visible text found.");
+    stopWorking();
     return;
   }
 
   chrome.runtime.sendMessage(
     { type: "ANALYZE_TEXT", payload: { text: visibleText, url: location.href } },
     response => {
+      stopWorking();
       if (!response || response.error) {
         setError(response?.error || "No response from backend.");
+        console.log("Text analysis failed:", response);
         return;
       }
       setResult(response.score ?? 0, response.explanation);
@@ -337,9 +456,11 @@ function analyzeTextNow() {
 
 function analyzeImagesNow() {
   const container = document.getElementById("image-results");
-  container.innerHTML = "";
+  setWorking("Analyzing visible text...");
+
   const visibleImages = collectVisibleImages(3);
   if (visibleImages.length === 0) {
+    stopWorking();
     container.textContent = "No images found on this page.";
     return;
   }
@@ -347,43 +468,12 @@ function analyzeImagesNow() {
   chrome.runtime.sendMessage(
     { type: "ANALYZE_IMAGE", payload: { urls: visibleImages } },
     response => {
-      container.innerHTML = "";
+      stopWorking();
       if (!response || response.error) {
         container.textContent = "Image analysis failed or not supported.";
-        return;
+      } else {
+        container.textContent = "";
       }
-
-      response.forEach((imgResult, idx) => {
-        const imgUrl = visibleImages[idx];
-        const validity = normalizeScore(imgResult.score);
-        const imgEntry = document.createElement("div");
-        
-        Object.assign(imgEntry.style, {
-          display: "flex",
-          alignItems: "center",
-          padding: "8px 0",
-          borderTop: idx > 0 ? "1px solid rgba(0,0,0,0.1)" : "none"
-        });
-        
-        let validityText = `Validity: <strong>${validity}%</strong>`;
-        let highlightStyle = "";
-        if (validity < 45) {
-          validityText = `AI Generated <strong>(${validity}%)</strong>`;
-          highlightStyle = "background-color: #fee2e2; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #c42f2f;";
-        }
-        
-        imgEntry.innerHTML = `
-          <img src="${imgUrl}" style="max-width:80px; max-height:50px; margin-right:12px; border-radius:4px; object-fit:cover;">
-          <span style="${highlightStyle}">${validityText}</span>
-        `;
-        if (validity >= 75) imgEntry.style.color = "#0b8043";
-        else if (validity >= 45) imgEntry.style.color = "#e09b00";
-        else imgEntry.style.color = "#c42f2f";
-
-        container.appendChild(imgEntry);
-        collectedScores.push(validity);
-        updateBadge();
-      });
     }
   );
 }
@@ -396,42 +486,86 @@ chrome.runtime.onMessage.addListener(message => {
 
   switch (message.type) {
     case "TEXT_ANALYSIS_RESULT":
-      setResult(message.payload.score, message.payload.explanation);
+      console.log("Received TEXT_ANALYSIS_RESULT:", message.payload);
+      const overall = message.payload || {};
+      setResult(overall.score || 0, overall.explanation || "No explanation");
       break;
 
+
     case "IMAGE_ANALYSIS_RESULT": {
-      const { url, score } = message.payload;
+      const { url, score, explanation } = message.payload;
       const container = document.getElementById("image-results");
+      if (!container) return;
       if (container.textContent.includes("No images")) container.innerHTML = "";
 
+      if (!document.getElementById("image-analysis-header")) {
+        const header = document.createElement("h3");
+        header.id = "image-analysis-header";
+        header.textContent = "🖼️ Image Analysis Results";
+        header.style.cssText = `
+          margin: 10px 0 12px;
+          font-size: 15px;
+          font-weight: 600;
+          color: #333;
+        `;
+        container.prepend(header);
+      }
+
       const validity = normalizeScore(score);
+      const timestamp = new Date().toLocaleTimeString();
+
+      imageScores.push(validity);
+
       const imgEntry = document.createElement("div");
+      imgEntry.className = "image-result-entry";
       Object.assign(imgEntry.style, {
         display: "flex",
-        alignItems: "center",
-        padding: "8px 0",
-        borderTop:
-          container.children.length > 0 ? "1px solid rgba(0,0,0,0.1)" : "none"
+        flexDirection: "column",
+        gap: "6px",
+        padding: "12px",
+        borderRadius: "10px",
+        marginBottom: "12px",
+        background: "#fafafa",
+        border: "1px solid rgba(0,0,0,0.08)",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+        animation: "fadeIn 0.4s ease"
       });
-      
-      let validityText = `Validity: <strong>${validity}%</strong>`;
-      let highlightStyle = "";
-      if (validity < 45) {
-        validityText = `AI Generated <strong>(${validity}%)</strong>`;
-        highlightStyle = "background-color: #fee2e2; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #c42f2f;";
+
+      let color = "#c42f2f";
+      let label = "AI Generated";
+      if (validity >= 75) {
+        color = "#0b8043";
+        label = "Likely Authentic";
+      } else if (validity >= 45) {
+        color = "#e09b00";
+        label = "Uncertain";
       }
-      
+
       imgEntry.innerHTML = `
-        <img src="${url}" style="max-width:80px; max-height:50px; margin-right:12px; border-radius:4px; object-fit:cover;">
-        <span style="${highlightStyle}">${validityText}</span>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <img src="${url}" 
+              style="width:90px; height:60px; border-radius:6px; object-fit:cover; border:1px solid rgba(0,0,0,0.1);">
+          <div style="flex:1;">
+            <div style="font-weight:600; color:${color}; font-size:14px;">
+              ${label} (${validity}%)
+            </div>
+            <div style="height:6px; background:#e5e5e5; border-radius:3px; overflow:hidden; margin-top:4px;">
+              <div style="width:${validity}%; background:${color}; height:100%;"></div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:8px; font-size:13px; color:#333;">
+          <strong>Explanation:</strong> ${explanation || "No details available."}
+        </div>
+        <div style="font-size:11px; color:#777; margin-top:4px;">Analyzed at ${timestamp}</div>
       `;
-      if (validity >= 75) imgEntry.style.color = "#0b8043";
-      else if (validity >= 45) imgEntry.style.color = "#e09b00";
-      else imgEntry.style.color = "#c42f2f";
 
       container.appendChild(imgEntry);
-      collectedScores.push(validity);
+
+      updateTextAverage();
+      updateImageAverage();
       updateBadge();
+      showPanel();
       break;
     }
 
@@ -446,9 +580,9 @@ chrome.runtime.onMessage.addListener(message => {
 });
 
 // ---------------------------
-// AUTO RUN TEXT ANALYSIS (once)
+// AUTO RUN TEXT ANALYSIS
 // ---------------------------
-setTimeout(analyzeTextNow, 1000);
+setTimeout(analyzeTextNow, 2000);
 
 // ---------------------------
 // TOGGLE PANEL (badge click)
@@ -491,7 +625,7 @@ document.addEventListener("mousemove", (e) => {
   const maxLeft = window.innerWidth - panel.offsetWidth / 3;
   const maxTop = window.innerHeight - panel.offsetHeight / 3;
   const minLeft = -panel.offsetWidth * 2 / 3;
-  const minTop = 0;
+  const minTop = -panel.offsetHeight / 3;
 
   left = Math.min(Math.max(left, minLeft), maxLeft);
   top = Math.min(Math.max(top, minTop), maxTop);
@@ -528,5 +662,15 @@ panel.addEventListener("click", () => {
     panel.style.bottom = "60px";
     panel.style.right = "24px";
     panel.style.transform = "translateY(0)";
+  }
+});
+
+panel.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") hidePanel();
+  if (e.key === "Enter" || e.key === " ") {
+    if (document.activeElement.tagName === "BUTTON") {
+      document.activeElement.click();
+      e.preventDefault();
+    }
   }
 });

@@ -1,29 +1,4 @@
 let factInterval = null;
-
-// ---------------------------
-// DUMMY DATASET FOR TESTING
-// ---------------------------
-const dummyResults = [
-  {
-    score: 0.3,
-    explanation: "Text contains unreliable claims and lacks credible sources.",
-    details: [{ prediction: "fake" }],
-    text: "The moon is made of cheese."
-  },
-  {
-    score: 0.45,
-    explanation: "Text has some factual inaccuracies and may be misleading.",
-    details: [{ prediction: "misleading" }],
-    text: "Vaccines cause widespread harm without evidence."
-  },
-  {
-    score: 0.85,
-    explanation: "Text is consistent with verified information.",
-    details: [{ prediction: "real" }],
-    text: "The Earth orbits the Sun."
-  }
-];
-
 // ---------------------------
 // TEST FUNCTION
 // ---------------------------
@@ -31,13 +6,11 @@ function testWithDummyData(index = 0) {
   const resultsDiv = document.getElementById("results");
   const loading = document.getElementById("loadingContainer");
 
-  // Simulate loading
   resultsDiv.classList.remove("show");
   resultsDiv.classList.add("hidden");
   loading.classList.add("show");
   startFactsRotation();
 
-  // Simulate API response delay
   setTimeout(() => {
     loading.classList.remove("show");
     stopFactsRotation();
@@ -59,17 +32,15 @@ function displayResult(result) {
   const resultsDiv = document.getElementById("results");
   const loading = document.getElementById("loadingContainer");
 
-  // Hide loader, show results
   loading.classList.remove("show");
   resultsDiv.classList.add("show");
   resultsDiv.classList.remove("hidden");
   resultsDiv.innerHTML = "";
 
-  const prediction = result.details[0]?.prediction || "Unknown";
+  const prediction = result.prediction || "Unknown";
   const explanation = result.explanation || "No explanation provided";
-  const text = result.text || "unknown";
+  const text = result.input_text || "unknown";
 
-  // Color-coded badge
   let predictionColor = "background: #f3f4f6; color: #374151;";
   if (prediction.toLowerCase() === "real") predictionColor = "background: #d1fae5; color: #065f46;";
   else if (prediction.toLowerCase() === "fake") predictionColor = "background: #fee2e2; color: #991b1b;";
@@ -88,16 +59,28 @@ function displayResult(result) {
   `;
 
   if (prediction.toLowerCase() === "fake" || prediction.toLowerCase() === "misleading") {
-   setTimeout(function() { showConfirmationPopup(text, explanation); }, 6000);
-   
+    setTimeout(() => { showConfirmationPopup(text, explanation); }, 6000);
   }
-  console.log("Text is ", text);
+
+  console.log("Text:", text);
   console.log("Prediction:", prediction);
   console.log("Full result:", result);
 
   resultsDiv.appendChild(card);
 }
 
+function setResult(score, explanation) {
+  const percent = normalizeScore(score);
+  scoreText.textContent = `Score: ${percent}%`;
+  if (percent >= 75) scoreText.style.color = "#0b8043";
+  else if (percent >= 45) scoreText.style.color = "#e09b00";
+  else scoreText.style.color = "#c42f2f";
+
+  document.getElementById("text-result").textContent =
+    explanation || "No explanation returned.";
+  collectedScores.push(percent);
+  updateBadge();
+}
 // ---------------------------
 // DISPLAY FEEDBACK MESSAGE
 // ---------------------------
@@ -110,7 +93,6 @@ function displayFeedbackMessage() {
       Thank you for your feedback! It helps us improve our community-driven fact-checking.
     </p>
   `;
-  // Auto-hide after 4 seconds
   setTimeout(() => {
     resultsDiv.innerHTML = "";
     resultsDiv.classList.remove("show");
@@ -189,6 +171,7 @@ document.getElementById("checkText").addEventListener("click", async () => {
     (results) => {
       if (chrome.runtime.lastError || !results || !results[0]) {
         displayError("Failed to extract selected text.");
+        stopFactsRotation();
         return;
       }
 
@@ -196,6 +179,7 @@ document.getElementById("checkText").addEventListener("click", async () => {
       console.log("User Selected text is " , textContent)
       if (!textContent) {
         displayError("No text selected.");
+        stopFactsRotation();
         return;
       }
 
@@ -209,6 +193,7 @@ document.getElementById("checkText").addEventListener("click", async () => {
 
           if (!response || response.error) {
             displayError(response?.error || "Text analysis failed.");
+  
             return;
           }
 
@@ -301,7 +286,7 @@ chrome.runtime.onMessage.addListener((message) => {
       score: score || 0,
       explanation: explanation || "Image analyzed",
       details: [message.payload],
-      text: url // Treat URL as text for feedback
+      text: url 
     });
   }
 
@@ -446,14 +431,12 @@ confirmationModal.appendChild(questionText);
 confirmationModal.appendChild(buttonContainer);
 document.documentElement.appendChild(confirmationModal);
 
-// Function to show the popup
 function showConfirmationPopup(text, explanation) {
   window.currentText = text;
   window.currentExplanation = explanation;
   confirmationModal.style.display = "flex";
 }
 
-// Close on ESC for popup
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && confirmationModal.style.display === "flex") {
     confirmationModal.style.display = "none";
@@ -463,6 +446,6 @@ document.addEventListener("keydown", (e) => {
 // ---------------------------
 // TRIGGER TEST (For Development)
 // ---------------------------
-document.getElementById("testDummyData")?.addEventListener("click", () => {
-  testWithDummyData(0); // Test with "fake" prediction
-});
+// document.getElementById("testDummyData")?.addEventListener("click", () => {
+//   testWithDummyData(0);
+// });
