@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from server.FakeImageDetection import detect_fake_image
+from FakeImageDetection import detect_fake_image
 from misinfo_model import detect_fake_text
 from flask_cors import CORS
 from vectorDb import search_feedback, store_feedback, cleanup_expired , index

@@ -7,10 +7,13 @@ import requests
 from functools import lru_cache
 from typing import List, Dict, Any
 from urllib.parse import urlparse
+from google.cloud import firestore
 from dotenv import load_dotenv
 from flask import Flask
 from sentence_transformers import SentenceTransformer, util
 import google.generativeai as genai
+import firebase_admin
+from firebase_admin import credentials, firestore
 from datetime import datetime
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
@@ -19,6 +22,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # ------------- config & init -------------
 load_dotenv()
 app = Flask(__name__)
+
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
@@ -33,13 +37,33 @@ ENDPOINT_ID = "5229109076423606272"
 REGION = "us-central1"
 PREDICT_URL = f"https://{REGION}-aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/{REGION}/endpoints/{ENDPOINT_ID}:predict"
 
-def get_access_token():
+
+# ---------------- GCP credentials (for Vertex AI) ----------------
+def get_gcp_credentials():
+    """
+    Load and refresh service account credentials for GCP (usable by Vertex AI).
+    """
     creds = service_account.Credentials.from_service_account_file(
         "gen-ai-h2s-project-562ce7c50fcf-vertex-ai.json",
         scopes=["https://www.googleapis.com/auth/cloud-platform"]
     )
     creds.refresh(Request())
+    return creds
+
+def get_access_token():
+    creds = get_gcp_credentials()
     return creds.token
+
+# ---------------- Firestore init using Firebase Admin ----------------
+SERVICE_ACCOUNT_PATH = "gen-ai-h2s-project-562ce7c50fcf-vertex-ai.json"
+
+# Initialize Firebase Admin app
+cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
+firebase_admin.initialize_app(cred)
+
+# Firestore client
+db = firestore.client(database_id='genai')
+
 
 # ---------------- Embeddings ----------------
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
@@ -84,12 +108,68 @@ def domain_from_url(url: str) -> str:
     m = re.search(r"https?://(www\.)?([^/]+)", url)
     return m.group(2).lower() if m else ""
 
-def domain_score_for_url(url: str) -> float:
-    d = domain_from_url(url)
-    for dom, score in CREDIBLE_DOMAINS_SCORE.items():
-        if dom in d:
-            return score
+def get_trusted_score(domain: str) -> float:
+    """Return avg_score of domain or 0 if not found"""
+    domain = domain.lower().strip()
+    doc = db.collection("news_sources").document(domain).get()
+    if doc.exists:
+        return doc.to_dict().get("avg_score", 0.0)
     return 0.0
+
+def domain_score_for_url(url: str) -> float:
+    """
+    Return the score for a domain.
+    Pulls from Firestore dynamically.
+    """
+    d = domain_from_url(url)
+    score = get_trusted_score(d)
+    return score
+
+# Basic TTL cache wrapper for Firestore domain loading
+_CACHE_TTL = 300  # seconds (5 min)
+_last_cache_time = 0
+_cached_domains = []
+
+def invalidate_domain_cache():
+    """Force cache invalidation (e.g. after updates)."""
+    global _last_cache_time
+    _last_cache_time = 0
+
+def load_credible_domains_cached() -> List[str]:
+    """Loads credible domains from Firestore with 5-min TTL cache."""
+    global _cached_domains, _last_cache_time
+    now = time.time()
+    if not _cached_domains or (now - _last_cache_time) > _CACHE_TTL:
+        _cached_domains = load_credible_domains()  # Your original function
+        _last_cache_time = now
+    return _cached_domains
+
+def add_or_update_trusted_source(domain: str, new_score: float):
+    """
+    Add a new domain or update an existing one with incremental averaging.
+    Only stores domain and aggregate score (no user info).
+    """
+    domain = domain.lower().strip()
+    doc_ref = db.collection("news_sources").document(domain)
+    doc = doc_ref.get()
+
+    if doc.exists:
+        data = doc.to_dict()
+        current_avg = data.get("avg_score", 0.0)
+        num_votes = data.get("num_votes", 0)
+        # incremental average
+        updated_avg = round((current_avg * num_votes + new_score) / (num_votes + 1), 3)
+        doc_ref.update({
+            "avg_score": updated_avg,
+            "num_votes": num_votes + 1,
+            "last_updated": datetime.utcnow()
+        })
+    else:
+        doc_ref.set({
+            "avg_score": round(new_score, 3),
+            "num_votes": 1,
+            "last_updated": datetime.utcnow()
+        })
 
 # ---------------- Gemini helper ----------------
 @retry
@@ -188,14 +268,44 @@ def adjusted_ensemble(gem_pred: str, gem_conf: int, vertex_scores: dict, thresho
     return final_pred, final_conf
 
 def load_credible_domains() -> List[str]:
-    static = ["reuters.com", "bbc.com", "apnews.com", "cnn.com", "nytimes.com",
-              "theguardian.com", "npr.org", "aljazeera.com", "bloomberg.com"]
-    return static
+    """
+    Return the list of currently trusted domains from Firestore.
+    Only include domains with at least 1 vote.
+    """
+    docs = db.collection("news_sources").where("num_votes", ">=", 1).stream()
+    domains = [doc.id for doc in docs]
+    # Fallback to static domains if Firestore empty
+    if not domains:
+        domains = ["reuters.com", "bbc.com", "apnews.com", "cnn.com", "nytimes.com",
+                   "theguardian.com", "npr.org", "aljazeera.com", "bloomberg.com"]
+    return domains
+
+def get_domain_bonus(domain: str) -> float:
+    """
+    Return a very small bonus (2%) if the domain is highly credible (avg_score >= 0.9)
+    and has more than 100 votes. Returns 0 otherwise.
+    """
+    domain = domain.lower().strip().rstrip("/")  # sanitize
+    if not domain or domain in ["unknown", ""]:
+        return 0.0
+    try:
+        doc_ref = db.collection("news_sources").document(domain)
+        doc = doc_ref.get()
+        if doc.exists:
+            data = doc.to_dict()
+            avg_score = data.get("avg_score", 0.0)
+            num_votes = data.get("num_votes", 0)
+            if avg_score >= 0.9 and num_votes > 100:
+                return 0.02  # very small bonus
+        return 0.0
+    except Exception as e:
+        print(f"⚠️ Domain bonus fetch failed for {domain}: {e}")
+        return 0.0
 
 def corroborate_all_with_google(claims: List[str]) -> Dict[str, Any]:
     """Perform a Google search for each claim and return structured evidence."""
     evidences = []
-    CREDIBLE_DOMAINS = load_credible_domains()
+    CREDIBLE_DOMAINS = load_credible_domains_cached()  # ✅ now cached for 5 min
 
     for claim in claims:
         site_filter = " OR ".join([f"site:{d}" for d in CREDIBLE_DOMAINS])
@@ -225,7 +335,6 @@ def corroborate_all_with_google(claims: List[str]) -> Dict[str, Any]:
             domain = urlparse(link).netloc
             snippet = html.unescape(it.get("snippet", ""))[:400]
             NEWS_KEYWORDS = [
-                # Common reporting verbs
                 "report", "reports", "reported",
                 "say", "says", "said",
                 "announce", "announces", "announced",
@@ -239,6 +348,7 @@ def corroborate_all_with_google(claims: List[str]) -> Dict[str, Any]:
                 "officials", "authorities", "investigation", "evidence"
             ]
 
+            # Only consider domains in our credible list
             if not any(d in domain for d in CREDIBLE_DOMAINS):
                 continue
             if not any(k in snippet.lower() for k in NEWS_KEYWORDS):
@@ -262,46 +372,82 @@ def corroborate_all_with_google(claims: List[str]) -> Dict[str, Any]:
             })
             unique_domains.add(domain)
 
+            # ✅ Update Firestore with new score and invalidate cache
+            try:
+                add_or_update_trusted_source(domain, evidence_score)
+                invalidate_domain_cache()
+            except Exception as e:
+                print(f"⚠️ Firestore update failed for {domain}: {e}")
+
         top_evidences = sorted(claim_evidences, key=lambda x: x["evidence_score"], reverse=True)[:3]
         evidences.extend(top_evidences)
 
     status = "corroborated" if len(set([urlparse(e["link"]).netloc for e in evidences])) >= 2 else \
              "weak" if evidences else "no_results"
+
     return {"status": status, "evidences": evidences}
 
-
 # ---------------- Gemini prompt ----------------
-def assemble_gemini_prompt_structured(claim: str, evidences: List[Dict[str, Any]], status: str) -> str:
+
+def extract_local_context(claim: str, full_text: str, window: int = 2) -> str:
+    """
+    Extracts 2-3 sentences surrounding the claim from the full text.
+    Keeps context compact but meaningful.
+    """
+    # Split text into sentences (basic, efficient regex)
+    sentences = re.split(r'(?<=[.!?])\s+', full_text.strip())
+
+    # Find where the claim likely occurs
+    best_idx = 0
+    for i, sent in enumerate(sentences):
+        if claim.strip()[:30].lower() in sent.lower():
+            best_idx = i
+            break
+
+    # Select surrounding sentences (window before & after)
+    start = max(0, best_idx - window)
+    end = min(len(sentences), best_idx + window + 1)
+
+    context_sentences = sentences[start:end]
+    local_context = " ".join(context_sentences)
+    return local_context[:1200]  # cap context length (to prevent prompt bloat)
+
+def assemble_gemini_prompt_structured(claim: str, evidences: List[Dict[str, Any]], status: str, full_text: str = "") -> str:
+    today_str = datetime.now().strftime("%B %d, %Y")
+    local_context = extract_local_context(claim, full_text) if full_text else ""
+
+    context_part = f"The claim appears in the following context:\n\"\"\"{local_context}\"\"\"\n\n" if local_context else ""
+
     return f"""
 You are an AI fact-checking assistant.
 
+{context_part}
 Input claim: \"\"\"{claim}\"\"\"
 Corroboration status: {status}
 Evidence snippets: {json.dumps(evidences[:5], ensure_ascii=False)}
+Today's date: {today_str}
 
 Instructions:
-Return a strict JSON object with the following keys:
+- Focus on the local context around the claim to preserve meaning.
+- Use evidence snippets to verify factual accuracy.
+- Evaluate the claim considering today's date ({today_str}).
+- Return a strict JSON object with keys:
 
 - prediction: "Real", "Fake", or "Misleading"
 - confidence: integer 0–100
-- explanation: 1-2 short sentences max, clear and readable for non-experts.
-  - Break multiple points with "|"
-  - Start with general plausibility, then note supporting or contradicting evidence
-  - Avoid long paragraphs or overly technical phrasing
-- evidence: include only the 1-3 most relevant snippets
-  - Each snippet max 50 words
-  - Specify if it SUPPORTS or CONTRADICTS the claim
-- human_summary (optional but recommended): 1 short sentence explaining the claim in simple, everyday language
+- explanation: 1–2 short, plain sentences | Use "|" to separate reasoning steps
+- evidence: 1–3 key snippets (≤50 words each) with a `support` field
+- human_summary (optional): plain summary of the claim
 
-Example output format:
+Example output:
 {{
   "prediction": "Real",
   "confidence": 85,
-  "explanation": "The groups mentioned exist and gatherings like described are common | The claim is plausible and consistent with typical public events",
+  "explanation": "The claim matches current verified reports | Context indicates it refers to an ongoing event",
   "evidence": [
-    {{"source":"BBC", "link":"https://...", "snippet":"People often gather in cities for protests with music, signs, and flags", "support":"Supports"}}
+    {{"source":"BBC", "link":"https://...", "snippet":"BBC confirms the described protests occurred in Delhi.", "support":"Supports"}}
   ],
-  "human_summary": "The claim is plausible and reflects common real-world events."
+  "human_summary": "The claim about protests in Delhi is accurate."
 }}
 
 Return only valid JSON.
@@ -335,7 +481,10 @@ def detect_fake_text(text: str) -> dict:
                 lambda c: (
                     c,
                     ask_gemini_structured(assemble_gemini_prompt_structured(
-                        c, corroboration_data["evidences"], corroboration_data["status"]
+                        c,
+                        corroboration_data["evidences"],
+                        corroboration_data["status"],
+                        full_text=metadata["text"]
                     ))
                 ),
                 c
@@ -374,11 +523,20 @@ def detect_fake_text(text: str) -> dict:
     overall_label = max(set(preds), key=preds.count) if preds else "Unknown"
     combined_explanation = " | ".join(explanations[:3]) if explanations else "No detailed explanation available."
 
+    # --- Apply very small domain credibility bonus ---
+    source_domain = domain_from_url(metadata.get("source", ""))
+    domain_bonus = get_domain_bonus(source_domain)
+    if domain_bonus > 0:
+        bonus_points = int(overall_conf * domain_bonus)
+        overall_conf = min(100, overall_conf + bonus_points)
+        combined_explanation += f" | Small credibility bonus applied due to trusted source ({source_domain})"
+
     result_summary = {
         "score": overall_conf,
         "prediction": overall_label,
         "explanation": combined_explanation,
     }
+
     return {
         "summary": result_summary,
         "runtime": round(time.time() - start_total, 2),

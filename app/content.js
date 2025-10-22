@@ -582,7 +582,7 @@ chrome.runtime.onMessage.addListener(message => {
 // ---------------------------
 // AUTO RUN TEXT ANALYSIS
 // ---------------------------
-setTimeout(analyzeTextNow, 2000);
+// setTimeout(analyzeTextNow, 2000);
 
 // ---------------------------
 // TOGGLE PANEL (badge click)

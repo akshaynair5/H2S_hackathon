@@ -81,6 +81,85 @@ function setResult(score, explanation) {
   collectedScores.push(percent);
   updateBadge();
 }
+
+function saveToHistory(entry) {
+  const history = JSON.parse(localStorage.getItem("analysisHistory") || "[]");
+  history.unshift({
+    score: entry.score,
+    prediction: entry.prediction,
+    explanation: entry.explanation,
+    text: entry.text,
+    timestamp: new Date().toLocaleString()
+  });
+  // Keep only top 3 entries
+  const trimmed = history.slice(0, 3);
+  localStorage.setItem("analysisHistory", JSON.stringify(trimmed));
+  renderHistory();
+}
+
+function renderHistory() {
+  const container = document.getElementById("historyContainer");
+  const history = JSON.parse(localStorage.getItem("analysisHistory") || "[]");
+  container.innerHTML = "";
+
+  if (history.length === 0) {
+    container.innerHTML = `<p style="color:#6b7280; font-size:13px;">No history available.</p>`;
+    return;
+  }
+
+  history.forEach((item) => {
+    const card = document.createElement("div");
+    card.className = "history-card";
+
+    // Prediction badge color
+    let badgeColor = "#e5e7eb", badgeText = "#374151";
+    if (item.prediction?.toLowerCase() === "real") {
+      badgeColor = "#d1fae5"; badgeText = "#065f46";
+    } else if (item.prediction?.toLowerCase() === "fake") {
+      badgeColor = "#fee2e2"; badgeText = "#991b1b";
+    } else if (item.prediction?.toLowerCase() === "misleading") {
+      badgeColor = "#feebc8"; badgeText = "#9c4221";
+    }
+
+    card.innerHTML = `
+      <div class="history-header">
+        <span class="prediction-badge" 
+          style="background:${badgeColor}; color:${badgeText};">${item.prediction}</span>
+        <span class="timestamp">${item.timestamp}</span>
+      </div>
+      <p class="score-line">Score: ${item.score}</p>
+      <div class="explanation" style="max-height:0; overflow:hidden; transition:max-height 0.4s ease;">
+        <p style="font-size:13px; color:#4b5563; margin-top:4px;">
+          <strong>Reasoning:</strong> ${item.explanation}
+        </p>
+      </div>
+    `;
+
+    // Toggle expand/collapse
+    card.addEventListener("click", () => {
+      const exp = card.querySelector(".explanation");
+      exp.style.maxHeight = exp.style.maxHeight === "0px" || exp.style.maxHeight === ""
+        ? exp.scrollHeight + "px"
+        : "0px";
+    });
+
+    container.appendChild(card);
+  });
+}
+
+// ---------------------------
+// Hook into displayResult()
+// ---------------------------
+const originalDisplayResult = displayResult;
+displayResult = function (result) {
+  originalDisplayResult(result);
+  saveToHistory(result);
+};
+
+// ---------------------------
+// Render on load
+// ---------------------------
+document.addEventListener("DOMContentLoaded", renderHistory);
 // ---------------------------
 // DISPLAY FEEDBACK MESSAGE
 // ---------------------------
@@ -200,7 +279,7 @@ document.getElementById("checkText").addEventListener("click", async () => {
           displayResult({
             score: response.score || 0,
             explanation: response.explanation || "Text analyzed",
-            details: response.details || [response],
+            prediction: response.prediction || "Unknown",
             text: textContent
           });
         }
@@ -324,7 +403,7 @@ confirmationModal.setAttribute("role", "dialog");
 confirmationModal.setAttribute("aria-label", "Confirmation Popup");
 
 const questionText = document.createElement("p");
-questionText.textContent = "Does the text sound like fake?";
+questionText.textContent = "Does selected text sound malicious to you as well?";
 questionText.style.fontSize = "14px";
 questionText.style.fontWeight = "600";
 
@@ -350,7 +429,6 @@ Object.assign(yesButton.style, {
 yesButton.onmouseover = () => { yesButton.style.transform = "translateY(-1px)"; };
 yesButton.onmouseout = () => { yesButton.style.transform = "translateY(0)"; };
 yesButton.onclick = () => {
-  console.log("User confirmed: YES, text sounds fake.");
   fetch('http://localhost:5000/submit_feedback', {
     method: 'POST',
     headers: {
@@ -369,7 +447,7 @@ yesButton.onclick = () => {
       return res.json();
     })
     .then(data => {
-      console.log("Feedback response:", data);
+      // console.log("Feedback response:", data);
       displayFeedbackMessage();
     })
     .catch(error => {
@@ -443,9 +521,9 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// ---------------------------
-// TRIGGER TEST (For Development)
-// ---------------------------
-// document.getElementById("testDummyData")?.addEventListener("click", () => {
-//   testWithDummyData(0);
-// });
+// // ---------------------------
+// // TRIGGER TEST (For Development)
+// // ---------------------------
+// // document.getElementById("testDummyData")?.addEventListener("click", () => {
+// //   testWithDummyData(0);
+// // });

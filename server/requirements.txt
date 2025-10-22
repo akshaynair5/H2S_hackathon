@@ -14,3 +14,6 @@ Pillow
 sentence-transformers
 pinecone
 cryptography
+google-cloud-firestore
+google-cloud-storage
+firebase-admin
