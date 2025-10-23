@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TrustMeter - Browser Extension</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       font-family: Arial, sans-serif;
@@ -15,51 +20,58 @@
       justify-content: flex-start;
       min-height: 100vh;
       text-align: center;
-      padding: 2rem;
+      padding: 1rem;
+      line-height: 1.6;
     }
 
     header {
       margin-bottom: 2rem;
+      width: 100%;
+      max-width: 1200px;
     }
 
     h1 {
-      font-size: 2.2rem;
+      font-size: clamp(1.8rem, 5vw, 2.5rem);
       margin-bottom: 0.5rem;
+      font-weight: bold;
     }
 
     h2 {
-      font-size: 1rem;
+      font-size: clamp(0.9rem, 3vw, 1.1rem);
       font-weight: normal;
       color: #bbb;
       margin: 0.3rem 0;
+      max-width: 90%;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     .content {
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 2rem;
+      gap: 1.5rem;
       max-width: 1200px;
       width: 100%;
     }
 
     .video-demo-section {
       background: rgba(255, 255, 255, 0.05);
-      padding: 1.5rem;
+      padding: 1rem;
       border-radius: 12px;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
       position: relative;
     }
 
     .video-demo-section h3 {
       color: #4da6ff;
-      font-size: 1.5rem;
+      font-size: clamp(1.2rem, 4vw, 1.5rem);
       margin-bottom: 1.5rem;
     }
 
     .video-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 1.5rem;
     }
 
@@ -69,6 +81,8 @@
       border-radius: 8px;
       transition: transform 0.3s ease, box-shadow 0.3s ease;
       cursor: pointer;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 1rem;
     }
 
     .video-item:hover {
@@ -82,15 +96,18 @@
       border-radius: 8px;
       transition: all 0.3s ease;
       display: block;
+      max-height: 200px;
+      object-fit: cover;
     }
 
+    /* Enhanced enlarged video container */
     .enlarged-video-overlay {
       position: fixed;
       top: 0;
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(0, 0, 0, 0.85);
+      background: rgba(0, 0, 0, 0.9);
       z-index: 1000;
       display: flex;
       align-items: center;
@@ -99,6 +116,7 @@
       visibility: hidden;
       transition: opacity 0.3s ease, visibility 0.3s ease;
       backdrop-filter: blur(5px);
+      padding: 1rem;
     }
 
     .enlarged-video-overlay.active {
@@ -108,8 +126,9 @@
 
     .enlarged-video-container {
       position: relative;
-      max-width: 70vw;
-      max-height: 70vh;
+      width: 100%;
+      max-width: min(90vw, 800px);
+      max-height: min(80vh, 600px);
       background: rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       padding: 1rem;
@@ -127,6 +146,8 @@
       height: auto;
       border-radius: 8px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      max-height: 60vh;
+      object-fit: contain;
     }
 
     .video-info {
@@ -137,13 +158,13 @@
 
     .video-info h4 {
       margin: 0.5rem 0;
-      font-size: 1.3rem;
+      font-size: clamp(1.1rem, 3vw, 1.3rem);
     }
 
     .video-info p {
       margin: 0;
       color: #bbb;
-      font-size: 1rem;
+      font-size: clamp(0.9rem, 2.5vw, 1rem);
     }
 
     .close-btn {
@@ -154,10 +175,10 @@
       color: white;
       border: none;
       border-radius: 50%;
-      width: 30px;
-      height: 30px;
+      width: 35px;
+      height: 35px;
       cursor: pointer;
-      font-size: 16px;
+      font-size: 18px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -171,14 +192,15 @@
 
     .video-item h4 {
       margin: 0.5rem 0;
-      font-size: 1.1rem;
+      font-size: clamp(1rem, 3vw, 1.1rem);
       color: #4da6ff;
     }
 
     .video-item p {
-      font-size: 0.9rem;
+      font-size: clamp(0.85rem, 2.5vw, 0.9rem);
       color: #bbb;
       margin: 0;
+      line-height: 1.4;
     }
 
     .box {
@@ -190,8 +212,9 @@
     }
 
     .box h3 {
-      margin-bottom: 0.5rem;
+      margin-bottom: 1rem;
       color: #4da6ff;
+      font-size: clamp(1.2rem, 4vw, 1.4rem);
     }
 
     .box ul, .box ol {
@@ -199,29 +222,52 @@
     }
 
     .box li {
-      margin-bottom: 0.6rem;
+      margin-bottom: 0.8rem;
+      font-size: clamp(0.9rem, 2.5vw, 1rem);
+      line-height: 1.5;
+    }
+
+    .box strong {
+      color: #4da6ff;
+    }
+
+    .box code {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.9em;
     }
 
     .btn-download {
-      margin-top: 1rem;
-      padding: 0.7rem 1.5rem;
-      font-size: 0.95rem;
+      margin-top: 1.5rem;
+      padding: 0.8rem 2rem;
+      font-size: clamp(0.9rem, 3vw, 1rem);
       border: none;
       border-radius: 25px;
       background: #4da6ff;
       color: #fff;
       cursor: pointer;
-      transition: 0.3s;
+      transition: all 0.3s ease;
+      width: 100%;
+      max-width: 250px;
+      font-weight: 600;
     }
 
     .btn-download:hover {
       background: #3385cc;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(77, 166, 255, 0.3);
+    }
+
+    .btn-download:active {
+      transform: translateY(0);
     }
 
     footer {
       margin-top: 2rem;
-      font-size: 0.85rem;
+      font-size: clamp(0.8rem, 2vw, 0.9rem);
       color: #777;
+      padding: 1rem;
     }
 
     .hover-hint {
@@ -241,15 +287,183 @@
       opacity: 1;
     }
 
-    @media (max-width: 768px) {
+    /* Mobile-first responsive design */
+    @media (max-width: 480px) {
+      body {
+        padding: 0.5rem;
+      }
+
+      .content {
+        gap: 1rem;
+      }
+
+      .video-demo-section {
+        padding: 0.8rem;
+        margin-bottom: 1rem;
+      }
+
       .video-grid {
         grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+
+      .video-item {
+        padding: 0.8rem;
+      }
+
+      .video-item video {
+        max-height: 150px;
+      }
+
+      .box {
+        padding: 1rem;
+      }
+
+      .box ul, .box ol {
+        padding-left: 1rem;
+      }
+
+      .btn-download {
+        padding: 0.7rem 1.5rem;
+        width: 100%;
+        max-width: none;
+      }
+
+      .enlarged-video-container {
+        max-width: 95vw;
+        max-height: 70vh;
+        padding: 0.8rem;
+      }
+
+      .enlarged-video-container video {
+        max-height: 50vh;
+      }
+
+      .close-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 16px;
+      }
+
+      .hover-hint {
+        display: none; /* Hide on mobile since hover doesn't work well */
+      }
+
+      /* Make videos clickable on mobile with better visual feedback */
+      .video-item::before {
+        content: '▶';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 2rem;
+        color: rgba(77, 166, 255, 0.8);
+        z-index: 2;
+        opacity: 0.7;
+        pointer-events: none;
+      }
+
+      .video-item:active {
+        transform: scale(0.98);
+      }
+    }
+
+    /* Tablet responsive design */
+    @media (min-width: 481px) and (max-width: 1024px) {
+      .video-grid {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.2rem;
+      }
+
+      .video-item {
+        padding: 1rem;
+      }
+
+      .box {
+        padding: 1.3rem;
+      }
+
+      .enlarged-video-container {
+        max-width: 85vw;
+        max-height: 75vh;
+      }
+    }
+
+    /* Desktop responsive design */
+    @media (min-width: 1025px) {
+      body {
+        padding: 2rem;
+      }
+
+      .content {
+        gap: 2rem;
+      }
+
+      .video-demo-section {
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+      }
+
+      .video-grid {
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      }
+
+      .video-item video {
+        max-height: 250px;
+      }
+
+      .btn-download {
+        width: auto;
+      }
+
+      .enlarged-video-container {
+        max-width: 70vw;
+        max-height: 70vh;
+      }
+    }
+
+    /* Large desktop screens */
+    @media (min-width: 1400px) {
+      .video-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    /* Ensure touch targets are large enough on mobile */
+    @media (max-width: 768px) {
+      .video-item, .btn-download, .close-btn {
+        min-height: 44px;
+      }
+    }
+
+    /* High DPI displays */
+    @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 2dppx) {
+      .video-item video {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+      }
+    }
+
+    /* Reduced motion preferences */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
       }
       
-      .enlarged-video-container {
-        max-width: 90vw;
-        max-height: 60vh;
+      .video-item:hover {
+        transform: none;
       }
+      
+      .btn-download:hover {
+        transform: none;
+      }
+    }
+
+    /* Dark mode support (system preference) */
+    @media (prefers-color-scheme: light) {
+      /* Keep dark theme as intended */
     }
   </style>
 </head>
@@ -261,13 +475,13 @@
   </header>
 
   <div class="content">
-
+    <!-- Video Demonstration Section -->
     <section class="video-demo-section">
       <h3>Discover TrustMeter's Features</h3>
       <div class="video-grid">
-
+        <!-- Video 1: Text Verification -->
         <div class="video-item" data-title="Text Verification" data-description="Instantly spot misleading or biased claims with AI-powered analysis.">
-          <div class="hover-hint">Hover to preview</div>
+          <div class="hover-hint">Click to expand</div>
           <video muted loop playsinline>
             <source src="textVerification.mp4" type="video/mp4">
             Your browser does not support the video tag.
@@ -277,7 +491,7 @@
         </div>
         
         <div class="video-item" data-title="Image Authenticity" data-description="Detect fake or AI-generated visuals directly on any webpage.">
-          <div class="hover-hint">Hover to preview</div>
+          <div class="hover-hint">Click to expand</div>
           <video muted loop playsinline>
             <source src="imageVerification.mp4" type="video/mp4">
             Your browser does not support the video tag.
@@ -287,7 +501,7 @@
         </div>
     
         <div class="video-item" data-title="Trust Score & Explanations" data-description="AI-powered credibility check for any website, in seconds.">
-          <div class="hover-hint">Hover to preview</div>
+          <div class="hover-hint">Click to expand</div>
           <video muted loop playsinline>
             <source src="websiteCheck.mp4" type="video/mp4">
             Your browser does not support the video tag.
@@ -298,9 +512,10 @@
       </div>
     </section>
 
+    <!-- Enhanced enlarged video overlay -->
     <div class="enlarged-video-overlay" id="enlargedVideoOverlay">
       <div class="enlarged-video-container">
-        <button class="close-btn" onclick="closeEnlargedVideo()">&times;</button>
+        <button class="close-btn" onclick="closeEnlargedVideo()" aria-label="Close video">&times;</button>
         <video id="enlargedVideo" muted loop playsinline></video>
         <div class="video-info">
           <h4 id="enlargedVideoTitle"></h4>
@@ -309,6 +524,7 @@
       </div>
     </div>
 
+    <!-- Features -->
     <section class="box">
       <h3>Key Features</h3>
       <ul>
@@ -320,6 +536,7 @@
       </ul>
     </section>
 
+    <!-- Installation Steps -->
     <section class="box">
       <h3>How to Install</h3>
       <ol>
@@ -343,6 +560,7 @@
       window.location.href = "https://github.com/akshaynair5/H2S_hackathon/archive/refs/heads/main.zip";
     }
 
+    // Enhanced video functionality for mobile and desktop
     const videoItems = document.querySelectorAll('.video-item');
     const enlargedVideoOverlay = document.getElementById('enlargedVideoOverlay');
     const enlargedVideo = document.getElementById('enlargedVideo');
@@ -351,61 +569,83 @@
 
     let hoverTimeout;
     let isVideoEnlarged = false;
+    let isMobile = window.matchMedia('(max-width: 768px)').matches;
+
+    // Update mobile detection on resize
+    window.addEventListener('resize', () => {
+      isMobile = window.matchMedia('(max-width: 768px)').matches;
+    });
 
     videoItems.forEach(videoItem => {
       const video = videoItem.querySelector('video');
       
-      videoItem.addEventListener('mouseenter', () => {
+      // Desktop hover behavior
+      if (!isMobile) {
+        videoItem.addEventListener('mouseenter', () => {
+          clearTimeout(hoverTimeout);
+          
+          hoverTimeout = setTimeout(() => {
+            if (!isVideoEnlarged) {
+              showEnlargedVideo(videoItem, video);
+            }
+          }, 300);
+          
+          video.play().catch(e => console.log('Video play failed:', e));
+        });
 
-        clearTimeout(hoverTimeout);
+        videoItem.addEventListener('mouseleave', () => {
+          clearTimeout(hoverTimeout);
+          video.pause();
+          
+          setTimeout(() => {
+            if (isVideoEnlarged && !enlargedVideoOverlay.matches(':hover')) {
+              hideEnlargedVideo();
+            }
+          }, 200);
+        });
+      }
 
-        hoverTimeout = setTimeout(() => {
-          if (!isVideoEnlarged) {
-            showEnlargedVideo(videoItem, video);
-          }
-        }, 300);
-
-        video.play().catch(e => console.log('Video play failed:', e));
+      // Click behavior (works on both mobile and desktop)
+      videoItem.addEventListener('click', (e) => {
+        e.preventDefault();
+        showEnlargedVideo(videoItem, video);
       });
 
-      videoItem.addEventListener('mouseleave', () => {
+      // Touch events for better mobile experience
+      videoItem.addEventListener('touchstart', () => {
+        video.play().catch(e => console.log('Video play failed:', e));
+      });
+    });
 
-        clearTimeout(hoverTimeout);
-
-        video.pause();
-        
+    // Handle mouse leave from enlarged video (desktop only)
+    if (!isMobile) {
+      enlargedVideoOverlay.addEventListener('mouseleave', () => {
         setTimeout(() => {
-          if (isVideoEnlarged && !enlargedVideoOverlay.matches(':hover')) {
+          if (isVideoEnlarged && !document.querySelector('.video-item:hover')) {
             hideEnlargedVideo();
           }
         }, 200);
       });
-
-      videoItem.addEventListener('click', () => {
-        showEnlargedVideo(videoItem, video);
-      });
-    });
-
-    enlargedVideoOverlay.addEventListener('mouseleave', () => {
-      setTimeout(() => {
-        if (isVideoEnlarged && !document.querySelector('.video-item:hover')) {
-          hideEnlargedVideo();
-        }
-      }, 200);
-    });
+    }
 
     function showEnlargedVideo(videoItem, originalVideo) {
       const videoSource = originalVideo.querySelector('source');
       const title = videoItem.getAttribute('data-title');
       const description = videoItem.getAttribute('data-description');
       
+      // Set video source and info
       enlargedVideo.src = videoSource.src;
       enlargedVideoTitle.textContent = title;
       enlargedVideoDescription.textContent = description;
-
+      
+      // Show overlay
       enlargedVideoOverlay.classList.add('active');
       isVideoEnlarged = true;
-
+      
+      // Prevent body scroll on mobile
+      document.body.style.overflow = 'hidden';
+      
+      // Play enlarged video
       enlargedVideo.play().catch(e => console.log('Enlarged video play failed:', e));
     }
 
@@ -414,155 +654,60 @@
       enlargedVideo.pause();
       enlargedVideo.src = '';
       isVideoEnlarged = false;
+      
+      // Restore body scroll
+      document.body.style.overflow = '';
     }
 
     function closeEnlargedVideo() {
       hideEnlargedVideo();
     }
 
+    // Close on escape key
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && isVideoEnlarged) {
         closeEnlargedVideo();
       }
     });
 
+    // Close when clicking outside the video container
     enlargedVideoOverlay.addEventListener('click', (e) => {
       if (e.target === enlargedVideoOverlay) {
         closeEnlargedVideo();
       }
     });
-  </script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>TrustMeter - Browser Extension</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background-color: #111;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      min-height: 100vh;
-      text-align: center;
-      padding: 2rem;
-    }
 
-    header {
-      margin-bottom: 2rem;
-    }
+    // Handle orientation change on mobile
+    window.addEventListener('orientationchange', () => {
+      if (isVideoEnlarged) {
+        setTimeout(() => {
+          // Adjust video container size after orientation change
+          const container = document.querySelector('.enlarged-video-container');
+          if (container) {
+            container.style.maxWidth = 'min(95vw, 800px)';
+            container.style.maxHeight = 'min(80vh, 600px)';
+          }
+        }, 100);
+      }
+    });
 
-    h1 {
-      font-size: 2.2rem;
-      margin-bottom: 0.5rem;
-    }
+    // Improved touch handling for mobile
+    let touchStartTime;
+    videoItems.forEach(videoItem => {
+      videoItem.addEventListener('touchstart', (e) => {
+        touchStartTime = Date.now();
+      });
 
-    h2 {
-      font-size: 1rem;
-      font-weight: normal;
-      color: #bbb;
-      margin: 0.3rem 0;
-    }
-
-    .content {
-      display: flex;
-      justify-content: center;
-      gap: 2rem;
-      max-width: 1200px;
-      width: 100%;
-    }
-
-    .box {
-      flex: 1;
-      background: rgba(255, 255, 255, 0.05);
-      padding: 1.5rem;
-      border-radius: 12px;
-      text-align: left;
-    }
-
-    .box h3 {
-      margin-bottom: 0.5rem;
-      color: #4da6ff;
-    }
-
-    .box ul, .box ol {
-      padding-left: 1.2rem;
-    }
-
-    .box li {
-      margin-bottom: 0.6rem;
-    }
-
-    .btn-download {
-      margin-top: 1rem;
-      padding: 0.7rem 1.5rem;
-      font-size: 0.95rem;
-      border: none;
-      border-radius: 25px;
-      background: #4da6ff;
-      color: #fff;
-      cursor: pointer;
-      transition: 0.3s;
-    }
-
-    .btn-download:hover {
-      background: #3385cc;
-    }
-
-    footer {
-      margin-top: 2rem;
-      font-size: 0.85rem;
-      color: #777;
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>TrustMeter</h1>
-    <h2>AI-Powered Browser Extension for Truth & Transparency</h2>
-    <h2>Problem Statement: Combating Misinformation in Real-Time</h2>
-  </header>
-
-  <div class="content">
-    <section class="box">
-      <h3>Key Features</h3>
-      <ul>
-        <li><strong>Text Verification</strong> → Spot misleading or biased claims instantly.</li>
-        <li><strong>Image Authenticity</strong> → Detect fake, altered, or AI-generated visuals.</li>
-        <li><strong>Trust Score + Explanations</strong> → Clear reasoning and credible sources.</li>
-        <li><strong>On-Page Transparency</strong> → Results shown directly in your browser.</li>
-        <li><strong>Real-Time Analysis</strong> → Powered by AI + Google Cloud Vision APIs.</li>
-      </ul>
-    </section>
-
-    <section class="box">
-      <h3>How to Install</h3>
-      <ol>
-        <li>Click the download button below.</li>
-        <li>Unzip the downloaded file (it contains the <code>/app</code> folder).</li>
-        <li>Open Chrome and go to <strong>chrome://extensions/</strong>.</li>
-        <li>Enable <strong>Developer mode</strong> (top right corner).</li>
-        <li>Click <strong>Load unpacked</strong> and select the <code>/app</code> folder.</li>
-        <li>The extension will now appear in your browser.</li>
-      </ol>
-      <button class="btn-download" onclick="downloadExtension()">⬇ Download Extension</button>
-    </section>
-  </div>
-
-  <footer>
-    Built for the GenAI Hackathon | Team IPV3
-  </footer>
-
-  <script>
-    function downloadExtension() {
-      window.location.href = "https://github.com/akshaynair5/H2S_hackathon/archive/refs/heads/main.zip";
-    }
+      videoItem.addEventListener('touchend', (e) => {
+        const touchDuration = Date.now() - touchStartTime;
+        // Only trigger if it's a quick tap (not a scroll)
+        if (touchDuration < 200) {
+          e.preventDefault();
+          const video = videoItem.querySelector('video');
+          showEnlargedVideo(videoItem, video);
+        }
+      });
+    });
   </script>
 </body>
 </html>

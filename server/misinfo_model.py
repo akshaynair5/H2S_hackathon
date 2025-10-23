@@ -7,17 +7,26 @@ import requests
 from functools import lru_cache
 from typing import List, Dict, Any
 from urllib.parse import urlparse
-from google.cloud import firestore
 from dotenv import load_dotenv
 from flask import Flask
 from sentence_transformers import SentenceTransformer, util
 import google.generativeai as genai
 import firebase_admin
 from firebase_admin import credentials, firestore
-from datetime import datetime
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import hashlib
+from vectorDb import (
+    embed_text,
+    store_feedback,
+    search_feedback_semantic,
+    pc, INDEX_NAME
+)
+from migration import generate_embedding
+from datetime import datetime, timedelta
+import aiohttp
+import asyncio
 
 # ------------- config & init -------------
 load_dotenv()
@@ -144,32 +153,34 @@ def load_credible_domains_cached() -> List[str]:
         _last_cache_time = now
     return _cached_domains
 
-def add_or_update_trusted_source(domain: str, new_score: float):
+def add_or_update_trusted_sources_batch(domain_scores: Dict[str, float]):
     """
-    Add a new domain or update an existing one with incremental averaging.
-    Only stores domain and aggregate score (no user info).
+    Batch update Firestore for multiple domains at once.
+    domain_scores: {domain: new_score, ...}
     """
-    domain = domain.lower().strip()
-    doc_ref = db.collection("news_sources").document(domain)
-    doc = doc_ref.get()
-
-    if doc.exists:
-        data = doc.to_dict()
-        current_avg = data.get("avg_score", 0.0)
-        num_votes = data.get("num_votes", 0)
-        # incremental average
-        updated_avg = round((current_avg * num_votes + new_score) / (num_votes + 1), 3)
-        doc_ref.update({
-            "avg_score": updated_avg,
-            "num_votes": num_votes + 1,
-            "last_updated": datetime.utcnow()
-        })
-    else:
-        doc_ref.set({
-            "avg_score": round(new_score, 3),
-            "num_votes": 1,
-            "last_updated": datetime.utcnow()
-        })
+    batch = db.batch()
+    for domain, new_score in domain_scores.items():
+        domain = domain.lower().strip()
+        doc_ref = db.collection("news_sources").document(domain)
+        doc = doc_ref.get()
+        if doc.exists:
+            data = doc.to_dict()
+            current_avg = data.get("avg_score", 0.0)
+            num_votes = data.get("num_votes", 0)
+            updated_avg = round((current_avg * num_votes + new_score) / (num_votes + 1), 3)
+            batch.update(doc_ref, {
+                "avg_score": updated_avg,
+                "num_votes": num_votes + 1,
+                "last_updated": datetime.utcnow()
+            })
+        else:
+            batch.set(doc_ref, {
+                "avg_score": round(new_score, 3),
+                "num_votes": 1,
+                "last_updated": datetime.utcnow()
+            })
+    batch.commit()
+    invalidate_domain_cache()
 
 # ---------------- Gemini helper ----------------
 @retry
@@ -217,10 +228,10 @@ def extract_metadata_with_gemini(text: str) -> dict:
         }
 
 # ---------------- Vertex AI ----------------
+@retry
 def predict_with_vertex_ai(metadata: dict) -> dict:
     headers = {"Authorization": f"Bearer {get_access_token()}", "Content-Type": "application/json"}
     response = requests.post(PREDICT_URL, headers=headers, json={"instances": [metadata]}, timeout=15)
-    print(response.text)
     if response.status_code != 200:
         raise Exception(f"Vertex AI Error {response.status_code}: {response.text}")
     return response.json()
@@ -239,29 +250,62 @@ def extract_vertex_scores(vertex_result: dict) -> dict:
     except Exception:
         return {"Real": 0.7, "Fake": 0.3, "Misleading": 0.0}
 
+def clear_cache_for_text(text: str) -> bool:
+    """
+    Deletes cached Pinecone entries semantically matching the input text.
+    Used to force a re-analysis if misinformation data has been updated.
+    Returns True if a cache entry was found and deleted, else False.
+    """
+    try:
+        # Generate embedding for similarity search
+        query_emb = embed_text(text)
+        if not query_emb:
+            print("[Cache Clear] Could not generate embedding.")
+            return False
+
+        # Query top match from Pinecone
+        index = pc.Index(INDEX_NAME)
+        search = index.query(vector=query_emb, top_k=1, include_metadata=True)
+
+        if not search.matches:
+            print("[Cache Clear] No similar cache entry found.")
+            return False
+
+        match_id = search.matches[0].id
+        index.delete(ids=[match_id])
+        print(f"[Cache Clear] Deleted Pinecone entry: {match_id}")
+        return True
+
+    except Exception as e:
+        print(f"[Cache Clear Error] {e}")
+        return False
+
 
 def adjusted_ensemble(gem_pred: str, gem_conf: int, vertex_scores: dict, threshold=0.165) -> (str, int):
     """
     Combine Gemini and Vertex AI predictions with soft thresholding.
-    Only label as Fake if vertex C_fake - C_real > threshold.
+    Handles Real, Fake, Misleading properly.
     """
     C_real = vertex_scores.get("Real", 0.7)
     C_fake = vertex_scores.get("Fake", 0.3)
+    C_mis = vertex_scores.get("Misleading", 0.0)
 
-    if C_fake - C_real > threshold:
-        vertex_label = "Fake"
-        vertex_conf = int((C_fake - C_real) * 100)
-    else:
-        vertex_label = "Real"
-        vertex_conf = int(C_real * 100)
+    # Decide vertex label
+    max_vertex = max(("Real", C_real), ("Fake", C_fake), ("Misleading", C_mis), key=lambda x: x[1])
+    vertex_label, vertex_conf = max_vertex[0], int(max_vertex[1] * 100)
 
+    # Weighted final confidence
     final_conf = int(0.6 * gem_conf + 0.4 * vertex_conf)
 
-    # Decide final prediction
-    if vertex_label == "Fake" and gem_pred == "Fake":
-        final_pred = "Fake"
-    elif vertex_label == "Real" and gem_pred == "Real":
-        final_pred = "Real"
+    # Ensemble decision rules
+    if gem_pred == vertex_label:
+        final_pred = gem_pred
+    elif "Misleading" in (gem_pred, vertex_label):
+        # Prefer Misleading if either predicts it and confidence > 50
+        if final_conf > 50:
+            final_pred = "Misleading"
+        else:
+            final_pred = gem_pred if gem_conf >= vertex_conf else vertex_label
     else:
         final_pred = gem_pred if gem_conf >= vertex_conf else vertex_label
 
@@ -302,53 +346,56 @@ def get_domain_bonus(domain: str) -> float:
         print(f"⚠️ Domain bonus fetch failed for {domain}: {e}")
         return 0.0
 
-def corroborate_all_with_google(claims: List[str]) -> Dict[str, Any]:
-    """Perform a Google search for each claim and return structured evidence."""
+async def fetch_google(session, query):
+    try:
+        async with session.get(
+            "https://www.googleapis.com/customsearch/v1",
+            params={"key": GOOGLE_KEY, "cx": CX_ID, "q": query, "num": MAX_SEARCH_RESULTS},
+            timeout=10
+        ) as resp:
+            data = await resp.json()
+            return data.get("items", [])
+    except Exception:
+        return []
+
+async def corroborate_all_with_google_async(claims: List[str]) -> Dict[str, Any]:
     evidences = []
-    CREDIBLE_DOMAINS = load_credible_domains_cached()  # ✅ now cached for 5 min
+    CREDIBLE_DOMAINS = load_credible_domains_cached()
+    domain_updates: Dict[str, float] = {}
 
-    for claim in claims:
-        site_filter = " OR ".join([f"site:{d}" for d in CREDIBLE_DOMAINS])
-        query = f'"{claim}" {site_filter} (news OR report OR article)'
-        try:
-            resp = requests.get(
-                "https://www.googleapis.com/customsearch/v1",
-                params={
-                    "key": GOOGLE_KEY,
-                    "cx": CX_ID,
-                    "q": query,
-                    "num": MAX_SEARCH_RESULTS,
-                },
-                timeout=8
-            )
-            resp.raise_for_status()
-            items = resp.json().get("items", [])
-        except Exception:
-            items = []
+    NEWS_KEYWORDS = [
+        "report", "reports", "reported",
+        "say", "says", "said",
+        "announce", "announces", "announced",
+        "state", "states", "stated",
+        "claim", "claims", "claimed",
+        "confirm", "confirms", "confirmed",
+        "according to", "according",
+        "told", "revealed", "issued", "released",
+        "declared", "denied", "explained", "described",
+        "statement from", "spokesperson", "press release",
+        "officials", "authorities", "investigation", "evidence"
+    ]
 
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for claim in claims:
+            site_filter = " OR ".join([f"site:{d}" for d in CREDIBLE_DOMAINS])
+            query = f'"{claim}" {site_filter} (news OR report OR article)'
+            tasks.append(fetch_google(session, query))
+        
+        results = await asyncio.gather(*tasks)
+
+    for claim, items in zip(claims, results):
+        # original processing logic below remains the same
         claim_emb = get_embedding(claim)
         claim_evidences = []
-        unique_domains = set()
 
         for it in items:
             link = it.get("link", "")
-            domain = urlparse(link).netloc
+            domain = urlparse(link).netloc.lower()
             snippet = html.unescape(it.get("snippet", ""))[:400]
-            NEWS_KEYWORDS = [
-                "report", "reports", "reported",
-                "say", "says", "said",
-                "announce", "announces", "announced",
-                "state", "states", "stated",
-                "claim", "claims", "claimed",
-                "confirm", "confirms", "confirmed",
-                "according to", "according",
-                "told", "revealed", "issued", "released",
-                "declared", "denied", "explained", "described",
-                "statement from", "spokesperson", "press release",
-                "officials", "authorities", "investigation", "evidence"
-            ]
 
-            # Only consider domains in our credible list
             if not any(d in domain for d in CREDIBLE_DOMAINS):
                 continue
             if not any(k in snippet.lower() for k in NEWS_KEYWORDS):
@@ -370,17 +417,16 @@ def corroborate_all_with_google(claims: List[str]) -> Dict[str, Any]:
                 "similarity": round(similarity, 3),
                 "evidence_score": evidence_score
             })
-            unique_domains.add(domain)
-
-            # ✅ Update Firestore with new score and invalidate cache
-            try:
-                add_or_update_trusted_source(domain, evidence_score)
-                invalidate_domain_cache()
-            except Exception as e:
-                print(f"⚠️ Firestore update failed for {domain}: {e}")
+            domain_updates[domain] = evidence_score
 
         top_evidences = sorted(claim_evidences, key=lambda x: x["evidence_score"], reverse=True)[:3]
         evidences.extend(top_evidences)
+
+    if domain_updates:
+        try:
+            add_or_update_trusted_sources_batch(domain_updates)
+        except Exception as e:
+            print(f"⚠️ Firestore batch update failed: {e}")
 
     status = "corroborated" if len(set([urlparse(e["link"]).netloc for e in evidences])) >= 2 else \
              "weak" if evidences else "no_results"
@@ -390,27 +436,15 @@ def corroborate_all_with_google(claims: List[str]) -> Dict[str, Any]:
 # ---------------- Gemini prompt ----------------
 
 def extract_local_context(claim: str, full_text: str, window: int = 2) -> str:
-    """
-    Extracts 2-3 sentences surrounding the claim from the full text.
-    Keeps context compact but meaningful.
-    """
-    # Split text into sentences (basic, efficient regex)
     sentences = re.split(r'(?<=[.!?])\s+', full_text.strip())
-
-    # Find where the claim likely occurs
     best_idx = 0
     for i, sent in enumerate(sentences):
-        if claim.strip()[:30].lower() in sent.lower():
+        if claim.strip()[:min(30, len(claim))].lower() in sent.lower():
             best_idx = i
             break
-
-    # Select surrounding sentences (window before & after)
     start = max(0, best_idx - window)
     end = min(len(sentences), best_idx + window + 1)
-
-    context_sentences = sentences[start:end]
-    local_context = " ".join(context_sentences)
-    return local_context[:1200]  # cap context length (to prevent prompt bloat)
+    return " ".join(sentences[start:end])[:1200]
 
 def assemble_gemini_prompt_structured(claim: str, evidences: List[Dict[str, Any]], status: str, full_text: str = "") -> str:
     today_str = datetime.now().strftime("%B %d, %Y")
@@ -452,78 +486,109 @@ Example output:
 
 Return only valid JSON.
 """
-
+    
 def detect_fake_text(text: str) -> dict:
+    """
+    Detects misinformation using Vertex AI, Gemini, corroboration,
+    integrates vector DB (Pinecone) caching + Firestore embeddings,
+    with robust ensemble, domain credibility bonus, and batching.
+    """
+
     start_total = time.time()
 
-    # Fix spacing between sentences
+    # --- STEP 0: Try retrieving cached result from Pinecone ---
+    try:
+        cached = search_feedback_semantic(text)
+        if cached and "score" in cached:
+            if "timestamp" in cached:
+                try:
+                    cached_time = datetime.fromisoformat(cached["timestamp"])
+                    if datetime.utcnow() - cached_time > timedelta(days=7):
+                        print("[Cache Expired] Cached result older than 7 days, re-analyzing.")
+                        if "clear_cache_for_text" in globals():
+                            clear_cache_for_text(text)
+                except Exception as e:
+                    print(f"[Cache Expiry Check Failed] {e}")
+
+            print("[Cache Hit] Returning result from Pinecone vector DB.")
+            return {
+                "summary": {
+                    "score": cached.get("score", 0),
+                    "prediction": cached.get("prediction", "Unknown"),
+                    "explanation": cached.get("explanation", "Retrieved from cache."),
+                    "source": "cache"
+                },
+                "runtime": 0,
+                "claims_checked": 0,
+                "raw_details": []
+            }
+    except Exception as e:
+        print(f"[Cache Lookup Failed] {e}")
+
+    # --- STEP 1: Clean + preprocess text ---
     text = re.sub(r"(?<=[a-zA-Z])\.(?=[A-Z])", ". ", text)
-    
-    # Extract metadata via Gemini
+
+    # --- STEP 2: Metadata extraction (Gemini) ---
     metadata = extract_metadata_with_gemini(text)
-    
-    # Vertex AI prediction
+
+    # --- STEP 3: Vertex AI prediction ---
     vertex_result = predict_with_vertex_ai(metadata)
     vertex_scores = extract_vertex_scores(vertex_result)
 
-    # Split into claims
+    # --- STEP 4: Split into claims ---
     claims = simple_sentence_split(metadata["text"])
-    
-    # Corroboration from Google
-    corroboration_data = corroborate_all_with_google(claims)
+
+    # --- STEP 5: Corroboration from Google ---
+    corroboration_data = asyncio.run(corroborate_all_with_google_async(claims))
+
+    # --- STEP 6: Parallel Gemini checks for claims ---
+    def process_claim(claim: str):
+        gem_resp = ask_gemini_structured(
+            assemble_gemini_prompt_structured(
+                claim,
+                corroboration_data["evidences"],
+                corroboration_data["status"],
+                full_text=metadata["text"]
+            )
+        )
+        parsed = gem_resp.get("parsed", {})
+        gem_pred = parsed.get("prediction", "Unknown")
+        gem_conf = int(parsed.get("confidence", 70))
+        explanation = parsed.get("explanation", "Based on available evidence.")
+
+        final_pred, final_conf = adjusted_ensemble(gem_pred, gem_conf, vertex_scores)
+
+        return {
+            "claim_text": claim,
+            "gemini": parsed,
+            "vertex_ai": vertex_result,
+            "corroboration": corroboration_data,
+            "ensemble": {
+                "final_prediction": final_pred,
+                "final_confidence": final_conf,
+                "combined_score": round(final_conf / 100, 3)
+            },
+            "explanation": explanation,
+            "evidence": corroboration_data["evidences"]
+        }, final_conf, final_pred, explanation
 
     results, overall_scores, preds, explanations = [], [], [], []
 
-    # Parallel Gemini checks for claims
     with ThreadPoolExecutor(max_workers=4) as executor:
-        futures = {
-            executor.submit(
-                lambda c: (
-                    c,
-                    ask_gemini_structured(assemble_gemini_prompt_structured(
-                        c,
-                        corroboration_data["evidences"],
-                        corroboration_data["status"],
-                        full_text=metadata["text"]
-                    ))
-                ),
-                c
-            ): c for c in claims
-        }
-
-        for future in as_completed(futures):
-            claim, gem_resp = future.result()
-            parsed = gem_resp.get("parsed", {})
-            gem_pred = parsed.get("prediction", "Unknown")
-            gem_conf = int(parsed.get("confidence", 70))
-            explanation = parsed.get("explanation", "Based on available evidence.")
-
-            final_pred, final_conf = adjusted_ensemble(gem_pred, gem_conf, vertex_scores)
-
-            results.append({
-                "claim_text": claim,
-                "gemini": parsed,
-                "vertex_ai": vertex_result,
-                "corroboration": corroboration_data,
-                "ensemble": {
-                    "final_prediction": final_pred,
-                    "final_confidence": final_conf,
-                    "combined_score": round(final_conf / 100, 3)
-                },
-                "explanation": explanation,
-                "evidence": corroboration_data["evidences"]
-            })
-
+        future_to_claim = {executor.submit(process_claim, claim): claim for claim in claims}
+        for future in as_completed(future_to_claim):
+            res, final_conf, final_pred, explanation = future.result()
+            results.append(res)
             overall_scores.append(final_conf)
             preds.append(final_pred)
             explanations.append(explanation)
 
-    # -------- Combine results into simplified article-level summary --------
+    # --- STEP 7: Article-level summary ---
     overall_conf = int(sum(overall_scores) / len(overall_scores)) if overall_scores else 0
     overall_label = max(set(preds), key=preds.count) if preds else "Unknown"
     combined_explanation = " | ".join(explanations[:3]) if explanations else "No detailed explanation available."
 
-    # --- Apply very small domain credibility bonus ---
+    # --- STEP 8: Domain credibility bonus ---
     source_domain = domain_from_url(metadata.get("source", ""))
     domain_bonus = get_domain_bonus(source_domain)
     if domain_bonus > 0:
@@ -536,6 +601,36 @@ def detect_fake_text(text: str) -> dict:
         "prediction": overall_label,
         "explanation": combined_explanation,
     }
+
+    # --- STEP 9: Store embedding + verification in Firestore (deduplicated) ---
+    try:
+        embedding = generate_embedding(text)
+        if db:
+            doc_id = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            db.collection("articles").document(doc_id).set({
+                "text": text,
+                "embedding": embedding,
+                "verified": True,
+                "score": overall_conf,
+                "label": overall_label,
+                "timestamp": firestore.SERVER_TIMESTAMP
+            })
+    except Exception as e:
+        print(f"[Firestore Embedding Storage Failed] {e}")
+
+    # --- STEP 10: Cache final result in Pinecone ---
+    try:
+        store_feedback(
+            text=text,
+            explanation=combined_explanation,
+            sources=[],
+            user_fingerprint="system",
+            score=overall_conf / 100,
+            prediction=overall_label,
+            verified=True
+        )
+    except Exception as e:
+        print(f"[Pinecone Cache Store Failed] {e}")
 
     return {
         "summary": result_summary,
