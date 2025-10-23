@@ -64,8 +64,10 @@ function displayResult(result) {
   resultsDiv.classList.add("show");
   resultsDiv.classList.remove("hidden");
   resultsDiv.innerHTML = "";
-
+ console.log("Result is  " , result)
   const prediction = result.details[0]?.prediction || "Unknown";
+  
+  console.log("Prediction " , prediction)
   const explanation = result.explanation || "No explanation provided";
   const text = result.text || "unknown";
 
@@ -88,7 +90,7 @@ function displayResult(result) {
   `;
 
   if (prediction.toLowerCase() === "fake" || prediction.toLowerCase() === "misleading") {
-   setTimeout(function() { showConfirmationPopup(text, explanation); }, 6000);
+   setTimeout(function() { showConfirmationPopup(text, explanation); }, 20000);
    
   }
   console.log("Text is ", text);
@@ -200,9 +202,10 @@ document.getElementById("checkText").addEventListener("click", async () => {
       }
 
       startFactsRotation();
-
+      console.log("URL IS " , tab.url)
+      
       chrome.runtime.sendMessage(
-        { type: "ANALYZE_TEXT", payload: { text: textContent } },
+        { type: "ANALYZE_TEXT", payload: { text: textContent , url: tab.url } },
         (response) => {
           loading.classList.remove("show");
           stopFactsRotation();

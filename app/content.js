@@ -355,7 +355,7 @@ function analyzeImagesNow() {
 
       response.forEach((imgResult, idx) => {
         const imgUrl = visibleImages[idx];
-        const validity = normalizeScore(imgResult.score);
+        const aiLikelihood = normalizeScore(imgResult.score);  // Backend: high = AI-generated
         const imgEntry = document.createElement("div");
         
         Object.assign(imgEntry.style, {
@@ -365,10 +365,10 @@ function analyzeImagesNow() {
           borderTop: idx > 0 ? "1px solid rgba(0,0,0,0.1)" : "none"
         });
         
-        let validityText = `Validity: <strong>${validity}%</strong>`;
+        let validityText = `<strong>Real Image</strong>`;
         let highlightStyle = "";
-        if (validity < 45) {
-          validityText = `AI Generated <strong>(${validity}%)</strong>`;
+        if (aiLikelihood > 55) {  // FIXED: Threshold on AI likelihood (high = AI)
+          validityText = `<strong>AI Generated</strong>`;
           highlightStyle = "background-color: #fee2e2; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #c42f2f;";
         }
         
@@ -376,12 +376,15 @@ function analyzeImagesNow() {
           <img src="${imgUrl}" style="max-width:80px; max-height:50px; margin-right:12px; border-radius:4px; object-fit:cover;">
           <span style="${highlightStyle}">${validityText}</span>
         `;
-        if (validity >= 75) imgEntry.style.color = "#0b8043";
-        else if (validity >= 45) imgEntry.style.color = "#e09b00";
-        else imgEntry.style.color = "#c42f2f";
+        // Color based on AI likelihood (inverted for trust: low AI = green)
+        if (aiLikelihood <= 25) imgEntry.style.color = "#0b8043";  // Very low AI = green
+        else if (aiLikelihood <= 55) imgEntry.style.color = "#e09b00";  // Medium
+        else imgEntry.style.color = "#c42f2f";  // High AI = red
 
         container.appendChild(imgEntry);
-        collectedScores.push(validity);
+        // Push inverted trust score for overall average (high trust = low AI)
+        const trustScore = 100 - aiLikelihood;
+        collectedScores.push(trustScore);
         updateBadge();
       });
     }
@@ -404,7 +407,7 @@ chrome.runtime.onMessage.addListener(message => {
       const container = document.getElementById("image-results");
       if (container.textContent.includes("No images")) container.innerHTML = "";
 
-      const validity = normalizeScore(score);
+      const aiLikelihood = normalizeScore(score);  // Backend: high = AI-generated
       const imgEntry = document.createElement("div");
       Object.assign(imgEntry.style, {
         display: "flex",
@@ -414,10 +417,10 @@ chrome.runtime.onMessage.addListener(message => {
           container.children.length > 0 ? "1px solid rgba(0,0,0,0.1)" : "none"
       });
       
-      let validityText = `Validity: <strong>${validity}%</strong>`;
+      let validityText = `<strong>Real Image</strong>`;
       let highlightStyle = "";
-      if (validity < 45) {
-        validityText = `AI Generated <strong>(${validity}%)</strong>`;
+      if (aiLikelihood > 55) {  // FIXED: Threshold on AI likelihood (high = AI)
+        validityText = `<strong>AI Generated</strong>`;
         highlightStyle = "background-color: #fee2e2; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #c42f2f;";
       }
       
@@ -425,12 +428,15 @@ chrome.runtime.onMessage.addListener(message => {
         <img src="${url}" style="max-width:80px; max-height:50px; margin-right:12px; border-radius:4px; object-fit:cover;">
         <span style="${highlightStyle}">${validityText}</span>
       `;
-      if (validity >= 75) imgEntry.style.color = "#0b8043";
-      else if (validity >= 45) imgEntry.style.color = "#e09b00";
-      else imgEntry.style.color = "#c42f2f";
+      // Color based on AI likelihood (inverted for trust: low AI = green)
+      if (aiLikelihood <= 25) imgEntry.style.color = "#0b8043";  // Very low AI = green
+      else if (aiLikelihood <= 55) imgEntry.style.color = "#e09b00";  // Medium
+      else imgEntry.style.color = "#c42f2f";  // High AI = red
 
       container.appendChild(imgEntry);
-      collectedScores.push(validity);
+      // Push inverted trust score for overall average (high trust = low AI)
+      const trustScore = 100 - aiLikelihood;
+      collectedScores.push(trustScore);
       updateBadge();
       break;
     }

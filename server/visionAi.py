@@ -18,6 +18,7 @@ Dependencies:
 """
 
 import io
+import os
 import math
 import logging
 from urllib.parse import urlparse
@@ -78,6 +79,12 @@ _CLASSIFIER = None
 _CLASSIFIER_EXTRACTOR = None
 _CLIP = None
 _CLIP_PROCESSOR = None
+
+
+#AI OR NOT 
+
+AINOT_API_KEY = os.getenv("AIORNOT_API_KEY")
+IMAGE_ENDPOINT = "https://api.aiornot.com/v2/image/sync"
 
 def init_models(classifier_name=DEFAULT_CLASSIFIER, clip_name=DEFAULT_CLIP, device: Optional[str]=None):
     """Initialize HF models (call once at process start)."""
@@ -225,305 +232,471 @@ def credibility_score(urls: List[str], credible_domains: List[str] = CREDIBLE_DO
     return min(1.0, score)
 
 # ---------- AI detection ensemble ----------
-def detect_ai_image(image_bytes: bytes, device: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Ensemble detection:
-    - Classifier + CLIP + entropy heuristic
-    """
-    if _CLASSIFIER is None or _CLIP is None:
-        init_models(device=device)
 
-    results = {"classifier_prob_ai": None, "clip_prob_ai": None, "entropy": None}
+# def detect_ai_image(image_bytes: bytes, device: Optional[str] = None) -> Dict[str, Any]:
+#     """
+#     Ensemble detection:
+#     - Classifier + CLIP + entropy heuristic
+#     """
+#     if _CLASSIFIER is None or _CLIP is None:
+#         init_models(device=device)
 
-    try:
-        # Ensure image is valid before running models
-        pil = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    except Exception as e:
-        logger.exception("AI detection failed at image decode: %s", e)
+#     results = {"api_ai_prob": None, "combined_ai_prob": None}
+
+#     try:
+#         # Ensure image is valid before running models
+#         pil = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+#     except Exception as e:
+#         logger.exception("AI detection failed at image decode: %s", e)
+#         results["combined_ai_prob"] = 0.5
+#         return results
+
+#     try:
+#         # ---- 1) classifier ----
+#         inputs = _CLASSIFIER_EXTRACTOR(images=pil, return_tensors="pt")
+#         for k, v in inputs.items():
+#             inputs[k] = v.to(_CLASSIFIER.device)
+#         with torch.no_grad():
+#             out = _CLASSIFIER(**inputs)
+#             logits = out.logits
+#             probs = torch.softmax(logits, dim=1)
+#             if probs.shape[1] >= 2:
+#                 classifier_ai_prob = float(probs[0][1].item())
+#             else:
+#                 top_prob = float(probs[0].max().item())
+#                 classifier_ai_prob = max(0.0, 1.0 - top_prob)
+#         results["classifier_prob_ai"] = classifier_ai_prob
+
+#         # ---- 2) CLIP zero-shot ----
+#         clip_inputs = _CLIP_PROCESSOR(
+#             text=["a real photograph", "a computer generated image", "an illustration"],
+#             images=pil,
+#             return_tensors="pt",
+#             padding=True
+#         )
+#         for k, v in clip_inputs.items():
+#             if isinstance(v, torch.Tensor):
+#                 clip_inputs[k] = v.to(_CLIP.device)
+#         with torch.no_grad():
+#             clip_out = _CLIP(**clip_inputs)
+#             image_embeds = clip_out.image_embeds
+#             text_embeds = clip_out.text_embeds
+#             image_embeds = image_embeds / image_embeds.norm(dim=-1, keepdim=True)
+#             text_embeds = text_embeds / text_embeds.norm(dim=-1, keepdim=True)
+#             sims = (image_embeds @ text_embeds.T).squeeze(0)
+#             clip_probs = torch.softmax(sims, dim=0).cpu().numpy().tolist()
+#             clip_ai_prob = float(clip_probs[1])  # index 1 = "computer generated image"
+#         results["clip_prob_ai"] = clip_ai_prob
+
+#         # ---- 3) entropy ----
+#         ent = image_entropy(pil)
+#         results["entropy"] = ent
+
+#         # ---- combine ----
+#         norm_entropy = max(0.0, min(1.0, 1.0 - (ent / 8.0)))
+#         combined = 0.45 * classifier_ai_prob + 0.45 * clip_ai_prob + 0.10 * norm_entropy
+#         results["combined_ai_prob"] = float(max(0.0, min(1.0, combined)))
+
+#     except Exception as e:
+#         logger.exception("AI detection failed: %s", e)
+#         results["combined_ai_prob"] = 0.5
+
+#     return results
+
+
+# NEW METHOD USING AIOR NOT
+
+# ---------- Core evaluation ----------
+# def _evaluate_single_image(url: str, use_gemini: bool = True) -> Dict[str, Any]:
+#     explanation_parts: List[str] = []
+#     try:
+#         image_bytes = robust_get(url)
+
+#         # Validate that it’s a real image before proceeding
+#         try:
+#             img = Image.open(io.BytesIO(image_bytes))
+#             img.verify()  # lightweight integrity check
+#             img.close()
+#         except Exception as e:
+#             return {
+#                 "image_url": url,
+#                 "score": 50,
+#                 "explanation": f"Error decoding image: {e}",
+#                 "details": {}
+#             }
+
+#     except Exception as e:
+#         return {
+#             "image_url": url,
+#             "score": 50,
+#             "explanation": f"Error fetching image: {e}",
+#             "details": {}
+#         }
+#     try:
+#         image_bytes = robust_get(url)
+#     except Exception as e:
+#         return {
+#             "image_url": url,
+#             "score": 50,
+#             "explanation": f"Error fetching image: {e}",
+#             "details": {}
+#         }
+
+#     # ----------------------------
+#     # 1) Google Vision web_detection
+#     # ----------------------------
+#     pages = []
+#     web_score = 0.0
+#     if vision_client is not None:
+#         try:
+#             gimage = vision.Image(content=image_bytes)
+#             annotations = vision_client.web_detection(image=gimage).web_detection
+#             pages = [p.url for p in annotations.pages_with_matching_images if p.url] if annotations.pages_with_matching_images else []
+#             exact_matches = annotations.full_matching_images or []
+#             visually_similar = annotations.visually_similar_images or []
+
+#             if exact_matches:
+#                 web_score += 0.45
+#                 explanation_parts.append("Exact matches found online (indicator of authenticity).")
+#             if visually_similar:
+#                 web_score += 0.25
+#                 explanation_parts.append("Visually similar images appear online.")
+#             if pages:
+#                 web_score += 0.20
+#                 explanation_parts.append(f"{len(pages)} pages found with matching or similar images.")
+#             web_score = min(1.0, web_score)
+#         except Exception as e:
+#             logger.warning("Vision web_detection failed: %s", e)
+#             explanation_parts.append("Google Vision web detection failed or is unavailable.")
+#     else:
+#         explanation_parts.append("Google Vision client not configured; skipping web checks.")
+
+#     # ----------------------------
+#     # 2) AI-detection ensemble
+#     # ----------------------------
+#     ai_results = detect_ai_image(image_bytes)
+#     ai_prob = float(ai_results.get("combined_ai_prob", 0.5))
+
+#     # Check for grey zone (0.45–0.55)
+#     if 0.45 <= ai_prob <= 0.55:
+#         explanation_parts.append("AI probability in grey zone — running extra averaging...")
+#         probs = [ai_prob]
+#         for seed in [101, 202, 303]:
+#             set_seed(seed)  # you define set_seed as shown earlier
+#             extra_results = detect_ai_image(image_bytes)
+#             probs.append(float(extra_results.get("combined_ai_prob", 0.5)))
+#         ai_prob = round(sum(probs) / len(probs), 3)  # average 3 extra + original
+
+#     # Round to 2 decimals for stability
+#     ai_prob = round(ai_prob, 2)
+#     explanation_parts.append(f"AI-generated probability (ensemble): {ai_prob*100:.1f}%")
+
+#     # ----------------------------
+#     # 3) EXIF/metadata signals
+#     # ----------------------------
+#     metadata = extract_metadata(image_bytes)
+#     if not metadata:
+#         explanation_parts.append("No EXIF metadata found — could be AI-generated, edited, or stripped.")
+#     else:
+#         edit_signs = []
+#         for v in metadata.values():
+#             try:
+#                 s = str(v).lower()
+#                 if any(x in s for x in ["photoshop", "adobe", "gimp", "luminar", "ai"]):
+#                     edit_signs.append(str(v))
+#             except Exception:
+#                 continue
+#         if edit_signs:
+#             explanation_parts.append("Metadata indicates possible editing or software presence.")
+#         else:
+#             explanation_parts.append("Metadata present, no obvious editing tool tags found.")
+
+#     # ----------------------------
+#     # 4) Source credibility
+#     # ----------------------------
+#     source_score = credibility_score(pages)
+#     if source_score > 0:
+#         explanation_parts.append(f"Found on credible sources (score: {source_score*100:.0f}%).")
+
+#     # ----------------------------
+#     # 5) Gemini opinion (optional)
+#     # ----------------------------
+#     gemini_text = None
+#     if use_gemini and HAS_GEMINI:
+#         try:
+#             prompt = (
+#                 f"Image URL: {url}\n"
+#                 f"Evidence:\n"
+#                 f"- Web matches: {len(pages)} pages\n"
+#                 f"- Google web_score: {web_score:.2f}\n"
+#                 f"- AI ensemble prob: {ai_prob:.3f}\n"
+#                 f"- Source credibility score: {source_score:.2f}\n"
+#                 f"- Metadata keys: {', '.join(list(metadata.keys())[:10]) if metadata else 'None'}\n\n"
+#                 "Based on the above evidence, give a concise judgement: is this likely AI-generated/edited or likely authentic? "
+#                 "Respond in one or two sentences and mention which evidence is most important."
+#             )
+#             gemini_text = ask_gemini(prompt)
+#             if gemini_text and "Error using Gemini" not in gemini_text:
+#                 explanation_parts.append("Gemini opinion: " + gemini_text)
+#             else:
+#                 explanation_parts.append("Gemini was called but returned an error or fallback.")
+#         except Exception as e:
+#             logger.exception("Error calling Gemini: %s", e)
+#             explanation_parts.append("Gemini check failed.")
+
+#     # ----------------------------
+#     # 6) Final scoring
+#     # ----------------------------
+#     metadata_presence = 1.0 if metadata else 0.0
+
+#     # Map AI probability into a "realness score" instead of raw (1 - ai_prob)
+#     if ai_prob < 0.25:
+#         ai_score = 1.0   # very likely real
+#     elif ai_prob < 0.50:
+#         ai_score = 0.7   # leaning real
+#     elif ai_prob < 0.75:
+#         ai_score = 0.3   # leaning fake
+#     else:
+#         ai_score = 0.0   # very likely fake
+
+#     # Weighted authenticity score (tuned)
+#     authenticity = (
+#         0.6 * web_score +        # web evidence has high impact
+#         0.3 * ai_score +         # AI detector influences but less dominant
+#         0.08 * source_score +    # credibility helps if available
+#         0.02 * metadata_presence # metadata is weak evidence
+#     )
+
+#     # Clamp if AI detector is very confident it's fake
+#     if ai_prob >= 0.85:
+#         authenticity = min(authenticity, 0.2)  # cap at 20% authenticity
+#     elif ai_prob >= 0.70:
+#         authenticity = min(authenticity, 0.4)  # cap at 40% authenticity
+
+#     # Bias upwards if strong web evidence + low AI probability
+#     if web_score > 0.8 and ai_prob < 0.3:
+#         authenticity = max(authenticity, 0.75)
+
+#     final_score = int(round(max(0.0, min(1.0, authenticity)) * 100))
+
+#     details = {
+#         "web_score": web_score,
+#         "ai_results": ai_results,
+#         "metadata": metadata,
+#         "source_score": source_score,
+#         "matched_pages": pages,
+#         "gemini_text": gemini_text
+#     }
+
+#     logger.info(
+#         "Scores: ai_prob=%.3f, web_score=%.2f, source=%.2f, meta=%d, final=%.1f%%",
+#         ai_prob, web_score, source_score, metadata_presence, final_score
+#     )
+
+#     print("\n[_evaluate_single_image] --- Evaluating:", url)
+
+#     print("[_evaluate_single_image] Web score:", web_score)
+#     print("[_evaluate_single_image] AI ensemble prob:", ai_prob)
+#     print("[_evaluate_single_image] Metadata keys:", list(metadata.keys()))
+#     print("[_evaluate_single_image] Source credibility score:", source_score)
+
+#     print("[_evaluate_single_image] Weighted authenticity (before clamp):", authenticity)
+#     print("[_evaluate_single_image] Final authenticity score:", final_score)
+
+
+#     return {
+#         "image_url": url,
+#         "score": final_score,
+#         "explanation": " ".join(explanation_parts),
+#         "details": details
+#     }
+
+
+
+
+# ---------- Public API ----------
+# def detect_fake_image(urls: Union[str, List[str]], use_gemini: bool = True) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+#     """
+#     Public function:
+#     - Accepts a single URL or list of URLs.
+#     - Returns structured results. For list input returns list of dicts in same order.
+#     """
+#     if isinstance(urls, str):
+#         return _evaluate_single_image(urls, use_gemini=use_gemini)
+#     elif isinstance(urls, list):
+#         out = []
+#         for u in urls:
+#             try:
+#                 out.append(_evaluate_single_image(u, use_gemini=use_gemini))
+#             except Exception as e:
+#                 out.append({"image_url": u, "score": 50, "explanation": f"Error evaluating image: {e}", "details": {}})
+        
+#         print("\n[detect_fake_image] Input URLs:", urls)
+
+#         return out
+#     else:
+#         raise ValueError("Input must be a string or a list of strings.")
+
+# # ---------- Example usage ----------
+# if __name__ == "__main__":
+#     # Simple CLI quick test
+#     init_models()
+
+
+# ---------- Public API (unchanged, but no init_models needed) ----------
+
+
+
+
+
+def detect_ai_image(image_bytes: bytes, url: Optional[str] = None) -> Dict[str, Any]:
+    """
+    AI detection using only AI or Not API (bytes-compatible).
+    Returns AI probability (0-1, higher = more likely AI-generated).
+    """
+    results = {"api_ai_prob": None, "combined_ai_prob": None}
+
+    if not AINOT_API_KEY:
+        logger.error("AI or Not API key missing; defaulting to neutral score.")
         results["combined_ai_prob"] = 0.5
         return results
 
     try:
-        # ---- 1) classifier ----
-        inputs = _CLASSIFIER_EXTRACTOR(images=pil, return_tensors="pt")
-        for k, v in inputs.items():
-            inputs[k] = v.to(_CLASSIFIER.device)
-        with torch.no_grad():
-            out = _CLASSIFIER(**inputs)
-            logits = out.logits
-            probs = torch.softmax(logits, dim=1)
-            if probs.shape[1] >= 2:
-                classifier_ai_prob = float(probs[0][1].item())
+        # Wrap bytes in BytesIO for multipart upload
+        file_like = io.BytesIO(image_bytes)
+        file_like.name = "image.jpg"  # Mimic filename
+
+        headers = {"Authorization": f"Bearer {AINOT_API_KEY}"}
+        files = {"image": file_like}
+        params = {
+            "external_id": "image-verifier-tracking",  # Optional
+            "only": ["ai_generated"]  # Run only AI detection to save costs
+        }
+
+        response = requests.post(IMAGE_ENDPOINT, headers=headers, files=files, params=params, timeout=10)
+        response.raise_for_status()
+        api_data = response.json()
+        print("API_DATA " , api_data)
+        # Parse response (adjust if your project's structure differs)
+        ai_prob = 0.5  # Default neutral
+        if "report" in api_data and "ai_generated" in api_data["report"]:
+            ai_data = api_data["report"]["ai_generated"]
+            if ai_data["ai"]["is_detected"]:
+                ai_prob = ai_data["ai"]["confidence"]  # 0-1, AI likelihood
             else:
-                top_prob = float(probs[0].max().item())
-                classifier_ai_prob = max(0.0, 1.0 - top_prob)
-        results["classifier_prob_ai"] = classifier_ai_prob
+                ai_prob = 1.0 - ai_data["human"]["confidence"]  # Invert human for fake prob
 
-        # ---- 2) CLIP zero-shot ----
-        clip_inputs = _CLIP_PROCESSOR(
-            text=["a real photograph", "a computer generated image", "an illustration"],
-            images=pil,
-            return_tensors="pt",
-            padding=True
-        )
-        for k, v in clip_inputs.items():
-            if isinstance(v, torch.Tensor):
-                clip_inputs[k] = v.to(_CLIP.device)
-        with torch.no_grad():
-            clip_out = _CLIP(**clip_inputs)
-            image_embeds = clip_out.image_embeds
-            text_embeds = clip_out.text_embeds
-            image_embeds = image_embeds / image_embeds.norm(dim=-1, keepdim=True)
-            text_embeds = text_embeds / text_embeds.norm(dim=-1, keepdim=True)
-            sims = (image_embeds @ text_embeds.T).squeeze(0)
-            clip_probs = torch.softmax(sims, dim=0).cpu().numpy().tolist()
-            clip_ai_prob = float(clip_probs[1])  # index 1 = "computer generated image"
-        results["clip_prob_ai"] = clip_ai_prob
+        results["api_ai_prob"] = float(ai_prob)
+        results["combined_ai_prob"] = float(ai_prob)  # Direct API as ensemble replacement
 
-        # ---- 3) entropy ----
-        ent = image_entropy(pil)
-        results["entropy"] = ent
-
-        # ---- combine ----
-        norm_entropy = max(0.0, min(1.0, 1.0 - (ent / 8.0)))
-        combined = 0.45 * classifier_ai_prob + 0.45 * clip_ai_prob + 0.10 * norm_entropy
-        results["combined_ai_prob"] = float(max(0.0, min(1.0, combined)))
+        logger.info("AI or Not API AI prob for %s: %.3f", url or "bytes", ai_prob)
 
     except Exception as e:
-        logger.exception("AI detection failed: %s", e)
+        logger.exception("AI or Not API call failed: %s", e)
         results["combined_ai_prob"] = 0.5
 
     return results
 
-# ---------- Core evaluation ----------
-def _evaluate_single_image(url: str, use_gemini: bool = True) -> Dict[str, Any]:
-    explanation_parts: List[str] = []
+# ---------- Simplified Core Evaluation (AI or Not only, no Vision/Metadata/Gemini) ----------
+def _evaluate_single_image(url: str) -> Dict[str, Any]:
+    """
+    Simplified evaluation: Fetch image, run AI or Not API, return score based on AI prob only.
+    """
+    # Single fetch with validation
     try:
         image_bytes = robust_get(url)
-
-        # Validate that it’s a real image before proceeding
+        # Validate
         try:
             img = Image.open(io.BytesIO(image_bytes))
-            img.verify()  # lightweight integrity check
+            img.verify()  # Integrity check
             img.close()
         except Exception as e:
             return {
                 "image_url": url,
-                "score": 50,
+                "score": 49,
                 "explanation": f"Error decoding image: {e}",
                 "details": {}
             }
-
     except Exception as e:
         return {
             "image_url": url,
-            "score": 50,
-            "explanation": f"Error fetching image: {e}",
-            "details": {}
-        }
-    try:
-        image_bytes = robust_get(url)
-    except Exception as e:
-        return {
-            "image_url": url,
-            "score": 50,
+            "score": 49,
             "explanation": f"Error fetching image: {e}",
             "details": {}
         }
 
     # ----------------------------
-    # 1) Google Vision web_detection
+    # AI-detection via AI or Not API (single signal)
     # ----------------------------
-    pages = []
-    web_score = 0.0
-    if vision_client is not None:
-        try:
-            gimage = vision.Image(content=image_bytes)
-            annotations = vision_client.web_detection(image=gimage).web_detection
-            pages = [p.url for p in annotations.pages_with_matching_images if p.url] if annotations.pages_with_matching_images else []
-            exact_matches = annotations.full_matching_images or []
-            visually_similar = annotations.visually_similar_images or []
-
-            if exact_matches:
-                web_score += 0.45
-                explanation_parts.append("Exact matches found online (indicator of authenticity).")
-            if visually_similar:
-                web_score += 0.25
-                explanation_parts.append("Visually similar images appear online.")
-            if pages:
-                web_score += 0.20
-                explanation_parts.append(f"{len(pages)} pages found with matching or similar images.")
-            web_score = min(1.0, web_score)
-        except Exception as e:
-            logger.warning("Vision web_detection failed: %s", e)
-            explanation_parts.append("Google Vision web detection failed or is unavailable.")
-    else:
-        explanation_parts.append("Google Vision client not configured; skipping web checks.")
-
-    # ----------------------------
-    # 2) AI-detection ensemble
-    # ----------------------------
-    ai_results = detect_ai_image(image_bytes)
+    ai_results = detect_ai_image(image_bytes, url=url)
     ai_prob = float(ai_results.get("combined_ai_prob", 0.5))
 
-    # Check for grey zone (0.45–0.55)
-    if 0.45 <= ai_prob <= 0.55:
-        explanation_parts.append("AI probability in grey zone — running extra averaging...")
-        probs = [ai_prob]
-        for seed in [101, 202, 303]:
-            set_seed(seed)  # you define set_seed as shown earlier
-            extra_results = detect_ai_image(image_bytes)
-            probs.append(float(extra_results.get("combined_ai_prob", 0.5)))
-        ai_prob = round(sum(probs) / len(probs), 3)  # average 3 extra + original
-
-    # Round to 2 decimals for stability
+    # Round to 2 decimals
     ai_prob = round(ai_prob, 2)
-    explanation_parts.append(f"AI-generated probability (ensemble): {ai_prob*100:.1f}%")
-
-    # ----------------------------
-    # 3) EXIF/metadata signals
-    # ----------------------------
-    metadata = extract_metadata(image_bytes)
-    if not metadata:
-        explanation_parts.append("No EXIF metadata found — could be AI-generated, edited, or stripped.")
+    
+    # Simple verdict based on AI prob
+    if ai_prob < 0.3:
+        verdict = "Very likely real/authentic."
+    elif ai_prob < 0.7:
+        verdict = "Uncertain; leaning real."
     else:
-        edit_signs = []
-        for v in metadata.values():
-            try:
-                s = str(v).lower()
-                if any(x in s for x in ["photoshop", "adobe", "gimp", "luminar", "ai"]):
-                    edit_signs.append(str(v))
-            except Exception:
-                continue
-        if edit_signs:
-            explanation_parts.append("Metadata indicates possible editing or software presence.")
-        else:
-            explanation_parts.append("Metadata present, no obvious editing tool tags found.")
+        verdict = "Likely AI-generated or fake."
+
+    explanation = f"AI-generated probability (AI or Not API): {ai_prob*100:.1f}%. {verdict}"
 
     # ----------------------------
-    # 4) Source credibility
+    # Final scoring: Direct map from AI prob (higher prob = lower authenticity)
     # ----------------------------
-    source_score = credibility_score(pages)
-    if source_score > 0:
-        explanation_parts.append(f"Found on credible sources (score: {source_score*100:.0f}%).")
-
-    # ----------------------------
-    # 5) Gemini opinion (optional)
-    # ----------------------------
-    gemini_text = None
-    if use_gemini and HAS_GEMINI:
-        try:
-            prompt = (
-                f"Image URL: {url}\n"
-                f"Evidence:\n"
-                f"- Web matches: {len(pages)} pages\n"
-                f"- Google web_score: {web_score:.2f}\n"
-                f"- AI ensemble prob: {ai_prob:.3f}\n"
-                f"- Source credibility score: {source_score:.2f}\n"
-                f"- Metadata keys: {', '.join(list(metadata.keys())[:10]) if metadata else 'None'}\n\n"
-                "Based on the above evidence, give a concise judgement: is this likely AI-generated/edited or likely authentic? "
-                "Respond in one or two sentences and mention which evidence is most important."
-            )
-            gemini_text = ask_gemini(prompt)
-            if gemini_text and "Error using Gemini" not in gemini_text:
-                explanation_parts.append("Gemini opinion: " + gemini_text)
-            else:
-                explanation_parts.append("Gemini was called but returned an error or fallback.")
-        except Exception as e:
-            logger.exception("Error calling Gemini: %s", e)
-            explanation_parts.append("Gemini check failed.")
-
-    # ----------------------------
-    # 6) Final scoring
-    # ----------------------------
-    metadata_presence = 1.0 if metadata else 0.0
-
-    # Map AI probability into a "realness score" instead of raw (1 - ai_prob)
-    if ai_prob < 0.25:
-        ai_score = 1.0   # very likely real
-    elif ai_prob < 0.50:
-        ai_score = 0.7   # leaning real
-    elif ai_prob < 0.75:
-        ai_score = 0.3   # leaning fake
-    else:
-        ai_score = 0.0   # very likely fake
-
-    # Weighted authenticity score (tuned)
-    authenticity = (
-        0.6 * web_score +        # web evidence has high impact
-        0.3 * ai_score +         # AI detector influences but less dominant
-        0.08 * source_score +    # credibility helps if available
-        0.02 * metadata_presence # metadata is weak evidence
-    )
-
-    # Clamp if AI detector is very confident it's fake
-    if ai_prob >= 0.85:
-        authenticity = min(authenticity, 0.2)  # cap at 20% authenticity
-    elif ai_prob >= 0.70:
-        authenticity = min(authenticity, 0.4)  # cap at 40% authenticity
-
-    # Bias upwards if strong web evidence + low AI probability
-    if web_score > 0.8 and ai_prob < 0.3:
-        authenticity = max(authenticity, 0.75)
-
-    final_score = int(round(max(0.0, min(1.0, authenticity)) * 100))
+    authenticity = max(0.0, min(1.0, 1.0- ai_prob))  # Invert AI prob to authenticity (0-1)
+    
+    final_score = int(round(authenticity * 100))
 
     details = {
-        "web_score": web_score,
-        "ai_results": ai_results,
-        "metadata": metadata,
-        "source_score": source_score,
-        "matched_pages": pages,
-        "gemini_text": gemini_text
+        "ai_results": ai_results
     }
 
     logger.info(
-        "Scores: ai_prob=%.3f, web_score=%.2f, source=%.2f, meta=%d, final=%.1f%%",
-        ai_prob, web_score, source_score, metadata_presence, final_score
+        "AI or Not prob=%.3f, final authenticity=%.1f%%",
+        ai_prob, final_score
     )
 
     print("\n[_evaluate_single_image] --- Evaluating:", url)
-
-    print("[_evaluate_single_image] Web score:", web_score)
-    print("[_evaluate_single_image] AI ensemble prob:", ai_prob)
-    print("[_evaluate_single_image] Metadata keys:", list(metadata.keys()))
-    print("[_evaluate_single_image] Source credibility score:", source_score)
-
-    print("[_evaluate_single_image] Weighted authenticity (before clamp):", authenticity)
+    print("[_evaluate_single_image] AI API prob:", ai_prob)
     print("[_evaluate_single_image] Final authenticity score:", final_score)
-
 
     return {
         "image_url": url,
         "score": final_score,
-        "explanation": " ".join(explanation_parts),
+        "explanation": explanation,
         "details": details
     }
 
-# ---------- Public API ----------
-def detect_fake_image(urls: Union[str, List[str]], use_gemini: bool = True) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+# ---------- Public API (simplified: no use_gemini param needed) ----------
+def detect_fake_image(urls: Union[str, List[str]]) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
     """
     Public function:
-    - Accepts a single URL or list of URLs.
+    - Accepts a single URL or a list of URLs.
     - Returns structured results. For list input returns list of dicts in same order.
     """
     if isinstance(urls, str):
-        return _evaluate_single_image(urls, use_gemini=use_gemini)
+        return _evaluate_single_image(urls)
     elif isinstance(urls, list):
         out = []
         for u in urls:
             try:
-                out.append(_evaluate_single_image(u, use_gemini=use_gemini))
+                out.append(_evaluate_single_image(u))
             except Exception as e:
-                out.append({"image_url": u, "score": 50, "explanation": f"Error evaluating image: {e}", "details": {}})
+                out.append({"image_url": u, "score": 49, "explanation": f"Error evaluating image: {e}", "details": {}})
         
         print("\n[detect_fake_image] Input URLs:", urls)
-
         return out
     else:
         raise ValueError("Input must be a string or a list of strings.")
 
 # ---------- Example usage ----------
 if __name__ == "__main__":
-    # Simple CLI quick test
-    init_models()
+    # Simple CLI quick test: e.g., python image_verifier.py "https://example.com/image.jpg"
+    import sys
+    if len(sys.argv) > 1:
+        result = detect_fake_image(sys.argv[1])
+        print(result)

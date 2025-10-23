@@ -65,14 +65,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // ---------------------------
 
 async function analyzeText(payload) {
-  const { text } = payload;
+const { text, url = "" } = payload;
+console.log("URL is " , url)
+  console.log("text is " , text)
   if (!text) throw new Error("No text provided");
 
   try {
     const res = await fetch("http://127.0.0.1:5000/detect_text", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text })
+      body: JSON.stringify({ text , url  })
     });
 
     const data = await res.json();
