@@ -5,7 +5,7 @@ from misinfo_model import detect_fake_text
 from flask_cors import CORS
 from vectorDb import search_feedback_semantic, store_feedback, cleanup_expired
 from database import generate_id,generate_normalized_id,generate_embedding,get_article_doc,firestore_semantic_search,db
-
+from FakeImageDetection import detect_fake_image
 from firebase_admin import credentials, firestore
 
 from datetime import datetime, timedelta
@@ -37,7 +37,6 @@ def make_json_safe(obj):
 # ---------------------------
 @app.route("/detect_image", methods=["POST"])
 def detect_image():
-    from visionAi import detect_fake_image  # Assuming this is available
     data = request.json
     urls = data.get("urls") or data.get("images") 
     print("Urls is " , urls)
