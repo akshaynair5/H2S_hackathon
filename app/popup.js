@@ -1,10 +1,48 @@
 let factInterval = null;
+
+// ---------------------------
+// SAFE DOM ACCESS HELPER
+// ---------------------------
+function $(id) {
+  const el = document.getElementById(id);
+  if (!el) console.warn(`⚠️ Missing element: #${id}`);
+  return el;
+}
+
+// ---------------------------
+// INIT ON DOM LOAD
+// ---------------------------
+document.addEventListener("DOMContentLoaded", () => {
+  initializeTrustMeterUI();
+});
+
+// ---------------------------
+// MAIN INITIALIZATION
+// ---------------------------
+function initializeTrustMeterUI() {
+  const checkTextBtn = $("checkText");
+  const clickToCheckBtn = $("clickToCheck");
+  const resultsDiv = $("results");
+  const loadingContainer = $("loadingContainer");
+
+  if (!resultsDiv || !loadingContainer) {
+    console.error("❌ Missing essential DOM elements (results or loadingContainer).");
+    return;
+  }
+
+  if (checkTextBtn) checkTextBtn.addEventListener("click", handleTextCheck);
+  if (clickToCheckBtn) clickToCheckBtn.addEventListener("click", injectImageOverlays);
+
+  renderHistory();
+}
+
 // ---------------------------
 // TEST FUNCTION
 // ---------------------------
 function testWithDummyData(index = 0) {
-  const resultsDiv = document.getElementById("results");
-  const loading = document.getElementById("loadingContainer");
+  const resultsDiv = $("results");
+  const loading = $("loadingContainer");
+  if (!resultsDiv || !loading) return;
 
   resultsDiv.classList.remove("show");
   resultsDiv.classList.add("hidden");
@@ -29,8 +67,9 @@ function testWithDummyData(index = 0) {
 // DISPLAY RESULTS
 // ---------------------------
 function displayResult(result) {
-  const resultsDiv = document.getElementById("results");
-  const loading = document.getElementById("loadingContainer");
+  const resultsDiv = $("results");
+  const loading = $("loadingContainer");
+  if (!resultsDiv || !loading) return;
 
   loading.classList.remove("show");
   resultsDiv.classList.add("show");
@@ -39,7 +78,7 @@ function displayResult(result) {
 
   const prediction = result.prediction || "Unknown";
   const explanation = result.explanation || "No explanation provided";
-  const text = result.input_text || "unknown";
+  const text = result.input_text || result.text || "unknown";
 
   let predictionColor = "background: #f3f4f6; color: #374151;";
   if (prediction.toLowerCase() === "real") predictionColor = "background: #d1fae5; color: #065f46;";
@@ -69,19 +108,29 @@ function displayResult(result) {
   resultsDiv.appendChild(card);
 }
 
+// ---------------------------
+// SCORE HANDLER
+// ---------------------------
 function setResult(score, explanation) {
   const percent = normalizeScore(score);
+  const scoreText = $("scoreText");
+  if (!scoreText) return;
+
   scoreText.textContent = `Score: ${percent}%`;
   if (percent >= 75) scoreText.style.color = "#0b8043";
   else if (percent >= 45) scoreText.style.color = "#e09b00";
   else scoreText.style.color = "#c42f2f";
 
-  document.getElementById("text-result").textContent =
-    explanation || "No explanation returned.";
+  const textResult = $("text-result");
+  if (textResult) textResult.textContent = explanation || "No explanation returned.";
+
   collectedScores.push(percent);
   updateBadge();
 }
 
+// ---------------------------
+// HISTORY STORAGE
+// ---------------------------
 function saveToHistory(entry) {
   const history = JSON.parse(localStorage.getItem("analysisHistory") || "[]");
   history.unshift({
@@ -91,14 +140,15 @@ function saveToHistory(entry) {
     text: entry.text,
     timestamp: new Date().toLocaleString()
   });
-  // Keep only top 3 entries
   const trimmed = history.slice(0, 3);
   localStorage.setItem("analysisHistory", JSON.stringify(trimmed));
   renderHistory();
 }
 
 function renderHistory() {
-  const container = document.getElementById("historyContainer");
+  const container = $("historyContainer");
+  if (!container) return;
+
   const history = JSON.parse(localStorage.getItem("analysisHistory") || "[]");
   container.innerHTML = "";
 
@@ -111,7 +161,6 @@ function renderHistory() {
     const card = document.createElement("div");
     card.className = "history-card";
 
-    // Prediction badge color
     let badgeColor = "#e5e7eb", badgeText = "#374151";
     if (item.prediction?.toLowerCase() === "real") {
       badgeColor = "#d1fae5"; badgeText = "#065f46";
@@ -123,8 +172,7 @@ function renderHistory() {
 
     card.innerHTML = `
       <div class="history-header">
-        <span class="prediction-badge" 
-          style="background:${badgeColor}; color:${badgeText};">${item.prediction}</span>
+        <span class="prediction-badge" style="background:${badgeColor}; color:${badgeText};">${item.prediction}</span>
         <span class="timestamp">${item.timestamp}</span>
       </div>
       <p class="score-line">Score: ${item.score}</p>
@@ -135,7 +183,6 @@ function renderHistory() {
       </div>
     `;
 
-    // Toggle expand/collapse
     card.addEventListener("click", () => {
       const exp = card.querySelector(".explanation");
       exp.style.maxHeight = exp.style.maxHeight === "0px" || exp.style.maxHeight === ""
@@ -157,14 +204,12 @@ displayResult = function (result) {
 };
 
 // ---------------------------
-// Render on load
-// ---------------------------
-document.addEventListener("DOMContentLoaded", renderHistory);
-// ---------------------------
 // DISPLAY FEEDBACK MESSAGE
 // ---------------------------
 function displayFeedbackMessage() {
-  const resultsDiv = document.getElementById("results");
+  const resultsDiv = $("results");
+  if (!resultsDiv) return;
+
   resultsDiv.classList.add("show");
   resultsDiv.classList.remove("hidden");
   resultsDiv.innerHTML = `
@@ -183,8 +228,9 @@ function displayFeedbackMessage() {
 // DISPLAY ERRORS
 // ---------------------------
 function displayError(message) {
-  const resultsDiv = document.getElementById("results");
-  const loading = document.getElementById("loadingContainer");
+  const resultsDiv = $("results");
+  const loading = $("loadingContainer");
+  if (!resultsDiv || !loading) return;
 
   loading.classList.remove("show");
   resultsDiv.classList.add("show");
@@ -209,7 +255,9 @@ const facts = [
 ];
 
 function startFactsRotation() {
-  const factDisplay = document.getElementById("factDisplay");
+  const factDisplay = $("factDisplay");
+  if (!factDisplay) return;
+
   let factIndex = Math.floor(Math.random() * facts.length);
   factDisplay.innerText = facts[factIndex];
 
@@ -224,20 +272,21 @@ function startFactsRotation() {
 }
 
 function stopFactsRotation() {
+  const factDisplay = $("factDisplay");
   if (factInterval) {
     clearInterval(factInterval);
     factInterval = null;
   }
-  const factDisplay = document.getElementById("factDisplay");
-  factDisplay.innerText = "";
+  if (factDisplay) factDisplay.innerText = "";
 }
 
 // ---------------------------
-// TEXT ANALYSIS
+// TEXT ANALYSIS HANDLER
 // ---------------------------
-document.getElementById("checkText").addEventListener("click", async () => {
-  const loading = document.getElementById("loadingContainer");
-  const resultsDiv = document.getElementById("results");
+async function handleTextCheck() {
+  const loading = $("loadingContainer");
+  const resultsDiv = $("results");
+  if (!loading || !resultsDiv) return;
 
   resultsDiv.classList.remove("show");
   resultsDiv.classList.add("hidden");
@@ -255,7 +304,6 @@ document.getElementById("checkText").addEventListener("click", async () => {
       }
 
       const textContent = results[0].result.trim();
-      console.log("User Selected text is " , textContent)
       if (!textContent) {
         displayError("No text selected.");
         stopFactsRotation();
@@ -272,7 +320,6 @@ document.getElementById("checkText").addEventListener("click", async () => {
 
           if (!response || response.error) {
             displayError(response?.error || "Text analysis failed.");
-  
             return;
           }
 
@@ -286,7 +333,7 @@ document.getElementById("checkText").addEventListener("click", async () => {
       );
     }
   );
-});
+}
 
 // ---------------------------
 // IMAGE ANALYSIS OVERLAY
@@ -304,7 +351,6 @@ async function injectImageOverlays() {
       function addOverlay(img) {
         const parent = img.parentElement;
         if (!parent) return;
-
         if (getComputedStyle(parent).position === "static") parent.style.position = "relative";
 
         const existing = parent.querySelector(".misinfo-overlay");
@@ -325,14 +371,11 @@ async function injectImageOverlays() {
           cursor: pointer;
           z-index: 9999;
         `;
-
-        // Prevent click behind overlay
         overlay.addEventListener("click", e => e.stopPropagation());
         overlay.addEventListener("mousedown", e => e.stopPropagation());
         overlay.addEventListener("mouseup", e => e.stopPropagation());
 
         parent.appendChild(overlay);
-
         overlay.onclick = (e) => {
           e.stopPropagation();
           chrome.runtime.sendMessage({ type: "ANALYZE_IMAGE", payload: { urls: [img.src] } });
@@ -349,8 +392,6 @@ async function injectImageOverlays() {
   });
 }
 
-document.getElementById("clickToCheck").addEventListener("click", injectImageOverlays);
-
 // ---------------------------
 // RECEIVE IMAGE RESULTS
 // ---------------------------
@@ -365,7 +406,7 @@ chrome.runtime.onMessage.addListener((message) => {
       score: score || 0,
       explanation: explanation || "Image analyzed",
       details: [message.payload],
-      text: url 
+      text: url
     });
   }
 
@@ -429,31 +470,7 @@ Object.assign(yesButton.style, {
 yesButton.onmouseover = () => { yesButton.style.transform = "translateY(-1px)"; };
 yesButton.onmouseout = () => { yesButton.style.transform = "translateY(0)"; };
 yesButton.onclick = () => {
-  fetch('http://localhost:5000/submit_feedback', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'user-fingerprint': 'user-device-' + Math.random().toString(36).substring(2)
-    },
-    body: JSON.stringify({
-      text: window.currentText || "unknown",
-      explanation: window.currentExplanation || "No explanation provided",
-      response: "YES",
-      sources: []
-    })
-  })
-    .then(res => {
-      if (!res.ok) throw new Error(`Feedback submission failed: ${res.status}`);
-      return res.json();
-    })
-    .then(data => {
-      // console.log("Feedback response:", data);
-      displayFeedbackMessage();
-    })
-    .catch(error => {
-      console.error("Error submitting feedback:", error);
-      displayError("Failed to submit feedback. Please try again.");
-    });
+  submitFeedback("YES");
   confirmationModal.style.display = "none";
 };
 
@@ -471,40 +488,14 @@ Object.assign(noButton.style, {
   transition: "transform 0.2s ease"
 });
 noButton.onmouseover = () => { noButton.style.transform = "translateY(-1px)"; };
-noButton.onmouseout = () => { yesButton.style.transform = "translateY(0)"; };
+noButton.onmouseout = () => { noButton.style.transform = "translateY(0)"; };
 noButton.onclick = () => {
-  console.log("User confirmed: NO, text does not sound fake.");
-  fetch('http://localhost:5000/submit_feedback', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'user-fingerprint': 'user-device-' + Math.random().toString(36).substring(2)
-    },
-    body: JSON.stringify({
-      text: window.currentText || "unknown",
-      explanation: window.currentExplanation || "No explanation provided",
-      response: "NO",
-      sources: []
-    })
-  })
-    .then(res => {
-      if (!res.ok) throw new Error(`Feedback submission failed: ${res.status}`);
-      return res.json();
-    })
-    .then(data => {
-      console.log("Feedback response:", data);
-      displayFeedbackMessage();
-    })
-    .catch(error => {
-      console.error("Error submitting feedback:", error);
-      displayError("Failed to submit feedback. Please try again.");
-    });
+  submitFeedback("NO");
   confirmationModal.style.display = "none";
 };
 
 buttonContainer.appendChild(yesButton);
 buttonContainer.appendChild(noButton);
-
 confirmationModal.appendChild(questionText);
 confirmationModal.appendChild(buttonContainer);
 document.documentElement.appendChild(confirmationModal);
@@ -515,15 +506,27 @@ function showConfirmationPopup(text, explanation) {
   confirmationModal.style.display = "flex";
 }
 
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && confirmationModal.style.display === "flex") {
-    confirmationModal.style.display = "none";
-  }
-});
-
-// // ---------------------------
-// // TRIGGER TEST (For Development)
-// // ---------------------------
-// // document.getElementById("testDummyData")?.addEventListener("click", () => {
-// //   testWithDummyData(0);
-// // });
+function submitFeedback(responseType) {
+  fetch("http://localhost:5000/submit_feedback", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "user-fingerprint": "user-device-" + Math.random().toString(36).substring(2)
+    },
+    body: JSON.stringify({
+      text: window.currentText || "unknown",
+      explanation: window.currentExplanation || "No explanation provided",
+      response: responseType,
+      sources: []
+    })
+  })
+    .then(res => {
+      if (!res.ok) throw new Error(`Feedback submission failed: ${res.status}`);
+      return res.json();
+    })
+    .then(() => displayFeedbackMessage())
+    .catch(err => {
+      console.error("Error submitting feedback:", err);
+      displayError("Failed to submit feedback.");
+    });
+}

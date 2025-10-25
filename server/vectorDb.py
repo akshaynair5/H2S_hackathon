@@ -1,3 +1,5 @@
+# vectorDb.py (From new, with minor adaptations for old integration)
+
 import hashlib
 from datetime import datetime, timedelta
 from sentence_transformers import SentenceTransformer, util

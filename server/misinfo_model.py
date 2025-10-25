@@ -1,3 +1,5 @@
+# misinfo_model.py (Integrated: New approach + Google Fact Check + Ensemble to LLM)
+
 import os
 import re
 import html
@@ -13,24 +15,28 @@ from sentence_transformers import SentenceTransformer, util
 import google.generativeai as genai
 import firebase_admin
 from firebase_admin import credentials, firestore
+from google.cloud import firestore
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
+from database import db
 from vectorDb import (
     embed_text,
     store_feedback,
     search_feedback_semantic,
     pc, INDEX_NAME
 )
-from migration import generate_embedding
 from datetime import datetime, timedelta
 import aiohttp
 import asyncio
 
+
+
 # ------------- config & init -------------
 load_dotenv()
-app = Flask(__name__)
+
+
 
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -42,7 +48,7 @@ GEM_MODEL = genai.GenerativeModel("gemini-2.5-flash")
 
 # ---------------- Vertex AI config ----------------
 PROJECT_ID = "804712050799"
-ENDPOINT_ID = "5229109076423606272"
+ENDPOINT_ID = "3457435204262559744"
 REGION = "us-central1"
 PREDICT_URL = f"https://{REGION}-aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/{REGION}/endpoints/{ENDPOINT_ID}:predict"
 
@@ -66,18 +72,13 @@ def get_access_token():
 # ---------------- Firestore init using Firebase Admin ----------------
 SERVICE_ACCOUNT_PATH = "gen-ai-h2s-project-562ce7c50fcf-vertex-ai.json"
 
-# Initialize Firebase Admin app
-cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
-firebase_admin.initialize_app(cred)
 
-# Firestore client
-db = firestore.client(database_id='genai')
 
 
 # ---------------- Embeddings ----------------
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
-@lru_cache(maxsize=8192)
+@lru_cache(maxsize=8192)  
 def get_embedding(text: str):
     return embedder.encode(text, convert_to_tensor=True)
 
@@ -89,6 +90,7 @@ CREDIBLE_DOMAINS_SCORE = {
 }
 GOOGLE_KEY = os.getenv("GOOGLE_API_KEY")
 CX_ID = os.getenv("GOOGLE_SEARCH_CX")
+FACT_CHECK_API_KEY = os.getenv("GEMINI_API_KEY")  # Reuse if needed, or set separate
 CLAIM_MIN_LEN = 30
 MAX_SEARCH_RESULTS = 5
 EMB_SIM_THRESHOLD = 0.40
@@ -149,7 +151,7 @@ def load_credible_domains_cached() -> List[str]:
     global _cached_domains, _last_cache_time
     now = time.time()
     if not _cached_domains or (now - _last_cache_time) > _CACHE_TTL:
-        _cached_domains = load_credible_domains()  # Your original function
+        _cached_domains = load_credible_domains()
         _last_cache_time = now
     return _cached_domains
 
@@ -203,6 +205,129 @@ def ask_gemini_structured(prompt: str) -> Dict[str, Any]:
     except Exception as e:
         return {"error": str(e)}
 
+# ---------------- Google Fact Check API (From old) ----------------
+def query_google_fact_check_api(text: str, max_results=5) -> dict:
+    """
+    Query Google Fact Check Tools API for existing fact-checks.
+    """
+    try:
+        # Extract clean claim for fact-check search
+        refine_prompt = f"""
+        Extract the core factual claim from this text in 5-15 words.
+        Focus on the verifiable statement, remove opinions and context.
+        Return ONLY the claim, nothing else.
+        
+        Text: "{text[:200]}"
+        """
+        refined_claim = ask_gemini_structured(refine_prompt).get("raw_text", "").strip('"').strip()
+        print(f"[Fact Check API] Query: {refined_claim}")
+        
+        # Call Google Fact Check Tools API
+        url = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
+        params = {
+            "key": FACT_CHECK_API_KEY,
+            "query": refined_claim,
+            "pageSize": max_results,
+            "languageCode": "en"
+        }
+        
+        resp = requests.get(url, params=params, timeout=10)
+        
+        if resp.status_code != 200:
+            print(f"[Fact Check API] Error: {resp.status_code}")
+            return {
+                "status": "api_error",
+                "fact_checks": [],
+                "summary": {"total": 0, "false_count": 0, "true_count": 0, "mixed_count": 0}
+            }
+        
+        data = resp.json()
+        claims = data.get("claims", [])
+        
+        if not claims:
+            print("[Fact Check API] No existing fact-checks found")
+            return {
+                "status": "no_fact_checks",
+                "fact_checks": [],
+                "summary": {"total": 0, "false_count": 0, "true_count": 0, "mixed_count": 0}
+            }
+        
+        # Process fact-check results
+        fact_checks = []
+        ratings_counter = {"false": 0, "true": 0, "mixed": 0, "unknown": 0}
+        
+        for claim in claims[:max_results]:
+            claim_text = claim.get("text", "")
+            claim_review = claim.get("claimReview", [])
+            
+            if claim_review:
+                for review in claim_review[:2]:
+                    publisher = review.get("publisher", {}).get("name", "Unknown")
+                    url = review.get("url", "")
+                    rating = review.get("textualRating", "").lower()
+                    title = review.get("title", "")
+                    
+                    # Categorize rating
+                    if any(word in rating for word in ["false", "fake", "incorrect", "misleading", "pants on fire"]):
+                        rating_category = "false"
+                        ratings_counter["false"] += 1
+                    elif any(word in rating for word in ["true", "correct", "accurate", "verified"]):
+                        rating_category = "true"
+                        ratings_counter["true"] += 1
+                    elif any(word in rating for word in ["mixed", "partially", "half", "mostly"]):
+                        rating_category = "mixed"
+                        ratings_counter["mixed"] += 1
+                    else:
+                        rating_category = "unknown"
+                        ratings_counter["unknown"] += 1
+                    
+                    fact_checks.append({
+                        "claim": claim_text[:150],
+                        "publisher": publisher,
+                        "rating": rating,
+                        "rating_category": rating_category,
+                        "title": title,
+                        "url": url
+                    })
+                    
+                    print(f"[Fact Check] {publisher}: {rating} ({rating_category})")
+        
+        # Determine overall fact-check consensus
+        total = len(fact_checks)
+        false_ratio = ratings_counter["false"] / max(total, 1)
+        true_ratio = ratings_counter["true"] / max(total, 1)
+        
+        if false_ratio >= 0.6:
+            status = "predominantly_false"
+        elif true_ratio >= 0.6:
+            status = "predominantly_true"
+        elif ratings_counter["mixed"] >= 2:
+            status = "mixed_ratings"
+        else:
+            status = "inconclusive"
+        
+        print(f"[Fact Check API] Status: {status} (False: {ratings_counter['false']}, True: {ratings_counter['true']}, Mixed: {ratings_counter['mixed']})")
+        
+        return {
+            "status": status,
+            "fact_checks": fact_checks,
+            "summary": {
+                "total": total,
+                "false_count": ratings_counter["false"],
+                "true_count": ratings_counter["true"],
+                "mixed_count": ratings_counter["mixed"]
+            }
+        }
+        
+    except Exception as e:
+        print(f"[Fact Check API] Exception: {str(e)}")
+        return {
+            "status": "error",
+            "fact_checks": [],
+            "summary": {"total": 0, "false_count": 0, "true_count": 0, "mixed_count": 0},
+            "error": str(e)
+        }
+
 # ---------------- Metadata extraction ----------------
 def extract_metadata_with_gemini(text: str) -> dict:
     try:
@@ -234,6 +359,8 @@ def predict_with_vertex_ai(metadata: dict) -> dict:
     response = requests.post(PREDICT_URL, headers=headers, json={"instances": [metadata]}, timeout=15)
     if response.status_code != 200:
         raise Exception(f"Vertex AI Error {response.status_code}: {response.text}")
+
+    print(f"[Vertex AI] Response: {response.text}")
     return response.json()
 
 def extract_vertex_scores(vertex_result: dict) -> dict:
@@ -281,10 +408,10 @@ def clear_cache_for_text(text: str) -> bool:
         return False
 
 
-def adjusted_ensemble(gem_pred: str, gem_conf: int, vertex_scores: dict, threshold=0.165) -> (str, int):
+def adjusted_ensemble(gem_pred: str, gem_conf: int, vertex_scores: dict, fact_check_status: str, threshold=0.165) -> (str, int):
     """
-    Combine Gemini and Vertex AI predictions with soft thresholding.
-    Handles Real, Fake, Misleading properly.
+    Combine Gemini, Vertex AI, and Fact Check with soft thresholding.
+    Fact Check overrides if strong signal.
     """
     C_real = vertex_scores.get("Real", 0.7)
     C_fake = vertex_scores.get("Fake", 0.3)
@@ -294,8 +421,16 @@ def adjusted_ensemble(gem_pred: str, gem_conf: int, vertex_scores: dict, thresho
     max_vertex = max(("Real", C_real), ("Fake", C_fake), ("Misleading", C_mis), key=lambda x: x[1])
     vertex_label, vertex_conf = max_vertex[0], int(max_vertex[1] * 100)
 
-    # Weighted final confidence
-    final_conf = int(0.6 * gem_conf + 0.4 * vertex_conf)
+    # Fact Check override
+    if fact_check_status == "predominantly_false":
+        return "Fake", max(85, gem_conf, vertex_conf)
+    elif fact_check_status == "predominantly_true":
+        return "Real", max(85, gem_conf, vertex_conf)
+    elif fact_check_status == "mixed_ratings":
+        return "Misleading", max(60, gem_conf, vertex_conf)
+
+    # Weighted final confidence (Gemini heavy, as it synthesizes Fact Check)
+    final_conf = int(0.5 * gem_conf + 0.3 * vertex_conf + 0.2 * (80 if fact_check_status != "no_fact_checks" else 50))
 
     # Ensemble decision rules
     if gem_pred == vertex_label:
@@ -377,17 +512,49 @@ async def corroborate_all_with_google_async(claims: List[str]) -> Dict[str, Any]
         "officials", "authorities", "investigation", "evidence"
     ]
 
+    async def extract_dynamic_keywords(claim: str) -> List[str]:
+        """Use Gemini to extract meaningful keywords from the claim via ask_gemini_structured."""
+        try:
+            prompt = f"""
+            Extract 5–10 important keywords or named entities from this statement.
+            Focus on event-related, geographic, and proper nouns (people, places, incidents).
+            Return as a JSON array of strings. No explanation.
+
+            Text: {claim}
+            """
+            resp = ask_gemini_structured(prompt)
+            keywords = []
+            if "parsed" in resp:
+                keywords = [k.lower() for k in resp["parsed"] if isinstance(k, str) and len(k) > 2]
+            elif "raw_text" in resp:
+                keywords = [w.strip().lower() for w in re.split(r"[,|]", resp["raw_text"]) if len(w.strip()) > 2]
+            return keywords[:10]
+        except Exception as e:
+            print(f"⚠️ Keyword extraction failed: {e}")
+            return []
+
     async with aiohttp.ClientSession() as session:
         tasks = []
         for claim in claims:
-            site_filter = " OR ".join([f"site:{d}" for d in CREDIBLE_DOMAINS])
-            query = f'"{claim}" {site_filter} (news OR report OR article)'
+            dynamic_keywords = await extract_dynamic_keywords(claim)
+            all_keywords = list(set(NEWS_KEYWORDS + dynamic_keywords))
+
+            # Build site filter ONLY if there are 5+ credible domains
+            site_filter = ""
+            if len(CREDIBLE_DOMAINS) >= 5:
+                site_filter = " OR ".join([f"site:{d}" for d in CREDIBLE_DOMAINS])
+            
+            keyword_query = " OR ".join(all_keywords[:8])
+            query = f'"{claim}" ({keyword_query})'
+            if site_filter:
+                query += f" {site_filter}"
+
+            print(f"🔍 Google query: {query}")
             tasks.append(fetch_google(session, query))
         
         results = await asyncio.gather(*tasks)
 
     for claim, items in zip(claims, results):
-        # original processing logic below remains the same
         claim_emb = get_embedding(claim)
         claim_evidences = []
 
@@ -396,13 +563,20 @@ async def corroborate_all_with_google_async(claims: List[str]) -> Dict[str, Any]
             domain = urlparse(link).netloc.lower()
             snippet = html.unescape(it.get("snippet", ""))[:400]
 
-            if not any(d in domain for d in CREDIBLE_DOMAINS):
+            # Only filter domains if we have 5+ credible domains
+            if len(CREDIBLE_DOMAINS) >= 5 and not any(d in domain for d in CREDIBLE_DOMAINS):
                 continue
-            if not any(k in snippet.lower() for k in NEWS_KEYWORDS):
+
+            # Snippet filter now includes dynamic keywords
+            if not any(k in snippet.lower() for k in NEWS_KEYWORDS + dynamic_keywords):
                 continue
 
             snippet_emb = get_embedding(snippet)
             similarity = float(util.cos_sim(claim_emb, snippet_emb))
+
+            # Debug info
+            print(f"Claim: {claim[:50]}..., snippet: {snippet[:50]}..., similarity: {similarity:.3f}")
+
             if similarity < EMB_SIM_THRESHOLD:
                 continue
 
@@ -433,7 +607,7 @@ async def corroborate_all_with_google_async(claims: List[str]) -> Dict[str, Any]
 
     return {"status": status, "evidences": evidences}
 
-# ---------------- Gemini prompt ----------------
+# ---------------- Updated Gemini prompt (Integrate Fact Check) ----------------
 
 def extract_local_context(claim: str, full_text: str, window: int = 2) -> str:
     sentences = re.split(r'(?<=[.!?])\s+', full_text.strip())
@@ -446,24 +620,41 @@ def extract_local_context(claim: str, full_text: str, window: int = 2) -> str:
     end = min(len(sentences), best_idx + window + 1)
     return " ".join(sentences[start:end])[:1200]
 
-def assemble_gemini_prompt_structured(claim: str, evidences: List[Dict[str, Any]], status: str, full_text: str = "") -> str:
+def assemble_gemini_prompt_structured(claim: str, evidences: List[Dict[str, Any]], status: str, fact_check_results: dict, full_text: str = "") -> str:
     today_str = datetime.now().strftime("%B %d, %Y")
     local_context = extract_local_context(claim, full_text) if full_text else ""
 
     context_part = f"The claim appears in the following context:\n\"\"\"{local_context}\"\"\"\n\n" if local_context else ""
 
+    # Format fact-check results
+    fact_checks_str = ""
+    if fact_check_results["fact_checks"]:
+        fact_checks_str = "\n".join([
+            f"- {fc['publisher']}: \"{fc['rating']}\" ({fc['rating_category'].upper()}) - {fc['claim'][:100]}"
+            for fc in fact_check_results["fact_checks"][:3]
+        ])
+    else:
+        fact_checks_str = "No professional fact-checks found for this specific claim."
+    
+    fc_summary = fact_check_results["summary"]
+
     return f"""
-You are an AI fact-checking assistant.
+You are an AI fact-checking assistant synthesizing ML predictions, search evidence, and professional fact-checks.
 
 {context_part}
 Input claim: \"\"\"{claim}\"\"\"
 Corroboration status: {status}
 Evidence snippets: {json.dumps(evidences[:5], ensure_ascii=False)}
+Fact-Check Status: {fact_check_results['status']}
+Fact-Check Summary:
+{fact_checks_str}
+   - Total fact-checks: {fc_summary['total']}
+   - Rated FALSE: {fc_summary['false_count']} | TRUE: {fc_summary['true_count']} | MIXED: {fc_summary['mixed_count']}
 Today's date: {today_str}
 
 Instructions:
-- Focus on the local context around the claim to preserve meaning.
-- Use evidence snippets to verify factual accuracy.
+- Prioritize fact-check consensus if available (e.g., predominantly_false → Fake).
+- Use evidence snippets and ML context to verify factual accuracy.
 - Evaluate the claim considering today's date ({today_str}).
 - Return a strict JSON object with keys:
 
@@ -489,65 +680,41 @@ Return only valid JSON.
     
 def detect_fake_text(text: str) -> dict:
     """
-    Detects misinformation using Vertex AI, Gemini, corroboration,
-    integrates vector DB (Pinecone) caching + Firestore embeddings,
-    with robust ensemble, domain credibility bonus, and batching.
+    Integrated detection: Vertex AI (ML) + Google Fact Check + Corroboration → Gemini synthesis.
     """
 
     start_total = time.time()
 
-    # --- STEP 0: Try retrieving cached result from Pinecone ---
-    try:
-        cached = search_feedback_semantic(text)
-        if cached and "score" in cached:
-            if "timestamp" in cached:
-                try:
-                    cached_time = datetime.fromisoformat(cached["timestamp"])
-                    if datetime.utcnow() - cached_time > timedelta(days=7):
-                        print("[Cache Expired] Cached result older than 7 days, re-analyzing.")
-                        if "clear_cache_for_text" in globals():
-                            clear_cache_for_text(text)
-                except Exception as e:
-                    print(f"[Cache Expiry Check Failed] {e}")
-
-            print("[Cache Hit] Returning result from Pinecone vector DB.")
-            return {
-                "summary": {
-                    "score": cached.get("score", 0),
-                    "prediction": cached.get("prediction", "Unknown"),
-                    "explanation": cached.get("explanation", "Retrieved from cache."),
-                    "source": "cache"
-                },
-                "runtime": 0,
-                "claims_checked": 0,
-                "raw_details": []
-            }
-    except Exception as e:
-        print(f"[Cache Lookup Failed] {e}")
+    # --- STEP 0: Try retrieving cached result from Pinecone (already handled in app.py) ---
+    # Skip here as app.py handles caching
 
     # --- STEP 1: Clean + preprocess text ---
     text = re.sub(r"(?<=[a-zA-Z])\.(?=[A-Z])", ". ", text)
 
-    # --- STEP 2: Metadata extraction (Gemini) ---
+    # --- STEP 2: Run Google Fact Check ---
+    fact_check_results = query_google_fact_check_api(text)
+
+    # --- STEP 3: Metadata extraction (Gemini) ---
     metadata = extract_metadata_with_gemini(text)
 
-    # --- STEP 3: Vertex AI prediction ---
+    # --- STEP 4: Vertex AI prediction (ML) ---
     vertex_result = predict_with_vertex_ai(metadata)
     vertex_scores = extract_vertex_scores(vertex_result)
 
-    # --- STEP 4: Split into claims ---
+    # --- STEP 5: Split into claims ---
     claims = simple_sentence_split(metadata["text"])
 
-    # --- STEP 5: Corroboration from Google ---
+    # --- STEP 6: Corroboration from Google ---
     corroboration_data = asyncio.run(corroborate_all_with_google_async(claims))
 
-    # --- STEP 6: Parallel Gemini checks for claims ---
+    # --- STEP 7: Parallel Gemini checks for claims (with Fact Check in prompt) ---
     def process_claim(claim: str):
         gem_resp = ask_gemini_structured(
             assemble_gemini_prompt_structured(
                 claim,
                 corroboration_data["evidences"],
                 corroboration_data["status"],
+                fact_check_results,
                 full_text=metadata["text"]
             )
         )
@@ -556,12 +723,13 @@ def detect_fake_text(text: str) -> dict:
         gem_conf = int(parsed.get("confidence", 70))
         explanation = parsed.get("explanation", "Based on available evidence.")
 
-        final_pred, final_conf = adjusted_ensemble(gem_pred, gem_conf, vertex_scores)
+        final_pred, final_conf = adjusted_ensemble(gem_pred, gem_conf, vertex_scores, fact_check_results.get("status", "no_fact_checks"))
 
         return {
             "claim_text": claim,
             "gemini": parsed,
-            "vertex_ai": vertex_result,
+            "vertex_ai": vertex_scores,  # Simplified
+            "fact_check": fact_check_results,
             "corroboration": corroboration_data,
             "ensemble": {
                 "final_prediction": final_pred,
@@ -583,12 +751,12 @@ def detect_fake_text(text: str) -> dict:
             preds.append(final_pred)
             explanations.append(explanation)
 
-    # --- STEP 7: Article-level summary ---
+    # --- STEP 8: Article-level summary ---
     overall_conf = int(sum(overall_scores) / len(overall_scores)) if overall_scores else 0
     overall_label = max(set(preds), key=preds.count) if preds else "Unknown"
     combined_explanation = " | ".join(explanations[:3]) if explanations else "No detailed explanation available."
 
-    # --- STEP 8: Domain credibility bonus ---
+    # --- STEP 9: Domain credibility bonus ---
     source_domain = domain_from_url(metadata.get("source", ""))
     domain_bonus = get_domain_bonus(source_domain)
     if domain_bonus > 0:
@@ -597,28 +765,31 @@ def detect_fake_text(text: str) -> dict:
         combined_explanation += f" | Small credibility bonus applied due to trusted source ({source_domain})"
 
     result_summary = {
-        "score": overall_conf,
+        "score": overall_conf,  # 0-100 for app.py
         "prediction": overall_label,
         "explanation": combined_explanation,
     }
 
-    # --- STEP 9: Store embedding + verification in Firestore (deduplicated) ---
+    # --- STEP 10: Store embedding + verification in Firestore (deduplicated) ---
     try:
-        embedding = generate_embedding(text)
+        embedding = [float(x) for x in get_embedding(text).tolist()]  # Convert tensor to list
         if db:
             doc_id = hashlib.sha256(text.encode("utf-8")).hexdigest()
             db.collection("articles").document(doc_id).set({
                 "text": text,
                 "embedding": embedding,
                 "verified": True,
-                "score": overall_conf,
-                "label": overall_label,
-                "timestamp": firestore.SERVER_TIMESTAMP
-            })
+                "text_score": overall_conf / 100,  # Normalize for old format
+                "prediction": overall_label,
+                "gemini_reasoning": combined_explanation,
+                "text_explanation": combined_explanation,
+                "last_updated": datetime.utcnow(),
+                "type": "text"
+            }, merge=True)
     except Exception as e:
         print(f"[Firestore Embedding Storage Failed] {e}")
 
-    # --- STEP 10: Cache final result in Pinecone ---
+    # --- STEP 11: Cache final result in Pinecone ---
     try:
         store_feedback(
             text=text,

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +11,7 @@
     <h2>Misinformation Detector</h2>
     <p class="subtitle">AI-powered content verification</p>
     
+    <!-- Action Buttons -->
     <div class="action-buttons">
       <button id="clickToCheck" class="action-btn">
         <span class="btn-icon"></span>
@@ -23,17 +24,25 @@
       </button>
     </div>
 
-    <div id="loadingContainer" class="loading-container">
+    <!-- Loading / Facts Display -->
+    <div id="loadingContainer" class="loading-container hidden">
       <div class="spinner"></div>
       <div class="loading-title">Analyzing Content</div>
       <div id="factDisplay" class="facts"></div>
     </div>
-    
+
+    <!-- Analysis Results -->
+    <div id="results" class="results-container hidden"></div>
+
+    <!-- Score / Explanation -->
+    <div id="scoreText" class="score-text"></div>
+    <div id="text-result" class="text-result"></div>
+
+    <!-- History -->
     <h3 style="margin-top: 20px; color: #374151;">Recent Analyses</h3>
     <div id="historyContainer" class="history-container"></div>
 
   </div>
-  
   
   <script src="popup.js"></script>
 </body>

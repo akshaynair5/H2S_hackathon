@@ -115,19 +115,14 @@ panel.setAttribute("aria-label", "TrustMeter Analysis Panel");
 // ---------------------------
 // SHOW PANEL FUNCTION
 // ---------------------------
+// ---------------------------
+// SHOW PANEL FUNCTION
+// ---------------------------
 function showPanel() {
-  if (panel.style.left !== "auto" || panel.style.top !== "auto") {
-    panel.style.left = "auto";
-    panel.style.top = "auto";
-    panel.style.right = "24px";
-    panel.style.bottom = "60px";
-  }
-
-  panel.style.display = "flex";      
-  panel.style.opacity = "0";        
-
+  panel.style.display = "flex";         // make it visible
+  panel.style.transition = "opacity 0.3s ease, transform 0.3s ease";
   requestAnimationFrame(() => {
-    panel.style.opacity = "1";        
+    panel.style.opacity = "1";
     panel.style.transform = "translateY(0)";
   });
 }
@@ -136,14 +131,14 @@ function showPanel() {
 // HIDE PANEL FUNCTION
 // ---------------------------
 function hidePanel() {
+  panel.style.transition = "opacity 0.3s ease, transform 0.3s ease";
   panel.style.opacity = "0";
   panel.style.transform = "translateY(10px)";
   setTimeout(() => {
-    if (panel.style.opacity === "0") {
-      panel.style.display = "none";
-    }
+    panel.style.display = "none";       // hide after animation
   }, 300);
 }
+
 
 // ---------------------------
 // HEADER
@@ -582,28 +577,33 @@ chrome.runtime.onMessage.addListener(message => {
 // ---------------------------
 // AUTO RUN TEXT ANALYSIS
 // ---------------------------
-// setTimeout(analyzeTextNow, 2000);
+setTimeout(analyzeTextNow, 2000);
 
 // ---------------------------
-// TOGGLE PANEL (badge click)
+// BADGE CLICK TOGGLE
 // ---------------------------
 badge.onclick = () => {
-  const isVisible = getComputedStyle(panel).display !== "none" && panel.style.opacity === "1";
-  if (isVisible) hidePanel();
-  else showPanel();
+  const computed = getComputedStyle(panel);
+  const isVisible = computed.display !== "none" && parseFloat(computed.opacity) > 0.5;
+
+  if (isVisible) {
+    hidePanel();
+  } else {
+    showPanel();
+  }
 };
 
 // ---------------------------
 // ESC KEY CLOSE SUPPORT
 // ---------------------------
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && panel.style.display === "flex") {
+  if (e.key === "Escape" && getComputedStyle(panel).display !== "none") {
     hidePanel();
   }
 });
 
 // ---------------------------
-// DRAGGABLE + AUTO-HIDE
+// DRAGGABLE PANEL (updated)
 // ---------------------------
 let isDragging = false;
 let dragOffsetX = 0;
@@ -611,44 +611,37 @@ let dragOffsetY = 0;
 
 header.addEventListener("mousedown", (e) => {
   isDragging = true;
-  dragOffsetX = e.clientX - panel.getBoundingClientRect().left;
-  dragOffsetY = e.clientY - panel.getBoundingClientRect().top;
+  const rect = panel.getBoundingClientRect();
+  dragOffsetX = e.clientX - rect.left;
+  dragOffsetY = e.clientY - rect.top;
   header.style.cursor = "grabbing";
 });
 
 document.addEventListener("mousemove", (e) => {
   if (!isDragging) return;
-  panel.style.transition = "none";
+
+  panel.style.transition = "none"; // disable animation while dragging
+
   let left = e.clientX - dragOffsetX;
   let top = e.clientY - dragOffsetY;
 
-  const maxLeft = window.innerWidth - panel.offsetWidth / 3;
-  const maxTop = window.innerHeight - panel.offsetHeight / 3;
-  const minLeft = -panel.offsetWidth * 2 / 3;
-  const minTop = -panel.offsetHeight / 3;
-
-  left = Math.min(Math.max(left, minLeft), maxLeft);
-  top = Math.min(Math.max(top, minTop), maxTop);
+  // clamp to viewport (partially visible allowed)
+  left = Math.min(Math.max(left, -panel.offsetWidth * 0.6), window.innerWidth - panel.offsetWidth * 0.4);
+  top = Math.min(Math.max(top, -panel.offsetHeight * 0.6), window.innerHeight - panel.offsetHeight * 0.4);
 
   panel.style.left = left + "px";
   panel.style.top = top + "px";
-  panel.style.bottom = "auto";
   panel.style.right = "auto";
+  panel.style.bottom = "auto";
 });
 
 document.addEventListener("mouseup", () => {
   if (!isDragging) return;
   isDragging = false;
   header.style.cursor = "grab";
-  panel.style.transition =
-    "opacity 0.3s ease, transform 0.3s ease, left 0.3s ease, top 0.3s ease";
 
-  const rect = panel.getBoundingClientRect();
-  if (rect.right > window.innerWidth) {
-    panel.style.left = window.innerWidth - panel.offsetWidth / 4 + "px";
-  } else if (rect.left < 0) {
-    panel.style.left = -panel.offsetWidth / 4 + "px";
-  }
+  // restore smooth transitions
+  panel.style.transition = "opacity 0.3s ease, transform 0.3s ease, left 0.3s ease, top 0.3s ease";
 });
 
 // ---------------------------
