@@ -1,5 +1,3 @@
-# vectorDb.py (From new, with minor adaptations for old integration)
-
 import hashlib
 from datetime import datetime, timedelta
 from sentence_transformers import SentenceTransformer, util
@@ -21,7 +19,6 @@ NAMESPACE = "default"
 VERIFIED_NAMESPACE = "verified_fakes"
 EMBED_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
 
-# Initialize Pinecone safely
 pc = Pinecone(api_key=PINECONE_API_KEY)
 existing_indexes = [i["name"] for i in pc.list_indexes()]
 if INDEX_NAME not in existing_indexes:
@@ -66,7 +63,6 @@ def search_feedback(text: str, article_id: Optional[str] = None) -> dict:
     vec_id = article_id or text_hash(text)
     vector = embed_text(text)
 
-    # --- Exact Match ---
     exact_match = index.fetch(ids=[vec_id], namespace=NAMESPACE)
     if exact_match.vectors:
         metadata = exact_match.vectors[vec_id].metadata
@@ -80,7 +76,6 @@ def search_feedback(text: str, article_id: Optional[str] = None) -> dict:
                 "article_id": article_id,
             }
 
-    # --- Semantic Match ---
     query_filter = {"unique_user_count": {"$gte": 1}}
     if article_id:
         query_filter["article_id"] = {"$eq": article_id}
@@ -152,10 +147,6 @@ def search_feedback_semantic(
 
     return {"status": "no_reliable_match"}
 
-
-# -----------------------------
-# STORE FUNCTION
-# -----------------------------
 def store_feedback(
     text: str,
     explanation: str,
@@ -193,7 +184,6 @@ def store_feedback(
         "unique_user_count": 1,
     }
 
-    # --- Update existing entry ---
     if existing.vectors:
         old_meta = existing.vectors[vec_id].metadata
         old_confirmations = old_meta.get("confirmations", 0) + 1
@@ -226,17 +216,12 @@ def store_feedback(
         )
         return {"status": "updated", "unique_user_count": unique_count}
 
-    # --- New entry ---
     index.upsert(
         vectors=[{"id": vec_id, "values": vector, "metadata": metadata}],
         namespace=namespace,
     )
     return {"status": "stored", "confirmations": 1, "article_id": article_id}
 
-
-# -----------------------------
-# CLEANUP FUNCTION
-# -----------------------------
 def cleanup_expired(days: int = 15) -> dict:
     """Delete vectors older than N days (default: 15)."""
     now = datetime.utcnow()

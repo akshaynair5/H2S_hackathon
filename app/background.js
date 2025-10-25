@@ -1,79 +1,199 @@
 // ---------------------------
-// Background Message Listener
+// Config
+// ---------------------------
+const BACKEND_BASE = "http://127.0.0.1:5000";
+const TIMEOUT_MS = 120000;
+
+// ---------------------------
+// Per-tab Tracking 
+// ---------------------------
+const ongoingTextPromises = {};  
+const lastTextPerTab = {};        
+const textLocksPerTab = {};       
+const ongoingImagePromises = {};  
+const imageLocksPerTab = {};
+const tabSessions = {};  
+
+// ---------------------------
+// Helper: Get or Create Session for Tab
+// ---------------------------
+function getSessionForTab(tabId) {
+  if (!tabSessions[tabId]) {
+    tabSessions[tabId] = crypto.randomUUID();
+    console.log(`Created new session for tab ${tabId}:`, tabSessions[tabId]);
+  }
+  return tabSessions[tabId];
+}
+
+// ---------------------------
+// Helper: Clear Session for Tab
+// ---------------------------
+async function clearSessionForTab(tabId) {
+  const sessionId = tabSessions[tabId];
+  if (!sessionId) return;
+  
+  console.log(`Clearing session for tab ${tabId}:`, sessionId);
+  
+  try {
+    await fetch(`${BACKEND_BASE}/cancel_session`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Session-ID": sessionId
+      },
+      body: JSON.stringify({ session_id: sessionId }),
+      keepalive: true
+    });
+    
+    console.log(`✅ Session cancelled for tab ${tabId}`);
+  } catch (err) {
+    console.error(`Error cancelling session for tab ${tabId}:`, err);
+  } finally {
+    // Clean up
+    delete tabSessions[tabId];
+    delete ongoingTextPromises[tabId];
+    delete lastTextPerTab[tabId];
+    delete textLocksPerTab[tabId];
+    delete ongoingImagePromises[tabId];
+    delete imageLocksPerTab[tabId];
+  }
+}
+
+// ---------------------------
+// Background Message Listener 
 // ---------------------------
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message?.type) return;
 
   const tabId = sender.tab?.id;
   const sendToTab = (type, payload) => {
-    if (tabId) chrome.tabs.sendMessage(tabId, { type, payload });
+    if (tabId) {
+      chrome.tabs.sendMessage(tabId, { type, payload }).catch(() => {
+      });
+    }
   };
 
   switch (message.type) {
-    // ---------------------------
-    // Text Analysis
-    // ---------------------------
-    case "ANALYZE_TEXT":
-      analyzeText(tabId, message.payload)
+
+    case "ANALYZE_TEXT": {
+      const sessionId = message.payload?.session_id || getSessionForTab(tabId);
+      
+      analyzeText(tabId, message.payload, sessionId)
         .then(result => {
           console.log("Text analysis result (raw):", result);
           const payload = {
             score: result.score || result.summary?.score || 0,
             explanation: result.explanation || result.summary?.explanation || "No explanation available.",
             prediction: result.prediction || result.summary?.prediction || "Unknown",
-            input_text: result.input_text || message.payload?.text || ""
+            input_text: result.input_text || message.payload?.text || "",
+            session_id: sessionId,  
+            article_id: result.article_id,
+            source: result.source
           };
           console.log("✅ Processed text result:", payload);
           sendResponse(payload);
         })
         .catch(err => {
           console.error("Text analysis error:", err);
-          const errorMsg = { error: err.message || "Unknown error during text analysis." };
+          const errorMsg = { 
+            error: err.message || "Unknown error during text analysis.",
+            session_id: sessionId
+          };
           sendResponse(errorMsg);
           sendToTab("ANALYSIS_ERROR", errorMsg);
         });
       return true;
+    }
+
     // ---------------------------
-    // Image Analysis
+    // Image Analysis 
     // ---------------------------
-    case "ANALYZE_IMAGE":
-      analyzeImage(tabId, message.payload)
+    case "ANALYZE_IMAGE": {
+      const sessionId = message.payload?.session_id || getSessionForTab(tabId);
+      
+      analyzeImage(tabId, message.payload, sessionId)
         .then(results => {
-          sendResponse(results);
-          results.forEach(res => sendToTab("IMAGE_ANALYSIS_RESULT", res));
+          const resultsWithSession = results.map(r => ({
+            ...r,
+            session_id: sessionId
+          }));
+          
+          sendResponse(resultsWithSession);
+          resultsWithSession.forEach(res => sendToTab("IMAGE_ANALYSIS_RESULT", res));
         })
         .catch(err => {
           console.error("Image analysis error:", err);
-          const errorMsg = { error: err.message || "Unknown error during image analysis." };
+          const errorMsg = { 
+            error: err.message || "Unknown error during image analysis.",
+            session_id: sessionId
+          };
           sendResponse(errorMsg);
           sendToTab("ANALYSIS_ERROR", errorMsg);
         });
       return true;
+    }
+    case "CANCEL_SESSION": {
+      const sessionId = message.payload?.session_id;
+      const targetTabId = message.payload?.tab_id || tabId;
+      
+      if (sessionId && tabSessions[targetTabId] === sessionId) {
+        clearSessionForTab(targetTabId)
+          .then(() => {
+            sendResponse({ 
+              status: "success", 
+              message: "Session cancelled",
+              session_id: sessionId,
+              tab_id: targetTabId
+            });
+          })
+          .catch(err => {
+            sendResponse({ 
+              status: "error", 
+              error: err.message,
+              session_id: sessionId
+            });
+          });
+      } else {
+        sendResponse({ 
+          status: "error", 
+          error: "Session not found or mismatch" 
+        });
+      }
+      return true;
+    }
+
+    case "CHECK_SESSION_TASKS": {
+      const sessionId = message.payload?.session_id || getSessionForTab(tabId);
+      
+      fetch(`${BACKEND_BASE}/session_tasks?session_id=${sessionId}`, {
+        method: "GET",
+        headers: {
+          "X-Session-ID": sessionId
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          console.log("Active tasks:", data);
+          sendResponse(data);
+        })
+        .catch(err => {
+          console.error("Error checking tasks:", err);
+          sendResponse({ error: err.message });
+        });
+      
+      return true;
+    }
 
     default:
-      if (!message.type.endsWith("_RESULT")) sendResponse({ error: "Unknown message type" });
+      if (!message.type.endsWith("_RESULT")) {
+        sendResponse({ error: "Unknown message type" });
+      }
       return false;
   }
 });
 
-// ---------------------------
-// Config
-// ---------------------------
-const BACKEND_BASE = "http://127.0.0.1:5000";
-const TIMEOUT_MS = 120000;
-// const RETRY_LIMIT = 2; // Disabled retries for now
-
-// ---------------------------
-// Per-tab Tracking
-// ---------------------------
-const ongoingTextPromises = {};  
-const lastTextPerTab = {};        
-const textLocksPerTab = {};       
-const ongoingImagePromises = {};  
-const imageLocksPerTab = {};     
-
-async function analyzeText(tabId, payload) {
-  const { text } = payload || {};
+async function analyzeText(tabId, payload, sessionId) {
+  const { text, url } = payload || {};
   if (!text?.trim()) throw new Error("No text provided.");
 
   textLocksPerTab[tabId] = textLocksPerTab[tabId] || false;
@@ -85,10 +205,10 @@ async function analyzeText(tabId, payload) {
       success: false,
       source: "lock",
       input_text: text,
-      result: {
-        overall: { label: "Unknown", confidence: 0 },
-        explanation: "Another analysis is already running. Please wait."
-      }
+      session_id: sessionId,
+      score: 0,
+      explanation: "Another analysis is already running. Please wait.",
+      prediction: "Unknown"
     };
   }
 
@@ -112,7 +232,7 @@ async function analyzeText(tabId, payload) {
       return data;
     } catch (err) {
       clearTimeout(timer);
-      throw err; // No automatic retry
+      throw err;
     }
   };
 
@@ -120,8 +240,15 @@ async function analyzeText(tabId, payload) {
     try {
       const data = await fetchOnce(`${BACKEND_BASE}/detect_text`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text })
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Session-ID": sessionId  
+        },
+        body: JSON.stringify({ 
+          text, 
+          url,
+          session_id: sessionId 
+        })
       });
       return data;
     } finally {
@@ -133,10 +260,7 @@ async function analyzeText(tabId, payload) {
   return ongoingTextPromises[tabId];
 }
 
-// ---------------------------
-// IMAGE ANALYSIS
-// ---------------------------
-async function analyzeImage(tabId, payload) {
+async function analyzeImage(tabId, payload, sessionId) {
   let urls = [];
   if (payload?.url) urls = [payload.url];
   else if (Array.isArray(payload?.urls)) urls = payload.urls;
@@ -150,7 +274,8 @@ async function analyzeImage(tabId, payload) {
       url: u,
       score: 0,
       explanation: "Another image analysis is in progress. Please wait.",
-      prediction: "Unknown"
+      prediction: "Unknown",
+      session_id: sessionId
     }));
   }
 
@@ -168,20 +293,25 @@ async function analyzeImage(tabId, payload) {
       return data;
     } catch (err) {
       clearTimeout(timer);
-      throw err; // No automatic retry
+      throw err;
     }
   };
 
   try {
     const data = await fetchOnce(`${BACKEND_BASE}/detect_image`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls })
+      headers: { 
+        "Content-Type": "application/json",
+        "X-Session-ID": sessionId 
+      },
+      body: JSON.stringify({ 
+        urls,
+        session_id: sessionId 
+      })
     });
 
     let resultsToSend = [];
 
-    // To handle both single-image and multi-image structures
     if (Array.isArray(data)) {
       resultsToSend = data.map((d, idx) => ({
         url: urls[idx],
@@ -213,3 +343,48 @@ async function analyzeImage(tabId, payload) {
     imageLocksPerTab[tabId] = false;
   }
 }
+
+chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+  console.log(`Tab ${tabId} closed, cancelling session...`);
+  clearSessionForTab(tabId);
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'loading' && changeInfo.url) {
+    console.log(`Tab ${tabId} navigating to ${changeInfo.url}, cancelling old session...`);
+    clearSessionForTab(tabId);
+  }
+});
+
+chrome.tabs.onReplaced?.addListener((addedTabId, removedTabId) => {
+  console.log(`Tab ${removedTabId} replaced by ${addedTabId}, transferring session...`);
+  if (tabSessions[removedTabId]) {
+    tabSessions[addedTabId] = tabSessions[removedTabId];
+    delete tabSessions[removedTabId];
+  }
+});
+
+if (chrome.runtime.onSuspend) {
+  chrome.runtime.onSuspend.addListener(() => {
+    console.log("Extension suspending, cancelling all sessions...");
+    Object.keys(tabSessions).forEach(tabId => {
+      clearSessionForTab(parseInt(tabId));
+    });
+  });
+}
+
+setInterval(() => {
+  console.log("Running periodic session cleanup...");
+  
+  chrome.tabs.query({}, (tabs) => {
+    const activeTabIds = new Set(tabs.map(t => t.id));
+
+    Object.keys(tabSessions).forEach(tabId => {
+      const numericTabId = parseInt(tabId);
+      if (!activeTabIds.has(numericTabId)) {
+        console.log(`Cleaning up orphaned session for tab ${tabId}`);
+        clearSessionForTab(numericTabId);
+      }
+    });
+  });
+}, 5 * 60 * 1000); 

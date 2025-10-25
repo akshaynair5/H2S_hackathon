@@ -4,17 +4,16 @@ import requests
 from typing import List, Dict, Any, Union
 from google.cloud import vision
 from google.api_core.exceptions import GoogleAPICallError, RetryError
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ------------------------- Configuration -------------------------
-PROJECT_ID = "804712050799"
-ENDPOINT_ID = "8972726266675331072"
-LOCATION = "us-central1"
-
-# Initialize Vision Client
-try:
-    client = vision.ImageAnnotatorClient.from_service_account_file("key.json")
-except Exception:
-    client = vision.ImageAnnotatorClient()
+PROJECT_ID = os.getenv("PROJECT_ID")
+ENDPOINT_ID = os.getenv("IMG_ENDPOINT_ID")
+LOCATION = os.getenv("LOCATION", "us-central1")
+client = vision.ImageAnnotatorClient()
 
 # ------------------------- Helper Functions -------------------------
 def _read_image(path: str) -> vision.Image:
@@ -24,7 +23,6 @@ def _read_image(path: str) -> vision.Image:
 
 
 def _fetch_image_from_url(url: str, save_as: str = "temp_image.jpg") -> str:
-    """Downloads an image from a URL and saves it locally."""
     response = requests.get(url, timeout=10)
     response.raise_for_status()
     with open(save_as, "wb") as f:
@@ -33,7 +31,6 @@ def _fetch_image_from_url(url: str, save_as: str = "temp_image.jpg") -> str:
 
 
 def _safe_vision_call(func, image: vision.Image, retries=2):
-    """Wraps Vision API calls with error handling and retries."""
     for attempt in range(retries + 1):
         try:
             return func(image=image)
@@ -120,14 +117,10 @@ def call_vertex_ai_prediction(image_path: str) -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Failed to parse Vertex AI response: {e}", "raw": resp.text}
 
-
-# ------------------------- Final Scoring -------------------------
 def score_ai_likelihood(vision_data: Dict[str, Any], vertex_result: Dict[str, Any]) -> Dict[str, Any]:
     """Combine Vision AI and Vertex AI signals to generate authenticity verdict."""
     explanation = []
-    ai_prob = 0.5  # baseline
-
-    # --- Vision AI: web signals ---
+    ai_prob = 0.5 
     web_info = vision_data.get("web", {})
     if web_info.get("exact_matches"):
         explanation.append("✅ Exact matches found online — likely real.")
@@ -139,12 +132,10 @@ def score_ai_likelihood(vision_data: Dict[str, Any], vertex_result: Dict[str, An
         explanation.append("❌ No web presence — may be AI-generated.")
         ai_prob += 0.25
 
-    # --- Vision AI: face detection ---
     if vision_data.get("faces"):
         explanation.append("✅ Faces detected — consistent with real photos.")
         ai_prob -= 0.1
 
-    # --- Vertex AI: authenticity model prediction ---
     if "displayNames" in vertex_result and "confidences" in vertex_result:
         preds = list(zip(vertex_result["displayNames"], vertex_result["confidences"]))
         top_pred, top_conf = preds[0]
@@ -156,7 +147,6 @@ def score_ai_likelihood(vision_data: Dict[str, Any], vertex_result: Dict[str, An
     else:
         explanation.append("⚠️ Vertex AI result unavailable or malformed.")
 
-    # --- Final verdict ---
     ai_prob = max(0.0, min(1.0, ai_prob))
     verdict = "Likely AI-generated" if ai_prob > 0.7 else "Likely Real" if ai_prob < 0.3 else "Uncertain"
 

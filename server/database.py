@@ -10,18 +10,14 @@ import json
 from typing import Optional
 from sentence_transformers import util, SentenceTransformer
 
-# -------------------------
-# ENV + FIREBASE SETUP
-# -------------------------
 load_dotenv()
 
-# Try to get credential path from environment
 cred_path = os.getenv("FIRESTORE_CREDENTIALS_PATH")
+fallback_path = os.getenv("FIREBASE_KEY_PATH")
 
-# Fallback: look for local file named 'firebase-key.json' in the same directory
 if not cred_path or not os.path.exists(cred_path):
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    fallback_path = os.path.join(script_dir, "firebase-key.json")
+    fallback_path = os.path.join(script_dir, fallback_path)
     if os.path.exists(fallback_path):
         cred_path = fallback_path
         print(f"⚠️ Using fallback Firebase key: {cred_path}")
@@ -31,16 +27,12 @@ if not cred_path or not os.path.exists(cred_path):
             "Set FIRESTORE_CREDENTIALS_PATH or place firebase-key.json next to this file."
         )
 
-# Initialize Firebase
 if not firebase_admin._apps:
     cred = credentials.Certificate(cred_path)
     firebase_admin.initialize_app(cred)
 db = firestore.client(database_id="genai")
 print("✅ Firestore initialized successfully.")
 
-# -------------------------
-# EMBEDDING + HELPERS
-# -------------------------
 EMBED_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
 
 def generate_id(url, text):

@@ -1,24 +1,15 @@
 let factInterval = null;
 
-// ---------------------------
-// SAFE DOM ACCESS HELPER
-// ---------------------------
 function $(id) {
   const el = document.getElementById(id);
   if (!el) console.warn(`⚠️ Missing element: #${id}`);
   return el;
 }
 
-// ---------------------------
-// INIT ON DOM LOAD
-// ---------------------------
 document.addEventListener("DOMContentLoaded", () => {
   initializeTrustMeterUI();
 });
 
-// ---------------------------
-// MAIN INITIALIZATION
-// ---------------------------
 function initializeTrustMeterUI() {
   const checkTextBtn = $("checkText");
   const clickToCheckBtn = $("clickToCheck");
@@ -36,32 +27,32 @@ function initializeTrustMeterUI() {
   renderHistory();
 }
 
-// ---------------------------
-// TEST FUNCTION
-// ---------------------------
-function testWithDummyData(index = 0) {
-  const resultsDiv = $("results");
-  const loading = $("loadingContainer");
-  if (!resultsDiv || !loading) return;
+// // ---------------------------
+// // TEST FUNCTION
+// // ---------------------------
+// function testWithDummyData(index = 0) {
+//   const resultsDiv = $("results");
+//   const loading = $("loadingContainer");
+//   if (!resultsDiv || !loading) return;
 
-  resultsDiv.classList.remove("show");
-  resultsDiv.classList.add("hidden");
-  loading.classList.add("show");
-  startFactsRotation();
+//   resultsDiv.classList.remove("show");
+//   resultsDiv.classList.add("hidden");
+//   loading.classList.add("show");
+//   startFactsRotation();
 
-  setTimeout(() => {
-    loading.classList.remove("show");
-    stopFactsRotation();
+//   setTimeout(() => {
+//     loading.classList.remove("show");
+//     stopFactsRotation();
 
-    const response = dummyResults[index % dummyResults.length];
-    displayResult({
-      score: response.score || 0,
-      explanation: response.explanation || "Text analyzed",
-      details: response.details || [response],
-      text: response.text || "unknown"
-    });
-  }, 1000);
-}
+//     const response = dummyResults[index % dummyResults.length];
+//     displayResult({
+//       score: response.score || 0,
+//       explanation: response.explanation || "Text analyzed",
+//       details: response.details || [response],
+//       text: response.text || "unknown"
+//     });
+//   }, 1000);
+// }
 
 // ---------------------------
 // DISPLAY RESULTS
@@ -194,18 +185,12 @@ function renderHistory() {
   });
 }
 
-// ---------------------------
-// Hook into displayResult()
-// ---------------------------
 const originalDisplayResult = displayResult;
 displayResult = function (result) {
   originalDisplayResult(result);
   saveToHistory(result);
 };
 
-// ---------------------------
-// DISPLAY FEEDBACK MESSAGE
-// ---------------------------
 function displayFeedbackMessage() {
   const resultsDiv = $("results");
   if (!resultsDiv) return;
@@ -224,9 +209,6 @@ function displayFeedbackMessage() {
   }, 4000);
 }
 
-// ---------------------------
-// DISPLAY ERRORS
-// ---------------------------
 function displayError(message) {
   const resultsDiv = $("results");
   const loading = $("loadingContainer");

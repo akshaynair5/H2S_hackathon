@@ -1,23 +1,22 @@
-# app.py (Integrated Approach)
-
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
 from misinfo_model import detect_fake_text
 from flask_cors import CORS
 from vectorDb import search_feedback_semantic, store_feedback, cleanup_expired
-from database import generate_id,generate_normalized_id,generate_embedding,get_article_doc,firestore_semantic_search,db
+from database import generate_id, generate_normalized_id, generate_embedding, get_article_doc, firestore_semantic_search, db
 from FakeImageDetection import detect_fake_image
 from firebase_admin import credentials, firestore
-
+from tasks import cancel_session_tasks, get_session_tasks 
 from datetime import datetime, timedelta
-
-
-import json
-
+import os
+from dotenv import load_dotenv
 import numpy as np
+import uuid
 
+load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+app.secret_key = os.getenv("APP_SECRET_KEY")
+CORS(app, supports_credentials=True)  
 
 
 def make_json_safe(obj):
@@ -32,14 +31,29 @@ def make_json_safe(obj):
     else:
         return obj
 
+
 # ---------------------------
-# IMAGE DETECTION (Unchanged from old)
+# HELPER: Get session ID from request
+# ---------------------------
+def get_session_id():
+    """Extract session ID from various sources"""
+    return (
+        request.json.get("session_id") if request.json else None or
+        request.headers.get("X-Session-ID") or 
+        request.headers.get("user-fingerprint") or
+        session.get("session_id") or
+        str(uuid.uuid4()) 
+    )
+
+
+# ---------------------------
+# IMAGE DETECTION 
 # ---------------------------
 @app.route("/detect_image", methods=["POST"])
 def detect_image():
     data = request.json
     urls = data.get("urls") or data.get("images") 
-    print("Urls is " , urls)
+    print("Urls is", urls)
     if not urls:
         return jsonify({"error": "No images provided"}), 400
     if isinstance(urls, str):
@@ -59,15 +73,20 @@ def detect_image():
 
     return jsonify(response)
 
+
 # ---------------------------
-# TEXT DETECTION (Integrated: Firestore + Pinecone caching, then new pipeline with Fact Check)
+# TEXT DETECTION 
 # ---------------------------
 @app.route("/detect_text", methods=["POST"])
 def detect_text():
     try:
         data = request.json 
         original_text = data.get("text", "")
-        url = data.get("url", "")  # Optional for better ID
+        url = data.get("url", "")
+
+        session_id = get_session_id()
+        print(f"Processing request for session: {session_id}")
+        
         print(f"User selected text: '{original_text}' - \n")
         print(f"URL IS  '{url}'- \n")
 
@@ -75,14 +94,11 @@ def detect_text():
         if not text or len(text) < 50:
             return jsonify({"error": "Text too short or missing"}), 400
 
-        # Exact ID
         article_id = generate_id(url, text)
-        
-        # Normalized ID for semantic matching
+
         norm_id = generate_normalized_id(url, text)
         print(f"Exact ID: {article_id}, Norm ID: {norm_id}")
 
-        # Step 1: Exact Firestore match
         cached = get_article_doc(article_id)
         if cached:
             prediction = cached.get("prediction", "Unknown")
@@ -93,6 +109,7 @@ def detect_text():
                 "explanation": explanation,
                 "article_id": article_id,
                 "source": "firestore_exact",
+                "session_id": session_id,  
                 "details": [{
                     "score": cached.get("text_score", 0.5),
                     "prediction": prediction,
@@ -102,7 +119,6 @@ def detect_text():
                 }]
             })
 
-        # Step 1.5: Firestore semantic search
         print("Exact miss; trying Firestore semantic search...")
         firestore_semantic = firestore_semantic_search(original_text)
         if firestore_semantic:
@@ -111,10 +127,8 @@ def detect_text():
             prediction = best.get("prediction", "Unknown")
             explanation = best.get("gemini_reasoning", best.get("text_explanation", ""))
             print(f"Semantic hit! Using candidate with sim {firestore_semantic['similarity']:.3f}, score {best.get('text_score', 0.5)}")
-            # Increment views
             
             db.collection('articles').document(best_article_id).update({"total_views": firestore.Increment(1)})
-            # Personalize if sim <0.95
             if firestore_semantic['similarity'] < 0.95:
                 from misinfo_model import ask_gemini_structured
                 personalization_prompt = f"""
@@ -127,7 +141,6 @@ def detect_text():
                     if isinstance(gemini_resp, dict) and 'parsed' in gemini_resp:
                         pers = gemini_resp['parsed']
                         explanation = pers.get("explanation", explanation)
-                        # Store personalized under original ID
                         embedding = generate_embedding(original_text)
                         db.collection('articles').document(article_id).set({
                             "url": url, "text": original_text, "normalized_id": norm_id, "embedding": embedding,
@@ -148,22 +161,19 @@ def detect_text():
                 "explanation": explanation,
                 "article_id": article_id,
                 "source": "firestore_semantic",
+                "session_id": session_id,
                 "details": [{"score": best.get("text_score", 0.5), "prediction": prediction, "explanation": explanation, "source": "firestore_semantic", "article_id": best_article_id, "similarity": firestore_semantic['similarity']}]
             })
 
         print("No semantic Firestore hit; querying Pinecone for semantic similar verified fakes...")
-        # Step 2: Semantic search in Pinecone
         semantic_result = search_feedback_semantic(original_text, article_id=article_id, verified_only=False)
         if semantic_result.get("source") == "cache":
-            # Use cached with personalization if needed
             cached_doc_id = semantic_result.get("article_id")
-            # Similar personalization logic as above, but using new ask_gemini_structured
-            # (Omitted for brevity; adapt from old)
-            # Fallback to raw cache if personalization fails
             return jsonify({
                 **semantic_result,
                 "article_id": article_id,
                 "source": "semantic_cache",
+                "session_id": session_id, 
                 "details": [{
                     "score": semantic_result.get("score", 0.5),
                     "prediction": semantic_result.get("prediction", "Unknown"),
@@ -173,14 +183,12 @@ def detect_text():
                 }]
             })
 
-        # Step 3: New integrated ML pipeline (Vertex AI + Fact Check + Gemini)
         print(f"No semantic cache hit for text: '{text}' - Running new analysis pipeline")
-        model_result = detect_fake_text(original_text)  # This now includes Fact Check and ensemble
-        text_score = model_result.get("summary", {}).get("score", 0.5) / 100  # Normalize to 0-1
+        model_result = detect_fake_text(original_text)
+        text_score = model_result.get("summary", {}).get("score", 0.5) / 100
         text_prediction = model_result.get("summary", {}).get("prediction", "Unknown")
         explanation = model_result.get("summary", {}).get("explanation", "Analysis complete.")
 
-        # Step 4: Cache with normalized_id + embedding + verified
         verified = True
         embedding = generate_embedding(original_text)
         total_reports = 1 if text_score < 0.5 else 0
@@ -200,13 +208,11 @@ def detect_text():
         }
         db.collection('articles').document(article_id).set(doc_data)
 
-        # Step 5: Store in Pinecone
         store_feedback(
             original_text, explanation, [], "system", article_id=article_id,
             score=text_score, prediction=text_prediction, verified=verified
         )
 
-        # Response (adapt to new format)
         safe_result = make_json_safe(model_result)
         response = {
             "score": text_score,
@@ -214,6 +220,7 @@ def detect_text():
             "explanation": explanation,
             "article_id": article_id,
             "source": "new_analysis",
+            "session_id": session_id,
             "details": [safe_result],
             "runtime": safe_result.get("runtime", 0),
             "claims_checked": safe_result.get("claims_checked", 0)
@@ -224,21 +231,22 @@ def detect_text():
         print(f"Error in /detect_text: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 # ---------------------------
-# USER FEEDBACK (From old, adapted to new labels)
+# USER FEEDBACK 
 # ---------------------------
 @app.route("/submit_feedback", methods=["POST"])
 def submit_feedback():
     data = request.json
     article_id = data.get("article_id", "")
     text = data.get("text", "")
-    label = data.get("response", "").upper()  # "REAL" or "FAKE"
+    label = data.get("response", "").upper() 
 
     if label == "YES":
         label = "FAKE"
     else:
         label = "REAL"
-    print("Label is " , label)
+    print("Label is", label)
     explanation = data.get("explanation", "")
     sources = data.get("sources", [])
     user_fingerprint = request.headers.get("user-fingerprint", "default")
@@ -256,13 +264,11 @@ Collected Data:
         return jsonify({"error": "Missing article_id/text or invalid label (use REAL/FAKE)"}), 400
 
     if article_id:
-        # Update Firestore
         increment_reports = 1 if label == "FAKE" else 0
         db.collection('articles').document(article_id).update({
             "total_views": firestore.Increment(1),
             "total_reports": firestore.Increment(increment_reports)
         })
-        # Store detailed feedback
         db.collection('articles').document(article_id).collection('feedbacks').add({
             "label": label,
             "explanation": explanation,
@@ -270,7 +276,6 @@ Collected Data:
             "timestamp": datetime.utcnow()
         })
 
-        # Check threshold
         doc = get_article_doc(article_id)
         if doc:
             total_views = doc.get('total_views', 1) + 1
@@ -280,15 +285,62 @@ Collected Data:
                 db.collection('articles').document(article_id).update({"community_flagged": True})
             return jsonify({"status": "feedback_recorded", "percentage_reported": f"{percentage:.0f}%"})
 
-    # Legacy: Store in Pinecone if FAKE
     if label != "FAKE":
         return jsonify({"status": "ignored", "message": "Only FAKE labels are stored in legacy mode"}), 200
 
     result = store_feedback(text, explanation, sources, user_fingerprint)
-    print("Final result is ", result)
+    print("Final result is", result)
     if "error" in result:
         return jsonify({"error": result["error"]}), 400
     return jsonify(result), 200
+
+@app.route("/cancel_session", methods=["POST"])
+def cancel_session():
+    """Cancel all running tasks for the current session when user exits website"""
+    data = request.json or {}
+
+    session_id = (
+        data.get("session_id") or 
+        request.headers.get("X-Session-ID") or 
+        request.headers.get("user-fingerprint") or
+        session.get("session_id")
+    )
+    
+    if not session_id:
+        return jsonify({
+            "error": "No session identifier provided",
+            "message": "Please provide session_id in request body or X-Session-ID header"
+        }), 400
+    
+    print(f"Cancelling all tasks for session: {session_id}")
+    result = cancel_session_tasks(session_id)
+    
+    return jsonify({
+        "status": "success",
+        "session_id": session_id,
+        **result
+    }), 200
+
+@app.route("/session_tasks", methods=["GET"])
+def session_tasks():
+    """Get all active tasks for the current session"""
+    session_id = (
+        request.args.get("session_id") or
+        request.headers.get("X-Session-ID") or 
+        request.headers.get("user-fingerprint")
+    )
+    
+    if not session_id:
+        return jsonify({"error": "No session identifier"}), 400
+    
+    active_tasks = get_session_tasks(session_id)
+    
+    return jsonify({
+        "session_id": session_id,
+        "active_tasks": active_tasks,
+        "count": len(active_tasks)
+    }), 200
+
 
 # ---------------------------
 # CLEANUP EXPIRED DATA
@@ -297,6 +349,7 @@ Collected Data:
 def cleanup_expired_endpoint():
     result = cleanup_expired()
     return jsonify(result), 200
+
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

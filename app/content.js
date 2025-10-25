@@ -1,6 +1,53 @@
 // ---------------------------
-// NORMALIZE SCORE
+// SESSION MANAGEMENT
 // ---------------------------
+let sessionId = localStorage.getItem('trustmeter_session_id');
+if (!sessionId) {
+  sessionId = crypto.randomUUID();
+  localStorage.setItem('trustmeter_session_id', sessionId);
+}
+console.log("TrustMeter Session ID:", sessionId);
+
+// ---------------------------
+// CANCEL SESSION ON EXIT
+// ---------------------------
+function cancelSession() {
+  if (!sessionId) return;
+  
+  console.log("Cancelling session:", sessionId);
+  const blob = new Blob(
+    [JSON.stringify({ session_id: sessionId })],
+    { type: 'application/json' }
+  );
+  
+  const sent = navigator.sendBeacon('http://localhost:5000/cancel_session', blob);
+  if (!sent) {
+    fetch('http://localhost:5000/cancel_session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Session-ID': sessionId
+      },
+      body: JSON.stringify({ session_id: sessionId }),
+      keepalive: true
+    }).catch(err => console.log('Session cancel failed:', err));
+  }
+}
+
+window.addEventListener('beforeunload', cancelSession);
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    cancelSession();
+  }
+});
+
+if (typeof chrome !== 'undefined' && chrome.runtime) {
+  chrome.runtime.onSuspend?.addListener(() => {
+    cancelSession();
+  });
+}
+
 function normalizeScore(raw) {
   let s = raw || 0;
   if (s <= 1) s = Math.round(s * 100);
@@ -67,7 +114,6 @@ badge.textContent = "Trust Score: —";
 badge.setAttribute("role", "button");
 badge.setAttribute("aria-label", "Open TrustMeter panel");
 
-// Hover effect
 badge.addEventListener("mouseover", () => {
   badge.style.transform = "translateY(-2px)";
   badge.style.boxShadow = "0 6px 16px rgba(0, 0, 0, 0.25)";
@@ -115,11 +161,8 @@ panel.setAttribute("aria-label", "TrustMeter Analysis Panel");
 // ---------------------------
 // SHOW PANEL FUNCTION
 // ---------------------------
-// ---------------------------
-// SHOW PANEL FUNCTION
-// ---------------------------
 function showPanel() {
-  panel.style.display = "flex";         // make it visible
+  panel.style.display = "flex";
   panel.style.transition = "opacity 0.3s ease, transform 0.3s ease";
   requestAnimationFrame(() => {
     panel.style.opacity = "1";
@@ -135,10 +178,9 @@ function hidePanel() {
   panel.style.opacity = "0";
   panel.style.transform = "translateY(10px)";
   setTimeout(() => {
-    panel.style.display = "none";       // hide after animation
+    panel.style.display = "none";
   }, 300);
 }
-
 
 // ---------------------------
 // HEADER
@@ -351,7 +393,6 @@ function updateImageAverage() {
     `🖼️ <strong>Image Score:</strong> ${avgImage}${avgImage !== "—" ? "%" : ""}`;
 }
 
-
 // ---------------------------
 // TEXT + IMAGE HELPERS
 // ---------------------------
@@ -420,7 +461,7 @@ function collectVisibleImages(maxCount = 3) {
 }
 
 // ---------------------------
-// ANALYZE FUNCTIONS
+// ANALYZE FUNCTIONS 
 // ---------------------------
 function analyzeTextNow() {
   setWorking("Analyzing visible text...");
@@ -436,7 +477,14 @@ function analyzeTextNow() {
   }
 
   chrome.runtime.sendMessage(
-    { type: "ANALYZE_TEXT", payload: { text: visibleText, url: location.href } },
+    { 
+      type: "ANALYZE_TEXT", 
+      payload: { 
+        text: visibleText, 
+        url: location.href,
+        session_id: sessionId  
+      } 
+    },
     response => {
       stopWorking();
       if (!response || response.error) {
@@ -445,13 +493,17 @@ function analyzeTextNow() {
         return;
       }
       setResult(response.score ?? 0, response.explanation);
+
+      if (response.session_id) {
+        console.log("Analysis completed for session:", response.session_id);
+      }
     }
   );
 }
 
 function analyzeImagesNow() {
   const container = document.getElementById("image-results");
-  setWorking("Analyzing visible text...");
+  setWorking("Analyzing images...");
 
   const visibleImages = collectVisibleImages(3);
   if (visibleImages.length === 0) {
@@ -459,9 +511,14 @@ function analyzeImagesNow() {
     container.textContent = "No images found on this page.";
     return;
   }
-
   chrome.runtime.sendMessage(
-    { type: "ANALYZE_IMAGE", payload: { urls: visibleImages } },
+    { 
+      type: "ANALYZE_IMAGE", 
+      payload: { 
+        urls: visibleImages,
+        session_id: sessionId  
+      } 
+    },
     response => {
       stopWorking();
       if (!response || response.error) {
@@ -469,13 +526,13 @@ function analyzeImagesNow() {
       } else {
         container.textContent = "";
       }
+      if (response.session_id) {
+        console.log("Image analysis completed for session:", response.session_id);
+      }
     }
   );
 }
 
-// ---------------------------
-// MESSAGE HANDLER
-// ---------------------------
 chrome.runtime.onMessage.addListener(message => {
   if (!message?.type) return;
 
@@ -484,11 +541,20 @@ chrome.runtime.onMessage.addListener(message => {
       console.log("Received TEXT_ANALYSIS_RESULT:", message.payload);
       const overall = message.payload || {};
       setResult(overall.score || 0, overall.explanation || "No explanation");
+
+      if (overall.session_id && overall.session_id !== sessionId) {
+        console.warn("Received result for different session:", overall.session_id);
+      }
       break;
 
-
     case "IMAGE_ANALYSIS_RESULT": {
-      const { url, score, explanation } = message.payload;
+      const { url, score, explanation, session_id: responseSessionId } = message.payload;
+
+      if (responseSessionId && responseSessionId !== sessionId) {
+        console.warn("Received image result for different session:", responseSessionId);
+        return; 
+      }
+      
       const container = document.getElementById("image-results");
       if (!container) return;
       if (container.textContent.includes("No images")) container.innerHTML = "";
@@ -570,6 +636,12 @@ chrome.runtime.onMessage.addListener(message => {
 
     case "EXPAND_PANEL_UI":
       showPanel();
+      break;n
+    case "SESSION_CANCELLED":
+      console.log("Session cancelled:", message.payload);
+      if (message.payload?.session_id === sessionId) {
+        console.log("Current session tasks stopped successfully");
+      }
       break;
   }
 });
@@ -603,7 +675,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ---------------------------
-// DRAGGABLE PANEL (updated)
+// DRAGGABLE PANEL
 // ---------------------------
 let isDragging = false;
 let dragOffsetX = 0;
@@ -620,12 +692,11 @@ header.addEventListener("mousedown", (e) => {
 document.addEventListener("mousemove", (e) => {
   if (!isDragging) return;
 
-  panel.style.transition = "none"; // disable animation while dragging
+  panel.style.transition = "none"; 
 
   let left = e.clientX - dragOffsetX;
   let top = e.clientY - dragOffsetY;
 
-  // clamp to viewport (partially visible allowed)
   left = Math.min(Math.max(left, -panel.offsetWidth * 0.6), window.innerWidth - panel.offsetWidth * 0.4);
   top = Math.min(Math.max(top, -panel.offsetHeight * 0.6), window.innerHeight - panel.offsetHeight * 0.4);
 
@@ -639,14 +710,9 @@ document.addEventListener("mouseup", () => {
   if (!isDragging) return;
   isDragging = false;
   header.style.cursor = "grab";
-
-  // restore smooth transitions
   panel.style.transition = "opacity 0.3s ease, transform 0.3s ease, left 0.3s ease, top 0.3s ease";
 });
 
-// ---------------------------
-// RESTORE CLICK WHEN PARTIALLY HIDDEN
-// ---------------------------
 panel.addEventListener("click", () => {
   const rect = panel.getBoundingClientRect();
   if (rect.left < 0 || rect.right > window.innerWidth) {
@@ -667,3 +733,45 @@ panel.addEventListener("keydown", (e) => {
     }
   }
 });
+
+window.addEventListener('unload', () => {
+  cancelSession();
+});
+
+let heartbeatInterval = setInterval(() => {
+  if (document.hidden) return;
+
+  console.log("Session active:", sessionId);
+}, 60000); 
+
+window.addEventListener('unload', () => {
+  clearInterval(heartbeatInterval);
+});
+
+if (typeof chrome !== 'undefined' && chrome.runtime) {
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'T') {
+      chrome.runtime.sendMessage({
+        type: "CHECK_SESSION_TASKS",
+        payload: { session_id: sessionId }
+      }, (response) => {
+        console.log("Active tasks for session:", response);
+      });
+    }
+  });
+}
+
+const sessionInfo = document.createElement("div");
+sessionInfo.style.cssText = `
+  font-size: 10px;
+  color: #999;
+  padding: 4px 0;
+  border-top: 1px solid rgba(0,0,0,0.05);
+  margin-top: 8px;
+  font-family: monospace;
+`;
+sessionInfo.innerHTML = `Session: ${sessionId.substring(0, 8)}...`;
+sessionInfo.title = `Full Session ID: ${sessionId}`;
+panel.appendChild(sessionInfo);
+
+console.log("📊 Session ID:", sessionId);

@@ -1,12 +1,11 @@
-/* Results Container */
+
 #results {
   margin-top: 16px;
   display: none;
-  max-height: 220px; /* prevent overflow */
+  max-height: 220px;
   overflow-y: auto;
 }
 
-/* Result Cards */
 .result-card {
   border: 1px solid #e5e7eb;
   padding: 16px;
@@ -29,7 +28,6 @@
   line-height: 1.4;
 }
 
-/* Score & Explanation */
 #scoreText {
   margin-top: 12px;
   font-weight: 600;
@@ -46,7 +44,6 @@
   text-overflow: ellipsis;
 }
 
-/* Make loading container overlay smoothly */
 .loading-container {
   transition: opacity 0.25s ease;
 }
@@ -58,7 +55,6 @@
   justify-content: center;
 }
 
-/* Facts Display */
 .facts {
   font-size: 13px;
   font-weight: 500;
@@ -74,7 +70,6 @@
   background: rgba(255, 255, 255, 0.15);
 }
 
-/* Scrollbar for results/history if overflow */
 #results::-webkit-scrollbar,
 .history-container::-webkit-scrollbar {
   width: 6px;
@@ -91,7 +86,6 @@
   background: #71717a;
 }
 
-/* Ensure consistent padding inside cards */
 .result-card strong {
   color: #374151;
 }
