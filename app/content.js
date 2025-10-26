@@ -56,21 +56,41 @@ function normalizeScore(raw) {
 }
 
 // ---------------------------
-// SPINNER
+// SPINNER (MODERN GRADIENT)
 // ---------------------------
 const spinner = document.createElement("div");
 spinner.className = "trustmeter-spinner";
 Object.assign(spinner.style, {
-  border: "3px solid rgba(0,0,0,0.1)",
+  border: "3px solid rgba(102, 126, 234, 0.1)",
   borderTop: "3px solid #667eea",
   borderRadius: "50%",
   width: "18px",
   height: "18px",
-  animation: "spin 1s linear infinite",
+  animation: "spin 0.8s linear infinite",
   display: "inline-block",
   marginLeft: "8px",
   verticalAlign: "middle",
 });
+
+// Add keyframe animation
+if (!document.getElementById('trustmeter-keyframes')) {
+  const style = document.createElement('style');
+  style.id = 'trustmeter-keyframes';
+  style.textContent = `
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.1); }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 function setWorking(msg) {
   scoreText.textContent = "Score: …";
@@ -87,7 +107,7 @@ function stopWorking() {
 }
 
 // ---------------------------
-// BADGE (collapsed)
+// BADGE (MODERN GLASSMORPHISM)
 // ---------------------------
 const badge = document.createElement("div");
 badge.id = "trustmeter-badge";
@@ -96,36 +116,38 @@ Object.assign(badge.style, {
   bottom: "60px",
   right: "24px",
   zIndex: "2147483647",
-  padding: "10px 16px",
-  borderRadius: "12px",
-  background: "linear-gradient(135deg, #667eea, #764ba2)",
+  padding: "12px 18px",
+  borderRadius: "16px",
+  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
   color: "#ffffff",
-  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   fontSize: "14px",
   fontWeight: "600",
   cursor: "pointer",
-  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
-  transition: "transform 0.2s ease, box-shadow 0.2s ease",
+  boxShadow: "0 8px 24px rgba(102, 126, 234, 0.4), 0 2px 8px rgba(0, 0, 0, 0.1)",
+  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
   display: "flex",
   alignItems: "center",
-  gap: "8px"
+  gap: "8px",
+  backdropFilter: "blur(10px)",
+  border: "1px solid rgba(255, 255, 255, 0.2)"
 });
 badge.textContent = "Trust Score: —";
 badge.setAttribute("role", "button");
 badge.setAttribute("aria-label", "Open TrustMeter panel");
 
 badge.addEventListener("mouseover", () => {
-  badge.style.transform = "translateY(-2px)";
-  badge.style.boxShadow = "0 6px 16px rgba(0, 0, 0, 0.25)";
+  badge.style.transform = "translateY(-3px)";
+  badge.style.boxShadow = "0 12px 32px rgba(102, 126, 234, 0.5), 0 4px 12px rgba(0, 0, 0, 0.15)";
 });
 badge.addEventListener("mouseout", () => {
   badge.style.transform = "translateY(0)";
-  badge.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.2)";
+  badge.style.boxShadow = "0 8px 24px rgba(102, 126, 234, 0.4), 0 2px 8px rgba(0, 0, 0, 0.1)";
 });
 document.documentElement.appendChild(badge);
 
 // ---------------------------
-// PANEL (expanded)
+// PANEL (MODERN GLASSMORPHISM)
 // ---------------------------
 const panel = document.createElement("div");
 panel.id = "trustmeter-panel";
@@ -136,34 +158,55 @@ Object.assign(panel.style, {
   right: "24px",
   bottom: "60px",
   zIndex: "2147483647",
-  minWidth: "300px",
-  maxWidth: "400px",
+  minWidth: "320px",
+  maxWidth: "420px",
   background: "rgba(255, 255, 255, 0.95)",
-  backdropFilter: "blur(10px)",
-  boxShadow: "0 8px 20px rgba(0, 0, 0, 0.2)",
-  borderRadius: "16px",
-  border: "1px solid rgba(255, 255, 255, 0.2)",
-  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-  padding: "16px",
-  color: "#2d3748",
+  backdropFilter: "blur(20px)",
+  WebkitBackdropFilter: "blur(20px)",
+  boxShadow: "0 12px 48px rgba(31, 38, 135, 0.2), 0 4px 16px rgba(0, 0, 0, 0.12)",
+  borderRadius: "24px",
+  border: "1px solid rgba(255, 255, 255, 0.3)",
+  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  padding: "24px",
+  color: "#334155",
   display: "none",
   flexDirection: "column",
-  gap: "12px",
+  gap: "16px",
   maxHeight: "80vh",
   overflowY: "auto",
-  transition: "opacity 0.3s ease, transform 0.3s ease, left 0.3s ease, top 0.3s ease",
+  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
   opacity: "0",
   transform: "translateY(10px)"
 });
 panel.setAttribute("role", "dialog");
 panel.setAttribute("aria-label", "TrustMeter Analysis Panel");
 
+// Custom scrollbar
+const panelStyle = document.createElement('style');
+panelStyle.textContent = `
+  #trustmeter-panel::-webkit-scrollbar {
+    width: 6px;
+  }
+  #trustmeter-panel::-webkit-scrollbar-track {
+    background: rgba(241, 245, 249, 0.5);
+    border-radius: 3px;
+  }
+  #trustmeter-panel::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+    border-radius: 3px;
+  }
+  #trustmeter-panel::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #764ba2 0%, #667eea 100%);
+  }
+`;
+document.head.appendChild(panelStyle);
+
 // ---------------------------
 // SHOW PANEL FUNCTION
 // ---------------------------
 function showPanel() {
   panel.style.display = "flex";
-  panel.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+  panel.style.transition = "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)";
   requestAnimationFrame(() => {
     panel.style.opacity = "1";
     panel.style.transform = "translateY(0)";
@@ -174,7 +217,7 @@ function showPanel() {
 // HIDE PANEL FUNCTION
 // ---------------------------
 function hidePanel() {
-  panel.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+  panel.style.transition = "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
   panel.style.opacity = "0";
   panel.style.transform = "translateY(10px)";
   setTimeout(() => {
@@ -183,49 +226,65 @@ function hidePanel() {
 }
 
 // ---------------------------
-// HEADER
+// HEADER (GRADIENT TEXT)
 // ---------------------------
 const header = document.createElement("div");
 Object.assign(header.style, {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  paddingBottom: "8px",
-  borderBottom: "1px solid rgba(0, 0, 0, 0.1)",
+  paddingBottom: "12px",
+  borderBottom: "1px solid rgba(226, 232, 240, 0.8)",
   cursor: "grab"
 });
 
 const title = document.createElement("div");
-title.textContent = "TrustMeter";
+title.textContent = "✨ TrustMeter";
 Object.assign(title.style, {
-  fontWeight: "700",
-  fontSize: "16px",
-  background: "linear-gradient(135deg, #667eea, #764ba2)",
+  fontWeight: "800",
+  fontSize: "18px",
+  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
   WebkitBackgroundClip: "text",
-  WebkitTextFillColor: "transparent"
+  WebkitTextFillColor: "transparent",
+  backgroundClip: "text",
+  letterSpacing: "-0.5px"
 });
 
 const closeBtn = document.createElement("button");
 closeBtn.textContent = "×";
 Object.assign(closeBtn.style, {
   border: "none",
-  background: "transparent",
-  fontSize: "18px",
+  background: "rgba(102, 126, 234, 0.1)",
+  fontSize: "22px",
   fontWeight: "600",
-  color: "#6b7280",
+  color: "#667eea",
   cursor: "pointer",
-  transition: "color 0.2s ease"
+  transition: "all 0.2s ease",
+  width: "32px",
+  height: "32px",
+  borderRadius: "10px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center"
 });
 closeBtn.setAttribute("aria-label", "Close TrustMeter panel");
-closeBtn.addEventListener("mouseover", () => (closeBtn.style.color = "#3b82f6"));
-closeBtn.addEventListener("mouseout", () => (closeBtn.style.color = "#6b7280"));
+closeBtn.addEventListener("mouseover", () => {
+  closeBtn.style.background = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
+  closeBtn.style.color = "#ffffff";
+  closeBtn.style.transform = "scale(1.05)";
+});
+closeBtn.addEventListener("mouseout", () => {
+  closeBtn.style.background = "rgba(102, 126, 234, 0.1)";
+  closeBtn.style.color = "#667eea";
+  closeBtn.style.transform = "scale(1)";
+});
 closeBtn.onclick = hidePanel;
 
 header.appendChild(title);
 header.appendChild(closeBtn);
 
 // ---------------------------
-// SCORE ROW
+// SCORE ROW (MODERN CARDS)
 // ---------------------------
 const scoreRow = document.createElement("div");
 Object.assign(scoreRow.style, {
@@ -236,48 +295,61 @@ Object.assign(scoreRow.style, {
 });
 
 const subScores = document.createElement("div");
-subScores.style.borderBottom = "1px solid rgba(0,0,0,0.1)";
-subScores.style.paddingBottom = "8px";
 Object.assign(subScores.style, {
   fontSize: "13px",
-  color: "#444",
+  color: "#475569",
   display: "flex",
   flexDirection: "column",
-  gap: "4px",
-  paddingBottom: "8px"
+  gap: "8px",
+  paddingBottom: "12px",
+  borderBottom: "1px solid rgba(226, 232, 240, 0.8)",
+  width: "100%",
+  fontWeight: "500"
 });
 subScores.id = "sub-scores";
 subScores.innerHTML = `
-  <div>📝 <strong>Text Score:</strong> —</div>
-  <div>🖼️ <strong>Image Score:</strong> —</div>
+  <div style="padding: 10px 14px; background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%); border-radius: 12px; border: 1px solid rgba(226, 232, 240, 0.6);">
+    📝 <strong>Text Score:</strong> <span style="float: right; color: #667eea; font-weight: 700;">—</span>
+  </div>
+  <div style="padding: 10px 14px; background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%); border-radius: 12px; border: 1px solid rgba(226, 232, 240, 0.6);">
+    🖼️ <strong>Image Score:</strong> <span style="float: right; color: #764ba2; font-weight: 700;">—</span>
+  </div>
 `;
 
 const scoreText = document.createElement("div");
 scoreText.textContent = "Score: —";
-scoreText.style.fontWeight = "700";
-scoreText.style.fontSize = "14px";
+Object.assign(scoreText.style, {
+  fontWeight: "700",
+  fontSize: "16px",
+  padding: "12px 16px",
+  borderRadius: "12px",
+  background: "linear-gradient(135deg, rgba(248, 250, 252, 0.9) 0%, rgba(241, 245, 249, 0.9) 100%)",
+  border: "1px solid rgba(226, 232, 240, 0.8)",
+  transition: "all 0.3s ease"
+});
 
 const refreshBtn = document.createElement("button");
-refreshBtn.textContent = "Analyze";
+refreshBtn.textContent = "🔄 Analyze";
 Object.assign(refreshBtn.style, {
-  padding: "6px 12px",
-  borderRadius: "8px",
+  padding: "10px 18px",
+  borderRadius: "12px",
   border: "none",
-  background: "linear-gradient(135deg, #667eea, #764ba2)",
+  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
   color: "#ffffff",
-  fontSize: "13px",
+  fontSize: "14px",
   fontWeight: "600",
   cursor: "pointer",
-  transition: "transform 0.2s ease, boxShadow 0.2s ease"
+  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+  boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)"
 });
 refreshBtn.setAttribute("aria-label", "Re-analyze content");
 refreshBtn.onmouseover = () => {
-  refreshBtn.style.transform = "translateY(-1px)";
-  refreshBtn.style.boxShadow = "0 4px 12px rgba(102, 126, 234, 0.3)";
+  refreshBtn.style.transform = "translateY(-2px)";
+  refreshBtn.style.boxShadow = "0 8px 25px rgba(102, 126, 234, 0.5)";
 };
 refreshBtn.onmouseout = () => {
   refreshBtn.style.transform = "translateY(0)";
-  refreshBtn.style.boxShadow = "none";
+  refreshBtn.style.boxShadow = "0 4px 15px rgba(102, 126, 234, 0.4)";
 };
 refreshBtn.onclick = () => {
   showPanel();
@@ -295,24 +367,30 @@ scoreRow.appendChild(scoreText);
 scoreRow.appendChild(refreshBtn);
 
 // ---------------------------
-// SECTIONS
+// SECTIONS (MODERN DESIGN)
 // ---------------------------
 const textSection = document.createElement("div");
-textSection.innerHTML = "<strong>Text Analysis:</strong><br><span id='text-result'>No analysis yet.</span>";
+textSection.innerHTML = "<strong style='color: #334155; font-size: 14px;'>📝 Text Analysis:</strong><br><span id='text-result' style='color: #64748b; font-size: 13px; line-height: 1.6;'>No analysis yet.</span>";
 Object.assign(textSection.style, {
   fontSize: "13px",
-  color: "#2d3748",
-  lineHeight: "1.5",
-  padding: "8px 0"
+  color: "#334155",
+  lineHeight: "1.6",
+  padding: "14px",
+  background: "linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%)",
+  borderRadius: "14px",
+  border: "1px solid rgba(226, 232, 240, 0.8)"
 });
 
 const imageSection = document.createElement("div");
-imageSection.innerHTML = "<strong>Image Analysis:</strong><br><div id='image-results'>No images analyzed.</div>";
+imageSection.innerHTML = "<strong style='color: #334155; font-size: 14px;'>🖼️ Image Analysis:</strong><br><div id='image-results' style='color: #64748b; font-size: 13px; line-height: 1.6; margin-top: 8px;'>No images analyzed.</div>";
 Object.assign(imageSection.style, {
   fontSize: "13px",
-  color: "#2d3748",
-  lineHeight: "1.5",
-  padding: "8px 0"
+  color: "#334155",
+  lineHeight: "1.6",
+  padding: "14px",
+  background: "linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%)",
+  borderRadius: "14px",
+  border: "1px solid rgba(226, 232, 240, 0.8)"
 });
 
 panel.appendChild(header);
@@ -331,10 +409,14 @@ let imageScores = [];
 
 function setError(err) {
   scoreText.textContent = "Score: —";
+  scoreText.style.background = "linear-gradient(135deg, rgba(254, 202, 202, 0.3) 0%, rgba(252, 165, 165, 0.2) 100%)";
+  scoreText.style.border = "1px solid rgba(239, 68, 68, 0.2)";
+  scoreText.style.color = "#b91c1c";
+  
   document.getElementById("text-result").textContent =
     "Error: " + (err || "Analysis failed or not supported.");
   badge.textContent = "Trust Score: —";
-  badge.style.color = "#ffffff";
+  badge.style.background = "linear-gradient(135deg, #e53e3e 0%, #c53030 100%)";
 }
 
 function setResult(score, explanation) {
@@ -343,9 +425,20 @@ function setResult(score, explanation) {
   textScores.push(percent);
 
   scoreText.textContent = `Score: ${percent}%`;
-  if (percent >= 75) scoreText.style.color = "#0b8043";
-  else if (percent >= 45) scoreText.style.color = "#e09b00";
-  else scoreText.style.color = "#c42f2f";
+  
+  if (percent >= 75) {
+    scoreText.style.color = "#15803d";
+    scoreText.style.background = "linear-gradient(135deg, rgba(187, 247, 208, 0.3) 0%, rgba(134, 239, 172, 0.2) 100%)";
+    scoreText.style.border = "1px solid rgba(34, 197, 94, 0.2)";
+  } else if (percent >= 45) {
+    scoreText.style.color = "#ca8a04";
+    scoreText.style.background = "linear-gradient(135deg, rgba(254, 240, 138, 0.3) 0%, rgba(253, 224, 71, 0.2) 100%)";
+    scoreText.style.border = "1px solid rgba(234, 179, 8, 0.2)";
+  } else {
+    scoreText.style.color = "#b91c1c";
+    scoreText.style.background = "linear-gradient(135deg, rgba(254, 202, 202, 0.3) 0%, rgba(252, 165, 165, 0.2) 100%)";
+    scoreText.style.border = "1px solid rgba(239, 68, 68, 0.2)";
+  }
 
   document.getElementById("text-result").textContent =
     explanation || "No explanation returned.";
@@ -369,9 +462,9 @@ function updateBadge() {
   badge.textContent = `📝 ${avgText !== "—" ? avgText + "%" : "—"} | 🖼️ ${avgImage !== "—" ? avgImage + "%" : "—"}`;
 
   if (avgText !== "—") {
-    if (avgText >= 75) badge.style.background = "linear-gradient(135deg, #43a047, #2e7d32)";
-    else if (avgText >= 45) badge.style.background = "linear-gradient(135deg, #f6ad55, #dd6b20)";
-    else badge.style.background = "linear-gradient(135deg, #e53e3e, #c53030)";
+    if (avgText >= 75) badge.style.background = "linear-gradient(135deg, #43a047 0%, #2e7d32 100%)";
+    else if (avgText >= 45) badge.style.background = "linear-gradient(135deg, #f6ad55 0%, #dd6b20 100%)";
+    else badge.style.background = "linear-gradient(135deg, #e53e3e 0%, #c53030 100%)";
   }
 }
 
@@ -380,8 +473,16 @@ function updateTextAverage() {
     textScores.length > 0
       ? Math.round(textScores.reduce((a, b) => a + b, 0) / textScores.length)
       : "—";
-  document.querySelector("#sub-scores div:nth-child(1)").innerHTML =
-    `📝 <strong>Text Score:</strong> ${avgText}${avgText !== "—" ? "%" : ""}`;
+  
+  const textScoreCard = document.querySelector("#sub-scores div:nth-child(1)");
+  const scoreSpan = textScoreCard.querySelector("span");
+  scoreSpan.textContent = avgText !== "—" ? `${avgText}%` : "—";
+  
+  if (avgText !== "—") {
+    if (avgText >= 75) scoreSpan.style.color = "#15803d";
+    else if (avgText >= 45) scoreSpan.style.color = "#ca8a04";
+    else scoreSpan.style.color = "#b91c1c";
+  }
 }
 
 function updateImageAverage() {
@@ -389,8 +490,16 @@ function updateImageAverage() {
     imageScores.length > 0
       ? Math.round(imageScores.reduce((a, b) => a + b, 0) / imageScores.length)
       : "—";
-  document.querySelector("#sub-scores div:nth-child(2)").innerHTML =
-    `🖼️ <strong>Image Score:</strong> ${avgImage}${avgImage !== "—" ? "%" : ""}`;
+  
+  const imageScoreCard = document.querySelector("#sub-scores div:nth-child(2)");
+  const scoreSpan = imageScoreCard.querySelector("span");
+  scoreSpan.textContent = avgImage !== "—" ? `${avgImage}%` : "—";
+  
+  if (avgImage !== "—") {
+    if (avgImage >= 75) scoreSpan.style.color = "#15803d";
+    else if (avgImage >= 45) scoreSpan.style.color = "#ca8a04";
+    else scoreSpan.style.color = "#b91c1c";
+  }
 }
 
 // ---------------------------
@@ -563,12 +672,13 @@ chrome.runtime.onMessage.addListener(message => {
         const header = document.createElement("h3");
         header.id = "image-analysis-header";
         header.textContent = "🖼️ Image Analysis Results";
-        header.style.cssText = `
-          margin: 10px 0 12px;
-          font-size: 15px;
-          font-weight: 600;
-          color: #333;
-        `;
+        Object.assign(header.style, {
+          margin: "10px 0 14px",
+          fontSize: "15px",
+          fontWeight: "700",
+          color: "#334155",
+          letterSpacing: "-0.3px"
+        });
         container.prepend(header);
       }
 
@@ -582,45 +692,93 @@ chrome.runtime.onMessage.addListener(message => {
       Object.assign(imgEntry.style, {
         display: "flex",
         flexDirection: "column",
-        gap: "6px",
-        padding: "12px",
-        borderRadius: "10px",
-        marginBottom: "12px",
-        background: "#fafafa",
-        border: "1px solid rgba(0,0,0,0.08)",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-        animation: "fadeIn 0.4s ease"
+        gap: "10px",
+        padding: "16px",
+        borderRadius: "14px",
+        marginBottom: "14px",
+        background: "linear-gradient(135deg, #ffffff 0%, #fafbfc 100%)",
+        border: "1px solid rgba(226, 232, 240, 0.6)",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06)",
+        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        animation: "fadeIn 0.4s ease",
+        position: "relative",
+        overflow: "hidden"
       });
 
-      let color = "#c42f2f";
+      // Add gradient border accent
+      const borderAccent = document.createElement("div");
+      Object.assign(borderAccent.style, {
+        position: "absolute",
+        top: "0",
+        left: "0",
+        width: "4px",
+        height: "100%",
+        background: "linear-gradient(180deg, #667eea 0%, #764ba2 100%)",
+        opacity: "0",
+        transition: "opacity 0.3s ease"
+      });
+      imgEntry.appendChild(borderAccent);
+
+      imgEntry.addEventListener("mouseenter", () => {
+        imgEntry.style.transform = "translateX(4px)";
+        imgEntry.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.08)";
+        imgEntry.style.borderColor = "rgba(102, 126, 234, 0.3)";
+        borderAccent.style.opacity = "1";
+      });
+
+      imgEntry.addEventListener("mouseleave", () => {
+        imgEntry.style.transform = "translateX(0)";
+        imgEntry.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06)";
+        imgEntry.style.borderColor = "rgba(226, 232, 240, 0.6)";
+        borderAccent.style.opacity = "0";
+      });
+
+      let color = "#b91c1c";
       let label = "AI Generated";
+      let bgGradient = "linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%)";
+      
       if (validity >= 75) {
-        color = "#0b8043";
+        color = "#15803d";
         label = "Likely Authentic";
+        bgGradient = "linear-gradient(90deg, rgba(34, 197, 94, 0.1) 0%, rgba(22, 163, 74, 0.05) 100%)";
       } else if (validity >= 45) {
-        color = "#e09b00";
+        color = "#ca8a04";
         label = "Uncertain";
+        bgGradient = "linear-gradient(90deg, rgba(234, 179, 8, 0.1) 0%, rgba(202, 138, 4, 0.05) 100%)";
       }
 
-      imgEntry.innerHTML = `
-        <div style="display:flex; align-items:center; gap:12px;">
+      const contentWrapper = document.createElement("div");
+      contentWrapper.style.position = "relative";
+      contentWrapper.style.zIndex = "1";
+
+      contentWrapper.innerHTML = `
+        <div style="display:flex; align-items:center; gap:14px;">
           <img src="${url}" 
-              style="width:90px; height:60px; border-radius:6px; object-fit:cover; border:1px solid rgba(0,0,0,0.1);">
+              style="width:100px; height:70px; border-radius:10px; object-fit:cover; border:1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);">
           <div style="flex:1;">
-            <div style="font-weight:600; color:${color}; font-size:14px;">
-              ${label} (${validity}%)
+            <div style="font-weight:700; color:${color}; font-size:15px; margin-bottom: 6px; letter-spacing: -0.2px;">
+              ${label}
             </div>
-            <div style="height:6px; background:#e5e5e5; border-radius:3px; overflow:hidden; margin-top:4px;">
-              <div style="width:${validity}%; background:${color}; height:100%;"></div>
+            <div style="height:8px; background: rgba(226, 232, 240, 0.5); border-radius:4px; overflow:hidden; position: relative;">
+              <div style="width:${validity}%; background:${color}; height:100%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 4px; box-shadow: 0 0 8px ${color}40;"></div>
+            </div>
+            <div style="margin-top: 6px; font-size: 13px; font-weight: 600; color: ${color};">
+              ${validity}% Confidence
             </div>
           </div>
         </div>
-        <div style="margin-top:8px; font-size:13px; color:#333;">
-          <strong>Explanation:</strong> ${explanation || "No details available."}
+        <div style="margin-top:12px; padding: 12px; background: ${bgGradient}; border-radius: 10px; border-left: 3px solid ${color};">
+          <div style="font-size:13px; color:#475569; line-height: 1.6;">
+            <strong style="color: #334155;">Analysis:</strong> ${explanation || "No details available."}
+          </div>
         </div>
-        <div style="font-size:11px; color:#777; margin-top:4px;">Analyzed at ${timestamp}</div>
+        <div style="font-size:11px; color:#94a3b8; margin-top:8px; display: flex; align-items: center; gap: 6px;">
+          <span style="width: 6px; height: 6px; background: ${color}; border-radius: 50%; display: inline-block;"></span>
+          Analyzed at ${timestamp}
+        </div>
       `;
 
+      imgEntry.appendChild(contentWrapper);
       container.appendChild(imgEntry);
 
       updateTextAverage();
@@ -636,7 +794,8 @@ chrome.runtime.onMessage.addListener(message => {
 
     case "EXPAND_PANEL_UI":
       showPanel();
-      break;n
+      break;
+      
     case "SESSION_CANCELLED":
       console.log("Session cancelled:", message.payload);
       if (message.payload?.session_id === sessionId) {
@@ -649,7 +808,7 @@ chrome.runtime.onMessage.addListener(message => {
 // ---------------------------
 // AUTO RUN TEXT ANALYSIS
 // ---------------------------
-setTimeout(analyzeTextNow, 2000);
+setTimeout(analyzeTextNow, 4000);
 
 // ---------------------------
 // BADGE CLICK TOGGLE
@@ -687,12 +846,11 @@ header.addEventListener("mousedown", (e) => {
   dragOffsetX = e.clientX - rect.left;
   dragOffsetY = e.clientY - rect.top;
   header.style.cursor = "grabbing";
+  panel.style.transition = "none";
 });
 
 document.addEventListener("mousemove", (e) => {
   if (!isDragging) return;
-
-  panel.style.transition = "none"; 
 
   let left = e.clientX - dragOffsetX;
   let top = e.clientY - dragOffsetY;
@@ -710,7 +868,7 @@ document.addEventListener("mouseup", () => {
   if (!isDragging) return;
   isDragging = false;
   header.style.cursor = "grab";
-  panel.style.transition = "opacity 0.3s ease, transform 0.3s ease, left 0.3s ease, top 0.3s ease";
+  panel.style.transition = "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)";
 });
 
 panel.addEventListener("click", () => {
@@ -761,17 +919,41 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
   });
 }
 
+// ---------------------------
+// SESSION INFO (MODERN BADGE)
+// ---------------------------
 const sessionInfo = document.createElement("div");
-sessionInfo.style.cssText = `
-  font-size: 10px;
-  color: #999;
-  padding: 4px 0;
-  border-top: 1px solid rgba(0,0,0,0.05);
-  margin-top: 8px;
-  font-family: monospace;
+Object.assign(sessionInfo.style, {
+  fontSize: "10px",
+  color: "#94a3b8",
+  padding: "10px 12px",
+  borderTop: "1px solid rgba(226, 232, 240, 0.8)",
+  marginTop: "12px",
+  fontFamily: "'SF Mono', 'Monaco', 'Courier New', monospace",
+  background: "linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, rgba(118, 75, 162, 0.03) 100%)",
+  borderRadius: "10px",
+  display: "flex",
+  alignItems: "center",
+  gap: "6px",
+  transition: "all 0.2s ease"
+});
+sessionInfo.innerHTML = `
+  <span style="width: 6px; height: 6px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: inline-block; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;"></span>
+  Session: <span style="font-weight: 600; color: #667eea;">${sessionId.substring(0, 8)}...</span>
 `;
-sessionInfo.innerHTML = `Session: ${sessionId.substring(0, 8)}...`;
 sessionInfo.title = `Full Session ID: ${sessionId}`;
+
+sessionInfo.addEventListener("mouseenter", () => {
+  sessionInfo.style.background = "linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%)";
+  sessionInfo.style.transform = "translateX(2px)";
+});
+
+sessionInfo.addEventListener("mouseleave", () => {
+  sessionInfo.style.background = "linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, rgba(118, 75, 162, 0.03) 100%)";
+  sessionInfo.style.transform = "translateX(0)";
+});
+
 panel.appendChild(sessionInfo);
 
-console.log("📊 Session ID:", sessionId);
+console.log("✨ TrustMeter initialized with modern UI");
+console.log("📊 Session ID:", sessionId); 

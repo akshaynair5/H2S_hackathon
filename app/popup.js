@@ -120,18 +120,36 @@ function setResult(score, explanation) {
 }
 
 // ---------------------------
+// SCORE HANDLER
+// ---------------------------
+function normalizeScore(score) {
+  if (score == null) return 0;
+  let normalized = score;
+  if (score > 1) normalized = score; // already percentage
+  else normalized = Math.round(score * 100);
+  return Math.min(100, Math.max(0, normalized));
+}
+
+function getPredictionFromScore(score) {
+  const val = normalizeScore(score);
+  if (val >= 70) return "Real";
+  if (val >= 45) return "Misleading";
+  return "Fake";
+}
+
+// ---------------------------
 // HISTORY STORAGE
 // ---------------------------
 function saveToHistory(entry) {
   const history = JSON.parse(localStorage.getItem("analysisHistory") || "[]");
   history.unshift({
-    score: entry.score,
-    prediction: entry.prediction,
+    score: normalizeScore(entry.score),
+    prediction: entry.prediction || getPredictionFromScore(entry.score),
     explanation: entry.explanation,
     text: entry.text,
     timestamp: new Date().toLocaleString()
   });
-  const trimmed = history.slice(0, 3);
+  const trimmed = history.slice(0, 5);
   localStorage.setItem("analysisHistory", JSON.stringify(trimmed));
   renderHistory();
 }
@@ -153,11 +171,11 @@ function renderHistory() {
     card.className = "history-card";
 
     let badgeColor = "#e5e7eb", badgeText = "#374151";
-    if (item.prediction?.toLowerCase() === "real") {
+    if (item.prediction === "Real") {
       badgeColor = "#d1fae5"; badgeText = "#065f46";
-    } else if (item.prediction?.toLowerCase() === "fake") {
+    } else if (item.prediction === "Fake") {
       badgeColor = "#fee2e2"; badgeText = "#991b1b";
-    } else if (item.prediction?.toLowerCase() === "misleading") {
+    } else if (item.prediction === "Misleading") {
       badgeColor = "#feebc8"; badgeText = "#9c4221";
     }
 
@@ -166,7 +184,7 @@ function renderHistory() {
         <span class="prediction-badge" style="background:${badgeColor}; color:${badgeText};">${item.prediction}</span>
         <span class="timestamp">${item.timestamp}</span>
       </div>
-      <p class="score-line">Score: ${item.score}</p>
+      <p class="score-line">Score: ${item.score}%</p>
       <div class="explanation" style="max-height:0; overflow:hidden; transition:max-height 0.4s ease;">
         <p style="font-size:13px; color:#4b5563; margin-top:4px;">
           <strong>Reasoning:</strong> ${item.explanation}

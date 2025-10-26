@@ -4,30 +4,33 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Misinformation Detector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="main.css">
 </head>
 <body>
   <div class="container">
-    <h2>Misinformation Detector</h2>
-    <p class="subtitle">AI-powered content verification</p>
+    <h2>Trustmeter</h2>
+    <p class="subtitle">AI-powered content verification at your fingertips</p>
     
     <!-- Action Buttons -->
     <div class="action-buttons">
       <button id="clickToCheck" class="action-btn">
         <span class="btn-icon"></span>
-        Analyze Image Content
+        <span>Analyze Image Content</span>
       </button>
       
       <button id="checkText" class="action-btn">
         <span class="btn-icon"></span>
-        Check Selected Text
+        <span>Check Selected Text</span>
       </button>
     </div>
 
     <!-- Loading / Facts Display -->
     <div id="loadingContainer" class="loading-container hidden">
       <div class="spinner"></div>
-      <div class="loading-title">Analyzing Content</div>
+      <div class="loading-title">Analyzing Content...</div>
       <div id="factDisplay" class="facts"></div>
     </div>
 
@@ -39,7 +42,7 @@
     <div id="text-result" class="text-result"></div>
 
     <!-- History -->
-    <h3 style="margin-top: 20px; color: #374151;">Recent Analyses</h3>
+    <h3>Recent Analyses</h3>
     <div id="historyContainer" class="history-container"></div>
 
   </div>
