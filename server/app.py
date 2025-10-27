@@ -1,6 +1,8 @@
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify, session, make_response
 from misinfo_model import detect_fake_text
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from vectorDb import search_feedback_semantic, store_feedback, cleanup_expired
 from database import generate_id, generate_normalized_id, generate_embedding, get_article_doc, firestore_semantic_search, db
 from FakeImageDetection import detect_fake_image
@@ -16,9 +18,42 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("APP_SECRET_KEY")
-CORS(app, supports_credentials=True)  
+CORS(app, supports_credentials=True)
 
 
+# ---------------------------
+# RATE LIMITER SETUP
+# ---------------------------
+def get_user_identifier():
+    """Use existing session logic for rate limiting"""
+    return (
+        request.headers.get("user-fingerprint") or
+        request.headers.get("X-Session-ID") or
+        request.json.get("session_id") if request.json else None or
+        session.get("session_id") or
+        get_remote_address()  
+    )
+
+limiter = Limiter(
+    app=app,
+    key_func=get_user_identifier,
+    default_limits=["2000 per day", "300 per hour"],  
+    storage_uri="memory://",
+    headers_enabled=True
+)
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return jsonify({
+        "error": "rate_limit_exceeded",
+        "message": "Please slow down and try again in a moment.",
+        "retry_after_seconds": getattr(e, 'description', 'Unknown')
+    }), 429
+
+
+# ---------------------------
+# HELPER FUNCTIONS
+# ---------------------------
 def make_json_safe(obj):
     if isinstance(obj, dict):
         return {k: make_json_safe(v) for k, v in obj.items()}
@@ -32,9 +67,6 @@ def make_json_safe(obj):
         return obj
 
 
-# ---------------------------
-# HELPER: Get session ID from request
-# ---------------------------
 def get_session_id():
     """Extract session ID from various sources"""
     return (
@@ -50,6 +82,7 @@ def get_session_id():
 # IMAGE DETECTION 
 # ---------------------------
 @app.route("/detect_image", methods=["POST"])
+@limiter.limit("60 per minute") 
 def detect_image():
     data = request.json
     urls = data.get("urls") or data.get("images") 
@@ -78,6 +111,7 @@ def detect_image():
 # TEXT DETECTION 
 # ---------------------------
 @app.route("/detect_text", methods=["POST"])
+@limiter.limit("30 per minute") 
 def detect_text():
     try:
         data = request.json 
@@ -236,6 +270,7 @@ def detect_text():
 # USER FEEDBACK 
 # ---------------------------
 @app.route("/submit_feedback", methods=["POST"])
+@limiter.limit("100 per minute")
 def submit_feedback():
     data = request.json
     article_id = data.get("article_id", "")
@@ -294,7 +329,12 @@ Collected Data:
         return jsonify({"error": result["error"]}), 400
     return jsonify(result), 200
 
+
+# ---------------------------
+# SESSION MANAGEMENT
+# ---------------------------
 @app.route("/cancel_session", methods=["POST"])
+@limiter.exempt 
 def cancel_session():
     """Cancel all running tasks for the current session when user exits website"""
     data = request.json or {}
@@ -321,7 +361,9 @@ def cancel_session():
         **result
     }), 200
 
+
 @app.route("/session_tasks", methods=["GET"])
+@limiter.exempt 
 def session_tasks():
     """Get all active tasks for the current session"""
     session_id = (
@@ -346,9 +388,22 @@ def session_tasks():
 # CLEANUP EXPIRED DATA
 # ---------------------------
 @app.route("/cleanup_expired", methods=["POST"])
+@limiter.exempt 
 def cleanup_expired_endpoint():
     result = cleanup_expired()
     return jsonify(result), 200
+
+
+# ---------------------------
+# HEALTH CHECK 
+# ---------------------------
+@app.route("/health", methods=["GET"])
+@limiter.exempt
+def health_check():
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat()
+    }), 200
 
 
 if __name__ == "__main__":

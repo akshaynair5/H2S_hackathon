@@ -497,15 +497,17 @@ async def corroborate_all_with_google_async(claims: List[str]) -> Dict[str, Any]
         for claim in claims:
             dynamic_keywords = await extract_dynamic_keywords(claim)
             all_keywords = list(set(NEWS_KEYWORDS + dynamic_keywords))
+ 
             site_filter = ""
             if len(CREDIBLE_DOMAINS) >= 5:
-                site_filter = " OR ".join([f"site:{d}" for d in CREDIBLE_DOMAINS])
+                site_filter = " OR ".join([f"site:{d}" for d in CREDIBLE_DOMAINS[:10]])
             
             keyword_query = " OR ".join(all_keywords[:8])
+
             query = f'"{claim}" ({keyword_query})'
             if site_filter:
-                query += f" {site_filter}"
-
+                query += f" ({site_filter})"
+            
             print(f"🔍 Google query: {query}")
             tasks.append(fetch_google(session, query))
         
@@ -520,21 +522,29 @@ async def corroborate_all_with_google_async(claims: List[str]) -> Dict[str, Any]
             domain = urlparse(link).netloc.lower()
             snippet = html.unescape(it.get("snippet", ""))[:400]
 
-            if len(CREDIBLE_DOMAINS) >= 5 and not any(d in domain for d in CREDIBLE_DOMAINS):
-                continue
-
-            if not any(k in snippet.lower() for k in NEWS_KEYWORDS + dynamic_keywords):
+            is_known_credible = any(d in domain for d in CREDIBLE_DOMAINS)
+            
+            has_news_keywords = any(k in snippet.lower() for k in NEWS_KEYWORDS + await extract_dynamic_keywords(claim))
+            if not has_news_keywords:
+                print(f"⏭️ Skipping {domain} - no news keywords in snippet")
                 continue
 
             snippet_emb = get_embedding(snippet)
             similarity = float(util.cos_sim(claim_emb, snippet_emb))
 
-            print(f"Claim: {claim[:50]}..., snippet: {snippet[:50]}..., similarity: {similarity:.3f}")
+            print(f"📰 {domain} ({'KNOWN' if is_known_credible else 'NEW'}): similarity={similarity:.3f}")
 
-            if similarity < EMB_SIM_THRESHOLD:
+            threshold = EMB_SIM_THRESHOLD if is_known_credible else EMB_SIM_THRESHOLD + 0.10
+            if similarity < threshold:
+                print(f"⏭️ Skipping {domain} - similarity {similarity:.3f} below threshold {threshold:.3f}")
                 continue
 
             score = domain_score_for_url(link)
+            
+            if not is_known_credible and score == 0.0:
+                score = 0.3 
+                print(f"🆕 NEW domain {domain} - assigning starter score: {score}")
+            
             evidence_score = round(clamp01(0.7 * similarity + 0.3 * score), 3)
 
             claim_evidences.append({
@@ -543,16 +553,21 @@ async def corroborate_all_with_google_async(claims: List[str]) -> Dict[str, Any]
                 "snippet": snippet,
                 "domain_score": score,
                 "similarity": round(similarity, 3),
-                "evidence_score": evidence_score
+                "evidence_score": evidence_score,
+                "is_new_domain": not is_known_credible 
             })
+
             domain_updates[domain] = evidence_score
+            print(f"✅ Added {domain} to domain_updates with score {evidence_score}")
 
         top_evidences = sorted(claim_evidences, key=lambda x: x["evidence_score"], reverse=True)[:3]
         evidences.extend(top_evidences)
 
     if domain_updates:
         try:
+            print(f"💾 Updating {len(domain_updates)} domains in Firestore...")
             add_or_update_trusted_sources_batch(domain_updates)
+            print(f"✅ Successfully updated {len(domain_updates)} domains")
         except Exception as e:
             print(f"⚠️ Firestore batch update failed: {e}")
 
@@ -603,19 +618,61 @@ Fact-Check Summary:
    - Rated FALSE: {fc_summary['false_count']} | TRUE: {fc_summary['true_count']} | MIXED: {fc_summary['mixed_count']}
 Today's date: {today_str}
 
+FIRST, ASSESS THE CONTENT TYPE:
+───────────────────────────────
+Determine if this text contains VERIFIABLE FACTUAL CLAIMS that require fact-checking.
+
+NON-FACTUAL CONTENT (Skip full analysis):
+- Personal experiences: "My trip to Japan", "I visited the museum"
+- Opinions/feelings: "This movie is amazing", "I think cats are better"
+- Questions: "What happened in 2020?", "How do I cook pasta?"
+- Creative content: Video titles, song lyrics, fiction, poems
+- Instructions/how-tos: "Steps to make coffee"
+- Promotional content: "Buy now!", "Best deals today"
+- Greetings/casual chat: "Hello everyone", "Thanks for watching"
+
+FACTUAL CONTENT (Requires analysis):
+- News events: "Earthquake hits California", "President announces policy"
+- Scientific claims: "Study shows coffee prevents cancer"
+- Historical statements: "Napoleon died in 1821"
+- Statistics: "Unemployment rate dropped to 3%"
+- Allegations: "Company accused of fraud"
+
+IF NON-FACTUAL CONTENT DETECTED:
+Return JSON with:
+- prediction: "Not Applicable"
+- confidence: 100
+- explanation: "This content does not contain verifiable factual claims requiring fact-checking | [Brief description of content type]"
+- evidence: []
+- content_type: "personal/opinion/question/creative/promotional/casual"
+
+Example for non-factual:
+{{
+  "prediction": "Not Applicable",
+  "confidence": 100,
+  "explanation": "Personal travel content without factual claims | This appears to be a YouTube video title about someone's vacation",
+  "evidence": [],
+  "content_type": "personal"
+}}
+
+IF FACTUAL CONTENT DETECTED:
+Proceed with full fact-checking analysis:
+
 Instructions:
 - Prioritize fact-check consensus if available (e.g., predominantly_false → Fake).
 - Use evidence snippets and ML context to verify factual accuracy.
 - Evaluate the claim considering today's date ({today_str}).
+- Consider temporal context: old news may be accurate but outdated.
 - Return a strict JSON object with keys:
 
 - prediction: "Real", "Fake", or "Misleading"
 - confidence: integer 0–100
 - explanation: 1–2 short, plain sentences | Use "|" to separate reasoning steps
 - evidence: 1–3 key snippets (≤50 words each) with a `support` field
+- content_type: "news"
 - human_summary (optional): plain summary of the claim
 
-Example output:
+Example for factual content:
 {{
   "prediction": "Real",
   "confidence": 85,
@@ -623,42 +680,86 @@ Example output:
   "evidence": [
     {{"source":"BBC", "link":"https://...", "snippet":"BBC confirms the described protests occurred in Delhi.", "support":"Supports"}}
   ],
+  "content_type": "news",
   "human_summary": "The claim about protests in Delhi is accurate."
 }}
 
-Return only valid JSON.
+SPECIAL CASES:
+──────────────
+1. **Old News**: If claim is factual but refers to past events (>1 year old):
+   - prediction: "Real" (if accurate at the time)
+   - Add to explanation: "This refers to a past event from [date]"
+
+2. **Satire/Parody**: If content appears satirical:
+   - prediction: "Misleading"
+   - explanation: "This appears to be satire or parody content | Not meant as factual reporting"
+
+3. **Mixed Content**: Personal story with factual claims:
+   - Focus only on verifiable facts
+   - Ignore personal narrative elements
+
+Return ONLY valid JSON. No additional text.
 """
     
 def detect_fake_text(text: str) -> dict:
-    """
-    Integrated detection: Vertex AI (ML) + Google Fact Check + Corroboration → Gemini synthesis.
-    """
 
     start_total = time.time()
 
-    # --- STEP 0: Try retrieving cached result from Pinecone ---
-    # Skip here as app.py handles caching
-
-    # --- STEP 1: Clean + preprocess text ---
     text = re.sub(r"(?<=[a-zA-Z])\.(?=[A-Z])", ". ", text)
 
-    # --- STEP 2: Run Google Fact Check ---
-    fact_check_results = query_google_fact_check_api(text)
+    # ============================================
+    # PHASE 1: PARALLEL API CALLS (Independent)
+    # ============================================
+    print("[Phase 1] Starting parallel: Fact Check + Metadata Extraction...")
+    
+    def run_fact_check():
+        """Wrapper for fact check to run in thread"""
+        return query_google_fact_check_api(text)
+    
+    def run_metadata_extraction():
+        """Wrapper for metadata extraction to run in thread"""
+        return extract_metadata_with_gemini(text)
+    
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_fact_check = executor.submit(run_fact_check)
+        future_metadata = executor.submit(run_metadata_extraction)
 
-    # --- STEP 3: Metadata extraction (Gemini) ---
-    metadata = extract_metadata_with_gemini(text)
+        fact_check_results = future_fact_check.result()
+        metadata = future_metadata.result()
+    
+    print(f"[Phase 1] Complete! Fact Check + Metadata done in {time.time() - start_total:.2f}s")
 
-    # --- STEP 4: Vertex AI prediction ---
-    vertex_result = predict_with_vertex_ai(metadata)
-    vertex_scores = extract_vertex_scores(vertex_result)
+    # ============================================
+    # PHASE 2: PARALLEL PROCESSING (Depends on Metadata)
+    # ============================================
+    print("[Phase 2] Starting parallel: Vertex AI + Corroboration...")
 
-    # --- STEP 5: Split into claims ---
     claims = simple_sentence_split(metadata["text"])
+    
+    def run_vertex_ai():
+        """Wrapper for Vertex AI prediction"""
+        vertex_result = predict_with_vertex_ai(metadata)
+        return extract_vertex_scores(vertex_result)
+    
+    def run_corroboration():
+        """Wrapper for Google corroboration"""
+        return asyncio.run(corroborate_all_with_google_async(claims))
+    
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_vertex = executor.submit(run_vertex_ai)
+        future_corroboration = executor.submit(run_corroboration)
+        
+        # Wait for both to complete
+        vertex_scores = future_vertex.result()
+        corroboration_data = future_corroboration.result()
+    
+    print(f"[Phase 2] Complete! Vertex AI + Corroboration done in {time.time() - start_total:.2f}s")
 
-    # --- STEP 6: Corroboration from Google ---
-    corroboration_data = asyncio.run(corroborate_all_with_google_async(claims))
-
-    # --- STEP 7: Parallel Gemini checks for claims ---
+    # ============================================
+    # PHASE 3: PARALLEL GEMINI CLAIM CHECKS 
+    # ============================================
+    print(f"[Phase 3] Processing {len(claims)} claims in parallel...")
+    
     def process_claim(claim: str):
         gem_resp = ask_gemini_structured(
             assemble_gemini_prompt_structured(
@@ -674,7 +775,10 @@ def detect_fake_text(text: str) -> dict:
         gem_conf = int(parsed.get("confidence", 70))
         explanation = parsed.get("explanation", "Based on available evidence.")
 
-        final_pred, final_conf = adjusted_ensemble(gem_pred, gem_conf, vertex_scores, fact_check_results.get("status", "no_fact_checks"))
+        final_pred, final_conf = adjusted_ensemble(
+            gem_pred, gem_conf, vertex_scores, 
+            fact_check_results.get("status", "no_fact_checks")
+        )
 
         return {
             "claim_text": claim,
@@ -701,13 +805,16 @@ def detect_fake_text(text: str) -> dict:
             overall_scores.append(final_conf)
             preds.append(final_pred)
             explanations.append(explanation)
+    
+    print(f"[Phase 3] Complete! Claims processed in {time.time() - start_total:.2f}s")
 
-    # --- STEP 8: Article-level summary ---
+    # ============================================
+    # PHASE 4: CALCULATE FINAL RESULTS
+    # ============================================
     overall_conf = int(sum(overall_scores) / len(overall_scores)) if overall_scores else 0
     overall_label = max(set(preds), key=preds.count) if preds else "Unknown"
     combined_explanation = " | ".join(explanations[:3]) if explanations else "No detailed explanation available."
 
-    # --- STEP 9: Domain credibility bonus ---
     source_domain = domain_from_url(metadata.get("source", ""))
     domain_bonus = get_domain_bonus(source_domain)
     if domain_bonus > 0:
@@ -721,42 +828,63 @@ def detect_fake_text(text: str) -> dict:
         "explanation": combined_explanation,
     }
 
-    # --- STEP 10: Store embedding + verification in Firestore  ---
-    try:
-        embedding = [float(x) for x in get_embedding(text).tolist()]
-        if db:
-            doc_id = hashlib.sha256(text.encode("utf-8")).hexdigest()
-            db.collection("articles").document(doc_id).set({
-                "text": text,
-                "embedding": embedding,
-                "verified": True,
-                "text_score": overall_conf / 100, 
-                "prediction": overall_label,
-                "gemini_reasoning": combined_explanation,
-                "text_explanation": combined_explanation,
-                "last_updated": datetime.utcnow(),
-                "type": "text"
-            }, merge=True)
-    except Exception as e:
-        print(f"[Firestore Embedding Storage Failed] {e}")
+    # ============================================
+    # PHASE 5: PARALLEL STORAGE (Firestore + Pinecone)
+    # ============================================
+    print("[Phase 5] Starting parallel storage: Firestore + Pinecone...")
+    
+    def store_in_firestore():
+        """Store result in Firestore"""
+        try:
+            embedding = [float(x) for x in get_embedding(text).tolist()]
+            if db:
+                doc_id = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                db.collection("articles").document(doc_id).set({
+                    "text": text,
+                    "embedding": embedding,
+                    "verified": True,
+                    "text_score": overall_conf / 100, 
+                    "prediction": overall_label,
+                    "gemini_reasoning": combined_explanation,
+                    "text_explanation": combined_explanation,
+                    "last_updated": datetime.utcnow(),
+                    "type": "text"
+                }, merge=True)
+                return True
+        except Exception as e:
+            print(f"[Firestore Embedding Storage Failed] {e}")
+            return False
+    
+    def store_in_pinecone():
+        """Cache result in Pinecone"""
+        try:
+            store_feedback(
+                text=text,
+                explanation=combined_explanation,
+                sources=[],
+                user_fingerprint="system",
+                score=overall_conf / 100,
+                prediction=overall_label,
+                verified=True
+            )
+            return True
+        except Exception as e:
+            print(f"[Pinecone Cache Store Failed] {e}")
+            return False
 
-    # --- STEP 11: Cache final result in Pinecone ---
-    try:
-        store_feedback(
-            text=text,
-            explanation=combined_explanation,
-            sources=[],
-            user_fingerprint="system",
-            score=overall_conf / 100,
-            prediction=overall_label,
-            verified=True
-        )
-    except Exception as e:
-        print(f"[Pinecone Cache Store Failed] {e}")
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_firestore = executor.submit(store_in_firestore)
+        future_pinecone = executor.submit(store_in_pinecone)
+
+        firestore_success = future_firestore.result()
+        pinecone_success = future_pinecone.result()
+    
+    total_time = round(time.time() - start_total, 2)
+    print(f"[COMPLETE] Total runtime: {total_time}s (Firestore: {firestore_success}, Pinecone: {pinecone_success})")
 
     return {
         "summary": result_summary,
-        "runtime": round(time.time() - start_total, 2),
+        "runtime": total_time,
         "claims_checked": len(results),
         "raw_details": results
     }
