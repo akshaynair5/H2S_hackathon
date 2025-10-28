@@ -590,6 +590,7 @@
         <li onclick="showPage('features')" data-page="features">Features</li>
         <li onclick="showPage('architecture')" data-page="architecture">How It Works</li>
         <li onclick="showPage('project')" data-page="project">Get Started</li>
+        <li onclick="showPage('setup')" data-page="setup">API Setup</li>
       </ul>
     </div>
   </nav>
@@ -631,8 +632,8 @@
           <div class="pipeline-arrow">→</div>
           <div class="pipeline-step">
             <div style="font-size:2.5rem;">⚡</div>
-            <h4 style="color:#4da6ff;margin-top:0.5rem;">Cache Check</h4>
-            <p style="font-size:0.9rem;color:#bbb;">Pinecone Vector DB</p>
+            <h4 style="color:#4da6ff;margin-top:0.5rem;">3-Tier Cache</h4>
+            <p style="font-size:0.9rem;color:#bbb;">Hash → Semantic → Verified</p>
           </div>
           <div class="pipeline-arrow">→</div>
           <div class="pipeline-step">
@@ -701,18 +702,14 @@
           <div class="feature-item">
             <span class="feature-icon">🚀</span>
             <h3>Real-Time Analysis</h3>
-            <p>Sub-second verification powered by <strong>Pinecone vector caching</strong> and parallel AI processing.</p>
+            <p><strong>Sub-second verification</strong> powered by 3-Tier Pinecone vector caching, parallel AI processing and Google Custom Search.</p>
           </div>
           <div class="feature-item">
             <span class="feature-icon">🧠</span>
             <h3>Multi-Model AI Ensemble</h3>
             <p>Combines <strong>5 AI systems</strong>: Gemini, Vertex AI, Google Vision, Fact Check API, and Sentence Transformers.</p>
           </div>
-          <div class="feature-item">
-            <span class="feature-icon">🔒</span>
-            <h3>Privacy First</h3>
-            <p>Anonymous user fingerprinting, encrypted communications, and <strong>no browsing history stored</strong>.</p>
-          </div>
+          
           <div class="feature-item">
             <span class="feature-icon">👥</span>
             <h3>Community-Driven</h3>
@@ -721,7 +718,7 @@
           <div class="feature-item">
             <span class="feature-icon">⚡</span>
             <h3>Smart Caching</h3>
-            <p>Semantic similarity search with <strong>15-day TTL</strong> reduces API calls and speeds up repeated queries.</p>
+            <p><strong>3-Tier search strategy:</strong> Exact hash match → Semantic similarity → Verified fakes. <strong>15-day auto-expiry</strong> with weighted scoring based on unique user confirmations.</p>
           </div>
           <div class="feature-item">
             <span class="feature-icon">🌍</span>
@@ -741,7 +738,7 @@
           </div>
           <div class="feature-item">
             <h3>2️⃣ Cache Check</h3>
-            <p><strong>Pinecone semantic search</strong> checks if similar content was recently verified (85% similarity threshold).</p>
+            <p><strong>Pinecone 3-Tier search</strong> checks if similar content was recently verified.</p>
           </div>
           <div class="feature-item">
             <h3>3️⃣ Multi-AI Analysis</h3>
@@ -768,7 +765,7 @@
         <p class="section-subtitle" style="max-width:900px;">
           Misinformation affects daily decisions, from what we buy to what we believe. 
           By putting AI-powered truth verification directly into your browser, 
-          TrustMeter builds a safer digital world where information is <strong>trustworthy</strong>, <strong>verifiable</strong>, and <strong>transparent</strong>.
+          TrustMeter builds a safer digital world where information is <strong>Trustworthy</strong>, <strong>Verifiable</strong>, and <strong>Transparent</strong>.
         </p>
       </section>
     </div>
@@ -804,7 +801,7 @@
           </div>
           <div class="stat-item">
             <div class="stat-number">90%</div>
-            <div class="stat-label">of deepfake videos are undetected</div>
+            <div class="stat-label">of deepfake images are undetected</div>
           </div>
         </div>
       </div>
@@ -913,7 +910,6 @@
               <li><strong>Deepfake detection</strong> using AI confidence scores</li>
               <li><strong>Manipulation detection</strong> via Vision API face/label analysis</li>
               <li><strong>Reverse image search</strong> for web presence verification</li>
-              <li><strong>EXIF metadata</strong> analysis (if available)</li>
               <li><strong>Similarity matching</strong> with known authentic images</li>
             </ul>
           </div>
@@ -936,11 +932,11 @@
             <h3>Smart Caching System</h3>
             <p><strong>Pinecone Vector Database:</strong> Lightning-fast semantic search and result caching.</p>
             <ul style="margin-top: 1rem; color: #bbb; padding-left: 1.2rem;">
-              <li><strong>Semantic similarity</strong> search (85% threshold)</li>
-              <li><strong>15-day TTL</strong> for fresh results</li>
-              <li><strong>Unique user tracking</strong> for credibility scoring</li>
-              <li><strong>Anonymous fingerprinting</strong> for privacy</li>
-              <li><strong>Batch updates</strong> for efficiency</li>
+              <li><strong>Semantic similarity</strong> search</li>
+              <li><strong>Cosine similarity metric</strong> for accurate semantic matching across paraphrased content</li>
+              <li><strong>15-day auto-expiry</strong> with automatic cleanup of stale entries</li>
+              <li><strong>Weighted scoring</strong> based on unique user confirmations</li>
+              <li><strong>Multi-level matching</strong> Exact hash match → Semantic similarity → Verified fakes search</li>
             </ul>
           </div>
 
@@ -953,20 +949,6 @@
               <li><strong>30% Vertex AI</strong> - ML classification confidence</li>
               <li><strong>20% Fact Check</strong> - Professional verifier ratings</li>
               <li><strong>Domain bonus</strong> - Small boost for highly trusted sources</li>
-              <li><strong>Adaptive thresholds</strong> based on signal strength</li>
-            </ul>
-          </div>
-
-          <div class="feature-item">
-            <span class="feature-icon">🔒</span>
-            <h3>Privacy & Security</h3>
-            <p><strong>Your Data, Protected:</strong> We prioritize your privacy with encrypted communications.</p>
-            <ul style="margin-top: 1rem; color: #bbb; padding-left: 1.2rem;">
-              <li><strong>Anonymous user IDs</strong> via SHA-256 fingerprinting</li>
-              <li><strong>No browsing history</strong> stored on servers</li>
-              <li><strong>Encrypted API calls</strong> to all services</li>
-              <li><strong>GDPR & CCPA</strong> compliant data handling</li>
-              <li><strong>Optional offline mode</strong> with local cache</li>
             </ul>
           </div>
         </div>
@@ -1010,7 +992,6 @@
               <h3>🚀 Performance</h3>
               <ul style="color: #bbb; padding-left: 1.2rem; margin-top: 0.5rem;">
                 <li>Sub-second cache hits (Pinecone)</li>
-                <li>2-5 second full AI analysis</li>
                 <li>Parallel processing for claims</li>
                 <li>Batch API calls for efficiency</li>
                 <li>Auto-cleanup of expired cache (15 days)</li>
@@ -1077,10 +1058,6 @@
             <h3>🔍 External APIs</h3>
             <p><strong>Google Fact Check + Custom Search</strong> - Professional verification and evidence</p>
           </div>
-          <div class="feature-item">
-            <h3>🔐 Security</h3>
-            <p><strong>Anonymous fingerprinting + encrypted calls</strong> - Privacy-first design</p>
-          </div>
         </div>
       </section>
 
@@ -1129,12 +1106,12 @@
               Advanced machine learning models for text analysis, image verification, and credibility scoring.
             </p>
             <div class="arch-components">
-              <span class="arch-component">🧠 Gemini AI (Reasoning)</span>
-              <span class="arch-component">🎯 Vertex AI (ML Classifier)</span>
-              <span class="arch-component">👁️ Google Cloud Vision (Image)</span>
-              <span class="arch-component">✅ Google Fact Check API</span>
-              <span class="arch-component">🔍 Google Custom Search</span>
-              <span class="arch-component">📊 Sentence Transformers (Embeddings)</span>
+              <span class="arch-component"> Gemini AI (Reasoning)</span>
+              <span class="arch-component"> Vertex AI (ML Classifier)</span>
+              <span class="arch-component"> Google Cloud Vision (Image)</span>
+              <span class="arch-component"> Google Fact Check API</span>
+              <span class="arch-component"> Google Custom Search</span>
+              <span class="arch-component"> Sentence Transformers (Embeddings)</span>
             </div>
           </div>
 
@@ -1165,7 +1142,7 @@
           </div>
           <div class="feature-item">
             <h3>Step 2: Cache Check</h3>
-            <p><strong>Pinecone semantic search</strong> queries for similar content. If found with 85%+ similarity and 1+ user confirmation, return cached result.</p>
+            <p><strong>Pinecone semantic search</strong> queries for similar content. If found with similarity(cosine and verified fakes search) and 1+ user confirmation, return cached result.</p>
           </div>
           <div class="feature-item">
             <h3>Step 3: AI Analysis</h3>
@@ -1198,50 +1175,7 @@
         </div>
       </section>
 
-      <!-- Key Algorithms -->
-      <section>
-        <h2>🧮 Key Algorithms</h2>
-        <div class="architecture-section">
-          <div class="feature-grid">
-            <div class="feature-item">
-              <h3>🎯 Ensemble Scoring Formula</h3>
-              <p style="font-family: 'Courier New', monospace; background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
-                final_conf = <br>
-                &nbsp;&nbsp;0.5 × gemini_conf + <br>
-                &nbsp;&nbsp;0.3 × vertex_conf + <br>
-                &nbsp;&nbsp;0.2 × fact_check_conf<br><br>
-                if domain highly_trusted:<br>
-                &nbsp;&nbsp;final_conf += 2% bonus
-              </p>
-            </div>
-            <div class="feature-item">
-              <h3>🔍 Semantic Similarity</h3>
-              <p style="font-family: 'Courier New', monospace; background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
-                embedding = <br>
-                &nbsp;&nbsp;SentenceTransformer(<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;"all-MiniLM-L6-v2"<br>
-                &nbsp;&nbsp;).encode(text)<br><br>
-                similarity = <br>
-                &nbsp;&nbsp;cosine(query_emb, cached_emb)<br><br>
-                if similarity > 0.85:<br>
-                &nbsp;&nbsp;return cached_result
-              </p>
-            </div>
-            <div class="feature-item">
-              <h3>👥 Community Weighting</h3>
-              <p style="font-family: 'Courier New', monospace; background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
-                new_score = <br>
-                &nbsp;&nbsp;(old_avg × num_votes + <br>
-                &nbsp;&nbsp;&nbsp;new_score) / <br>
-                &nbsp;&nbsp;(num_votes + 1)<br><br>
-                unique_users += 1<br><br>
-                if unique_users >= 3:<br>
-                &nbsp;&nbsp;mark_as_reliable
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      
     </div>
   </div>
 
@@ -1285,7 +1219,7 @@
             <div class="step-number">4</div>
             <div class="step-content">
               <h3>Enable Developer Mode</h3>
-                            <p>Toggle the <strong>Developer mode</strong> switch in the top-right corner of the extensions page.</p>
+              <p>Toggle the <strong>Developer mode</strong> switch in the top-right corner of the extensions page.</p>
             </div>
           </div>
 
@@ -1329,41 +1263,6 @@
       </section>
 
       <section>
-        <h2>💻 System Requirements</h2>
-        <div class="architecture-section">
-          <div class="feature-grid">
-            <div class="feature-item">
-              <h3>🌐 Browser Compatibility</h3>
-              <ul style="color: #bbb; padding-left: 1.2rem; margin-top: 0.5rem;">
-                <li>Google Chrome (v90+)</li>
-                <li>Microsoft Edge (v90+)</li>
-                <li>Brave Browser (latest)</li>
-                <li>Chromium-based browsers</li>
-              </ul>
-            </div>
-            <div class="feature-item">
-              <h3>⚙️ System Specifications</h3>
-              <ul style="color: #bbb; padding-left: 1.2rem; margin-top: 0.5rem;">
-                <li>Windows 10/11, macOS 10.14+, or Linux</li>
-                <li>4GB RAM minimum (8GB recommended)</li>
-                <li>Active internet connection required</li>
-                <li>50MB free disk space</li>
-              </ul>
-            </div>
-            <div class="feature-item">
-              <h3>🔧 Backend Requirements (Optional)</h3>
-              <ul style="color: #bbb; padding-left: 1.2rem; margin-top: 0.5rem;">
-                <li>Python 3.8+ (for local backend)</li>
-                <li>Flask, Google Cloud SDK</li>
-                <li>API keys: Gemini, Pinecone, Google Cloud</li>
-                <li>Firestore project setup</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section>
         <h2>🛠️ Troubleshooting</h2>
         <div class="feature-grid">
           <div class="feature-item">
@@ -1380,7 +1279,9 @@
           </div>
           <div class="feature-item">
             <h3>🔑 API Key Issues?</h3>
-            <p>Verify all API keys are correctly set in your <code>.env</code> file: <code>GEMINI_API_KEY</code>, <code>PINECONE_API</code>, <code>GOOGLE_API_KEY</code>, etc.</p>
+            <p>Verify all API keys are correctly set in your <code>.env</code> file: <code>GEMINI_API_KEY</code>, <code>PINECONE_API</code>, <code>GOOGLE_API_KEY</code>, <code>VERTEX_AI_API</code>, <code>FACT_CHECK_API</code>, <code>CUSTOM_SEARCH_API</code>, <code>FIRESTORE_API</code>,</p>
+            <button class="cta-button" onclick="showPage('setup')" style="margin-top: 1rem; padding: 0.7rem 1.3rem; font-size: 0.95rem;">
+            Go to API Setup Guide
           </div>
           <div class="feature-item">
             <h3>💾 Cache Not Working?</h3>
@@ -1405,7 +1306,7 @@
           <div class="feature-item">
             <h3>👥 Team IPV3</h3>
             <p>Built for the <strong>GenAI Hackathon</strong> by passionate developers committed to fighting misinformation with cutting-edge AI.</p>
-            <p style="margin-top: 0.5rem; color: #bbb;">Contributors: Akshay Nair & Team</p>
+            <p style="margin-top: 0.5rem; color: #bbb;">Contributors: <strong> Akshay Nair, Gokul Krishna and Sarath Rajendran</strong>.</p>
           </div>
           <div class="feature-item">
             <h3>📞 Support & Contact</h3>
@@ -1413,7 +1314,6 @@
             <ul style="color: #bbb; padding-left: 1.2rem; margin-top: 0.5rem;">
               <li>Open an issue on GitHub</li>
               <li>Check documentation in README</li>
-              <li>Join community discussions</li>
             </ul>
           </div>
         </div>
@@ -1429,8 +1329,8 @@
               <h3>Backend</h3>
               <div style="margin-top: 0.5rem;">
                 <span class="tech-badge">Python 3.8+</span>
-                <span class="tech-badge">Flask</span>
                 <span class="tech-badge">Google Cloud SDK</span>
+                <span class="tech-badge">Flask</span>
               </div>
             </div>
             <div class="feature-item">
@@ -1477,6 +1377,316 @@
       </div>
     </div>
   </div>
+  <!-- API SETUP PAGE -->
+<div id="setup" class="page">
+  <div class="container">
+    <div class="hero">
+      <h1>🔑 API Setup Guide</h1>
+      <p>Get your API keys and configure TrustMeter in minutes</p>
+    </div>
+
+    <section>
+      <h2>📋 Prerequisites</h2>
+      <div class="feature-item" style="max-width: 900px; margin: 0 auto;">
+        <p style="color: #ccc; line-height: 1.8;">
+          TrustMeter uses several AI services to provide accurate verification. You'll need to create accounts 
+          and obtain API keys from Google Cloud Platform and Pinecone. <strong>Most services offer free tiers</strong> 
+          that are sufficient for personal use.
+        </p>
+      </div>
+    </section>
+
+    <!-- API Keys Required -->
+    <section>
+      <h2>🗝️ Required API Keys</h2>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <span class="feature-icon">🤖</span>
+          <h3>1. Gemini API Key</h3>
+          <p><strong>Service:</strong> Google Gemini AI</p>
+          <p><strong>Cost:</strong> Free tier available (60 requests/minute)</p>
+          <button class="cta-button" onclick="window.open('https://makersuite.google.com/app/apikey', '_blank')" style="margin-top: 1rem; padding: 0.8rem 1.5rem; font-size: 1rem;">
+            Get Gemini API Key →
+          </button>
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(77, 166, 255, 0.1); border-radius: 8px; border-left: 4px solid #4da6ff;">
+            <p style="font-size: 0.9rem; color: #bbb;">
+              <strong>Steps:</strong><br>
+              1. Visit <a href="https://makersuite.google.com/app/apikey" target="_blank" style="color: #4da6ff;">Google AI Studio</a><br>
+              2. Sign in with your Google account<br>
+              3. Click "Get API Key" → "Create API Key"<br>
+              4. Copy the generated key
+            </p>
+          </div>
+        </div>
+
+        <div class="feature-item">
+          <span class="feature-icon">📊</span>
+          <h3>2. Pinecone API Key</h3>
+          <p><strong>Service:</strong> Pinecone Vector Database</p>
+          <p><strong>Cost:</strong> Free tier (100K vectors)</p>
+          <button class="cta-button" onclick="window.open('https://www.pinecone.io/', '_blank')" style="margin-top: 1rem; padding: 0.8rem 1.5rem; font-size: 1rem;">
+            Get Pinecone API Key →
+          </button>
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(77, 166, 255, 0.1); border-radius: 8px; border-left: 4px solid #4da6ff;">
+            <p style="font-size: 0.9rem; color: #bbb;">
+              <strong>Steps:</strong><br>
+              1. Visit <a href="https://www.pinecone.io/" target="_blank" style="color: #4da6ff;">Pinecone.io</a><br>
+              2. Sign up for a free account<br>
+              3. Go to "API Keys" in the console<br>
+              4. Create a new index (dimension: 384, metric: cosine)<br>
+              5. Copy your API key and index name
+            </p>
+          </div>
+        </div>
+
+        <div class="feature-item">
+          <span class="feature-icon">☁️</span>
+          <h3>3. Google Cloud API Key</h3>
+          <p><strong>Services:</strong> Vision API, Custom Search</p>
+          <p><strong>Cost:</strong> $300 free credit for new users</p>
+          <button class="cta-button" onclick="window.open('https://console.cloud.google.com/', '_blank')" style="margin-top: 1rem; padding: 0.8rem 1.5rem; font-size: 1rem;">
+            Go to Google Cloud →
+          </button>
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(77, 166, 255, 0.1); border-radius: 8px; border-left: 4px solid #4da6ff;">
+            <p style="font-size: 0.9rem; color: #bbb;">
+              <strong>Steps:</strong><br>
+              1. Visit <a href="https://console.cloud.google.com/" target="_blank" style="color: #4da6ff;">Google Cloud Console</a><br>
+              2. Create a new project<br>
+              3. Enable these APIs: Vision API, Custom Search API<br>
+              4. Go to "Credentials" → "Create Credentials" → "API Key"<br>
+              5. Copy the API key
+            </p>
+          </div>
+        </div>
+
+        <div class="feature-item">
+          <span class="feature-icon">🧠</span>
+          <h3>4. Vertex AI Credentials</h3>
+          <p><strong>Service:</strong> Google Vertex AI ML</p>
+          <p><strong>Cost:</strong> Included in Google Cloud free tier</p>
+          <button class="cta-button" onclick="window.open('https://console.cloud.google.com/vertex-ai', '_blank')" style="margin-top: 1rem; padding: 0.8rem 1.5rem; font-size: 1rem;">
+            Go to Vertex AI →
+          </button>
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(77, 166, 255, 0.1); border-radius: 8px; border-left: 4px solid #4da6ff;">
+            <p style="font-size: 0.9rem; color: #bbb;">
+              <strong>Steps:</strong><br>
+              1. In Google Cloud Console, enable Vertex AI API<br>
+              2. Go to "IAM & Admin" → "Service Accounts"<br>
+              3. Create service account with "Vertex AI User" role<br>
+              4. Create JSON key and download it<br>
+              5. Note your Project ID
+            </p>
+          </div>
+        </div>
+
+        <div class="feature-item">
+          <span class="feature-icon">✅</span>
+          <h3>5. Fact Check API Key</h3>
+          <p><strong>Service:</strong> Google Fact Check Tools API</p>
+          <p><strong>Cost:</strong> Free (no quota limits)</p>
+          <button class="cta-button" onclick="window.open('https://console.cloud.google.com/', '_blank')" style="margin-top: 1rem; padding: 0.8rem 1.5rem; font-size: 1rem;">
+            Enable Fact Check API →
+          </button>
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(77, 166, 255, 0.1); border-radius: 8px; border-left: 4px solid #4da6ff;">
+            <p style="font-size: 0.9rem; color: #bbb;">
+              <strong>Steps:</strong><br>
+              1. In Google Cloud Console<br>
+              2. Enable "Fact Check Tools API"<br>
+              3. Use the same API key from step 3<br>
+              4. No separate key needed
+            </p>
+          </div>
+        </div>
+
+        <div class="feature-item">
+          <span class="feature-icon">🔍</span>
+          <h3>6. Custom Search Setup</h3>
+          <p><strong>Service:</strong> Google Custom Search API</p>
+          <p><strong>Cost:</strong> 100 queries/day free</p>
+          <button class="cta-button" onclick="window.open('https://programmablesearchengine.google.com/', '_blank')" style="margin-top: 1rem; padding: 0.8rem 1.5rem; font-size: 1rem;">
+            Create Search Engine →
+          </button>
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(77, 166, 255, 0.1); border-radius: 8px; border-left: 4px solid #4da6ff;">
+            <p style="font-size: 0.9rem; color: #bbb;">
+              <strong>Steps:</strong><br>
+              1. Visit <a href="https://programmablesearchengine.google.com/" target="_blank" style="color: #4da6ff;">Programmable Search Engine</a><br>
+              2. Create new search engine<br>
+              3. Set to search entire web<br>
+              4. Copy your Search Engine ID<br>
+              5. Use Google Cloud API key from step 3
+            </p>
+          </div>
+        </div>
+
+        <div class="feature-item">
+          <span class="feature-icon">🔥</span>
+          <h3>7. Firestore Setup</h3>
+          <p><strong>Service:</strong> Google Cloud Firestore</p>
+          <p><strong>Cost:</strong> Free tier (1GB storage)</p>
+          <button class="cta-button" onclick="window.open('https://console.firebase.google.com/', '_blank')" style="margin-top: 1rem; padding: 0.8rem 1.5rem; font-size: 1rem;">
+            Go to Firebase →
+          </button>
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(77, 166, 255, 0.1); border-radius: 8px; border-left: 4px solid #4da6ff;">
+            <p style="font-size: 0.9rem; color: #bbb;">
+              <strong>Steps:</strong><br>
+              1. Visit <a href="https://console.firebase.google.com/" target="_blank" style="color: #4da6ff;">Firebase Console</a><br>
+              2. Add Firebase to your Google Cloud project<br>
+              3. Enable Firestore Database<br>
+              4. Use the same service account JSON from step 4<br>
+              5. Note your Project ID
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive ENV File Generator -->
+    <section>
+      <h2>📝 Generate Your .env File</h2>
+      <p class="section-subtitle">
+        Enter your API keys below and we'll generate a ready-to-use .env file for you
+      </p>
+      
+      <div class="architecture-section">
+        <div style="max-width: 800px; margin: 0 auto;">
+          <div class="install-steps">
+            <div class="step">
+              <div class="step-number">1</div>
+              <div class="step-content" style="width: 100%;">
+                <h3>Gemini API Key</h3>
+                <input type="text" id="geminiKey" placeholder="Enter your Gemini API key" 
+                  style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(77, 166, 255, 0.3); border-radius: 8px; color: white; font-family: 'Courier New', monospace;">
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-number">2</div>
+              <div class="step-content" style="width: 100%;">
+                <h3>Pinecone Configuration</h3>
+                <input type="text" id="pineconeKey" placeholder="Pinecone API Key" 
+                  style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(77, 166, 255, 0.3); border-radius: 8px; color: white; font-family: 'Courier New', monospace;">
+                <input type="text" id="pineconeIndex" placeholder="Pinecone Index Name" 
+                  style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(77, 166, 255, 0.3); border-radius: 8px; color: white; font-family: 'Courier New', monospace;">
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-number">3</div>
+              <div class="step-content" style="width: 100%;">
+                <h3>Google Cloud API Key</h3>
+                <input type="text" id="googleKey" placeholder="Google Cloud API Key (for Vision & Fact Check)" 
+                  style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(77, 166, 255, 0.3); border-radius: 8px; color: white; font-family: 'Courier New', monospace;">
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-number">4</div>
+              <div class="step-content" style="width: 100%;">
+                <h3>Google Cloud Project ID</h3>
+                <input type="text" id="projectId" placeholder="Your GCP Project ID (for Vertex AI & Firestore)" 
+                  style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(77, 166, 255, 0.3); border-radius: 8px; color: white; font-family: 'Courier New', monospace;">
+                <p style="margin-top: 0.5rem; color: #bbb; font-size: 0.9rem;">
+                  ⚠️ You'll need to manually place your service account JSON file in the project root and name it <code>service-account.json</code>
+                </p>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-number">5</div>
+              <div class="step-content" style="width: 100%;">
+                <h3>Custom Search Configuration</h3>
+                <input type="text" id="searchKey" placeholder="Custom Search API Key (can be same as Google Cloud key)" 
+                  style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(77, 166, 255, 0.3); border-radius: 8px; color: white; font-family: 'Courier New', monospace;">
+                <input type="text" id="searchEngineId" placeholder="Search Engine ID" 
+                  style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(77, 166, 255, 0.3); border-radius: 8px; color: white; font-family: 'Courier New', monospace;">
+              </div>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin-top: 2rem;">
+            <button class="cta-button" onclick="generateEnvFile()" style="margin: 0.5rem;">
+              🎉 Generate .env File
+            </button>
+            <button class="cta-button" onclick="clearForm()" style="margin: 0.5rem; background: linear-gradient(135deg, #ff6b6b 0%, #cc5555 100%);">
+              🗑️ Clear Form
+            </button>
+          </div>
+
+          <!-- Output Area -->
+          <div id="envOutput" style="display: none; margin-top: 2rem;">
+            <h3 style="color: #4da6ff; margin-bottom: 1rem;">✅ Your .env File Content:</h3>
+            <div style="background: rgba(0, 0, 0, 0.4); padding: 1.5rem; border-radius: 12px; border: 2px solid rgba(77, 166, 255, 0.3); position: relative;">
+              <button onclick="copyEnvToClipboard()" style="position: absolute; top: 1rem; right: 1rem; padding: 0.5rem 1rem; background: rgba(77, 166, 255, 0.3); border: 1px solid #4da6ff; border-radius: 6px; color: white; cursor: pointer; font-size: 0.9rem;">
+                📋 Copy
+              </button>
+              <pre id="envContent" style="color: #4da6ff; font-family: 'Courier New', monospace; white-space: pre-wrap; word-wrap: break-word; margin-top: 2rem; line-height: 1.8;"></pre>
+            </div>
+            <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(255, 166, 77, 0.1); border-radius: 8px; border-left: 4px solid #ffa64d;">
+              <p style="color: #ffa64d; font-weight: 600; margin-bottom: 0.5rem;">📌 Next Steps:</p>
+              <ol style="color: #bbb; padding-left: 1.5rem; line-height: 1.8;">
+                <li>Copy the content above</li>
+                <li>Create a file named <code>.env</code> in your project root directory</li>
+                <li>Paste the content into the <code>.env</code> file</li>
+                <li>Download your Google Cloud service account JSON and save it as <code>service-account.json</code> in the project root</li>
+                <li>Make sure <code>.env</code> and <code>service-account.json</code> are in your <code>.gitignore</code></li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cost Breakdown -->
+    <section>
+      <h2>💰 Cost Breakdown</h2>
+      <p class="section-subtitle">
+        TrustMeter is designed to work within free tier limits for personal use
+      </p>
+      <div class="stats-grid">
+        <div class="stat-item" style="background: rgba(77, 255, 166, 0.1);">
+          <div class="stat-number" style="color: #4dffaa;">$0</div>
+          <div class="stat-label">Setup Cost</div>
+        </div>
+        <div class="stat-item" style="background: rgba(77, 255, 166, 0.1);">
+          <div class="stat-number" style="color: #4dffaa;">$0-5</div>
+          <div class="stat-label">Monthly Cost (light use)</div>
+        </div>
+        <div class="stat-item" style="background: rgba(77, 166, 255, 0.1);">
+          <div class="stat-number" style="color: #4da6ff;">$300</div>
+          <div class="stat-label">Google Cloud Free Credit</div>
+        </div>
+        <div class="stat-item" style="background: rgba(77, 166, 255, 0.1);">
+          <div class="stat-number" style="color: #4da6ff;">100K</div>
+          <div class="stat-label">Free Pinecone Vectors</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Troubleshooting -->
+    <section>
+      <h2>🛠️ Common Issues</h2>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <h3>❌ "API Key Invalid" Error</h3>
+          <p>Double-check that you've enabled the correct APIs in Google Cloud Console and that your keys have no extra spaces.</p>
+        </div>
+        <div class="feature-item">
+          <h3>⚠️ "Quota Exceeded" Error</h3>
+          <p>You may have hit the free tier limit. Check your usage in the respective consoles or upgrade to a paid plan.</p>
+        </div>
+        <div class="feature-item">
+          <h3>🔒 "Permission Denied" Error</h3>
+          <p>Ensure your service account has the correct roles: Vertex AI User, Firestore User, and Storage Object Viewer.</p>
+        </div>
+        <div class="feature-item">
+          <h3>📁 "Service Account JSON Not Found"</h3>
+          <p>Make sure <code>service-account.json</code> is in your project root directory, not in a subdirectory.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
 
   <footer>
     <p style="font-size: 1.2rem; font-weight: 600;">🛡️ TrustMeter - AI-Powered Truth Verification</p>
@@ -1615,6 +1825,197 @@
         observer.observe(el);
       });
     });
+
+  
+    function generateEnvFile() {
+      const geminiKey = document.getElementById('geminiKey').value.trim();
+      const pineconeKey = document.getElementById('pineconeKey').value.trim();
+      const pineconeIndex = document.getElementById('pineconeIndex').value.trim();
+      const googleKey = document.getElementById('googleKey').value.trim();
+      const projectId = document.getElementById('projectId').value.trim();
+      const searchKey = document.getElementById('searchKey').value.trim();
+      const searchEngineId = document.getElementById('searchEngineId').value.trim();
+
+      // Validation
+      if (!geminiKey || !pineconeKey || !pineconeIndex || !googleKey || !projectId || !searchKey || !searchEngineId) {
+        alert('⚠️ Please fill in all fields before generating the .env file');
+        return;
+      }
+
+      // Generate .env content
+      const envContent = `# TrustMeter Environment Configuration
+    # Generated on ${new Date().toLocaleString()}
+
+    # ============================================
+    # AI/ML API Keys
+    # ============================================
+
+    # Google Gemini AI (for contextual reasoning)
+    GEMINI_API_KEY=${geminiKey}
+
+    # ============================================
+    # Vector Database Configuration
+    # ============================================
+
+    # Pinecone Vector Database (for semantic caching)
+    PINECONE_API_KEY=${pineconeKey}
+    PINECONE_INDEX_NAME=${pineconeIndex}
+    PINECONE_ENVIRONMENT=gcp-starter
+
+    # ============================================
+    # Google Cloud Platform Configuration
+    # ============================================
+
+    # Google Cloud API Key (for Vision API, Fact Check API)
+    GOOGLE_API_KEY=${googleKey}
+
+    # GCP Project Configuration
+    GCP_PROJECT_ID=${projectId}
+    GOOGLE_APPLICATION_CREDENTIALS=./service-account.json
+
+    # ============================================
+    # Custom Search Configuration
+    # ============================================
+
+    # Google Custom Search (for evidence corroboration)
+    CUSTOM_SEARCH_API_KEY=${searchKey}
+    CUSTOM_SEARCH_ENGINE_ID=${searchEngineId}
+
+    # ============================================
+    # Application Configuration
+    # ============================================
+
+    # Flask Configuration
+    FLASK_ENV=production
+    FLASK_DEBUG=False
+    PORT=5000
+
+    # Cache Configuration
+    CACHE_TTL_DAYS=15
+    SEMANTIC_SIMILARITY_THRESHOLD=0.85
+
+    # ============================================
+    # Security Notes
+    # ============================================
+    # IMPORTANT: Never commit this file to version control!
+    # Add .env to your .gitignore file
+    # Keep your service-account.json file secure and in the project root
+    `;
+
+      // Display the output
+      document.getElementById('envContent').textContent = envContent;
+      document.getElementById('envOutput').style.display = 'block';
+      
+      // Scroll to output
+      document.getElementById('envOutput').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      
+      // Show success message
+      showNotification('✅ .env file generated successfully!', 'success');
+    }
+
+    function clearForm() {
+      document.getElementById('geminiKey').value = '';
+      document.getElementById('pineconeKey').value = '';
+      document.getElementById('pineconeIndex').value = '';
+      document.getElementById('googleKey').value = '';
+      document.getElementById('projectId').value = '';
+      document.getElementById('searchKey').value = '';
+      document.getElementById('searchEngineId').value = '';
+      document.getElementById('envOutput').style.display = 'none';
+      
+      showNotification('🗑️ Form cleared', 'info');
+    }
+
+    function copyEnvToClipboard() {
+      const envContent = document.getElementById('envContent').textContent;
+      
+      navigator.clipboard.writeText(envContent).then(() => {
+        showNotification('📋 Copied to clipboard!', 'success');
+      }).catch(err => {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = envContent;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          showNotification('📋 Copied to clipboard!', 'success');
+        } catch (err) {
+          showNotification('❌ Failed to copy. Please copy manually.', 'error');
+        }
+        document.body.removeChild(textArea);
+      });
+    }
+
+    function showNotification(message, type) {
+      // Create notification element
+      const notification = document.createElement('div');
+      notification.textContent = message;
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 1rem 1.5rem;
+        background: ${type === 'success' ? 'linear-gradient(135deg, #4dffaa 0%, #3dcc88 100%)' : 
+                      type === 'error' ? 'linear-gradient(135deg, #ff6b6b 0%, #cc5555 100%)' : 
+                      'linear-gradient(135deg, #4da6ff 0%, #3385cc 100%)'};
+        color: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        z-index: 10000;
+        font-weight: 600;
+        animation: slideIn 0.3s ease;
+      `;
+      
+      document.body.appendChild(notification);
+      
+      // Remove after 3 seconds
+      setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+          document.body.removeChild(notification);
+        }, 300);
+      }, 3000);
+    }
+
+    // Add CSS animations for notifications
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes slideIn {
+        from {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      
+      @keyframes slideOut {
+        from {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        to {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+      }
+      
+      input:focus {
+        outline: none;
+        border-color: #4da6ff !important;
+        box-shadow: 0 0 0 3px rgba(77, 166, 255, 0.2);
+      }
+      
+      .cta-button:active {
+        transform: translateY(-1px);
+      }
+    `;
+    document.head.appendChild(style);
   </script>
 </body>
 </html>

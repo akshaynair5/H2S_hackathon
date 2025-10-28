@@ -12,6 +12,9 @@ from dotenv import load_dotenv
 import numpy as np
 import uuid
 
+
+
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -225,6 +228,7 @@ def detect_text():
             "runtime": safe_result.get("runtime", 0),
             "claims_checked": safe_result.get("claims_checked", 0)
         }
+        
         return jsonify(response)
 
     except Exception as e:

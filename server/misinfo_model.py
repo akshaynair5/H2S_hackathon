@@ -14,6 +14,7 @@ from google.oauth2 import service_account
 from google.auth.transport.requests import Request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
+
 from database import db
 from vectorDb import (
     embed_text,
@@ -23,6 +24,8 @@ from vectorDb import (
 from datetime import datetime, timedelta
 import aiohttp
 import asyncio
+
+
 
 
 #----------------- Gemini config ----------------
@@ -163,6 +166,7 @@ def add_or_update_trusted_sources_batch(domain_scores: Dict[str, float]):
 # ---------------- Gemini helper ----------------
 @retry
 def ask_gemini_structured(prompt: str) -> Dict[str, Any]:
+    
     try:
         resp = GEM_MODEL.generate_content(prompt)
         text = getattr(resp, "text", str(resp)).strip()

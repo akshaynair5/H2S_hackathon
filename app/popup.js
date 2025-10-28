@@ -291,6 +291,7 @@ async function handleTextCheck() {
   resultsDiv.classList.remove("show");
   resultsDiv.classList.add("hidden");
   loading.classList.add("show");
+  startFactsRotation();
 
   let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -310,7 +311,7 @@ async function handleTextCheck() {
         return;
       }
 
-      startFactsRotation();
+    
 
       chrome.runtime.sendMessage(
         { type: "ANALYZE_TEXT", payload: { text: textContent } },
