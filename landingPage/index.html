@@ -631,8 +631,8 @@
           <div class="pipeline-arrow">→</div>
           <div class="pipeline-step">
             <div style="font-size:2.5rem;">⚡</div>
-            <h4 style="color:#4da6ff;margin-top:0.5rem;">Cache Check</h4>
-            <p style="font-size:0.9rem;color:#bbb;">Pinecone Vector DB</p>
+            <h4 style="color:#4da6ff;margin-top:0.5rem;">3-Tier Cache</h4>
+            <p style="font-size:0.9rem;color:#bbb;">Hash → Semantic → Verified</p>
           </div>
           <div class="pipeline-arrow">→</div>
           <div class="pipeline-step">
@@ -701,18 +701,14 @@
           <div class="feature-item">
             <span class="feature-icon">🚀</span>
             <h3>Real-Time Analysis</h3>
-            <p>Sub-second verification powered by <strong>Pinecone vector caching</strong> and parallel AI processing.</p>
+            <p><strong>Sub-second verification</strong> powered by 3-Tier Pinecone vector caching, parallel AI processing and Google Custom Search.</p>
           </div>
           <div class="feature-item">
             <span class="feature-icon">🧠</span>
             <h3>Multi-Model AI Ensemble</h3>
             <p>Combines <strong>5 AI systems</strong>: Gemini, Vertex AI, Google Vision, Fact Check API, and Sentence Transformers.</p>
           </div>
-          <div class="feature-item">
-            <span class="feature-icon">🔒</span>
-            <h3>Privacy First</h3>
-            <p>Anonymous user fingerprinting, encrypted communications, and <strong>no browsing history stored</strong>.</p>
-          </div>
+          
           <div class="feature-item">
             <span class="feature-icon">👥</span>
             <h3>Community-Driven</h3>
@@ -721,7 +717,7 @@
           <div class="feature-item">
             <span class="feature-icon">⚡</span>
             <h3>Smart Caching</h3>
-            <p>Semantic similarity search with <strong>15-day TTL</strong> reduces API calls and speeds up repeated queries.</p>
+            <p><strong>3-Tier search strategy:</strong> Exact hash match → Semantic similarity → Verified fakes. <strong>15-day auto-expiry</strong> with weighted scoring based on unique user confirmations.</p>
           </div>
           <div class="feature-item">
             <span class="feature-icon">🌍</span>
@@ -741,7 +737,7 @@
           </div>
           <div class="feature-item">
             <h3>2️⃣ Cache Check</h3>
-            <p><strong>Pinecone semantic search</strong> checks if similar content was recently verified (85% similarity threshold).</p>
+            <p><strong>Pinecone 3-Tier search</strong> checks if similar content was recently verified.</p>
           </div>
           <div class="feature-item">
             <h3>3️⃣ Multi-AI Analysis</h3>
@@ -768,7 +764,7 @@
         <p class="section-subtitle" style="max-width:900px;">
           Misinformation affects daily decisions, from what we buy to what we believe. 
           By putting AI-powered truth verification directly into your browser, 
-          TrustMeter builds a safer digital world where information is <strong>trustworthy</strong>, <strong>verifiable</strong>, and <strong>transparent</strong>.
+          TrustMeter builds a safer digital world where information is <strong>Trustworthy</strong>, <strong>Verifiable</strong>, and <strong>Transparent</strong>.
         </p>
       </section>
     </div>
@@ -804,7 +800,7 @@
           </div>
           <div class="stat-item">
             <div class="stat-number">90%</div>
-            <div class="stat-label">of deepfake videos are undetected</div>
+            <div class="stat-label">of deepfake images are undetected</div>
           </div>
         </div>
       </div>
@@ -913,7 +909,6 @@
               <li><strong>Deepfake detection</strong> using AI confidence scores</li>
               <li><strong>Manipulation detection</strong> via Vision API face/label analysis</li>
               <li><strong>Reverse image search</strong> for web presence verification</li>
-              <li><strong>EXIF metadata</strong> analysis (if available)</li>
               <li><strong>Similarity matching</strong> with known authentic images</li>
             </ul>
           </div>
@@ -936,11 +931,11 @@
             <h3>Smart Caching System</h3>
             <p><strong>Pinecone Vector Database:</strong> Lightning-fast semantic search and result caching.</p>
             <ul style="margin-top: 1rem; color: #bbb; padding-left: 1.2rem;">
-              <li><strong>Semantic similarity</strong> search (85% threshold)</li>
-              <li><strong>15-day TTL</strong> for fresh results</li>
-              <li><strong>Unique user tracking</strong> for credibility scoring</li>
-              <li><strong>Anonymous fingerprinting</strong> for privacy</li>
-              <li><strong>Batch updates</strong> for efficiency</li>
+              <li><strong>Semantic similarity</strong> search</li>
+              <li><strong>Cosine similarity metric</strong> for accurate semantic matching across paraphrased content</li>
+              <li><strong>15-day auto-expiry</strong> with automatic cleanup of stale entries</li>
+              <li><strong>Weighted scoring</strong> based on unique user confirmations</li>
+              <li><strong>Multi-level matching</strong> Exact hash match → Semantic similarity → Verified fakes search</li>
             </ul>
           </div>
 
@@ -953,20 +948,6 @@
               <li><strong>30% Vertex AI</strong> - ML classification confidence</li>
               <li><strong>20% Fact Check</strong> - Professional verifier ratings</li>
               <li><strong>Domain bonus</strong> - Small boost for highly trusted sources</li>
-              <li><strong>Adaptive thresholds</strong> based on signal strength</li>
-            </ul>
-          </div>
-
-          <div class="feature-item">
-            <span class="feature-icon">🔒</span>
-            <h3>Privacy & Security</h3>
-            <p><strong>Your Data, Protected:</strong> We prioritize your privacy with encrypted communications.</p>
-            <ul style="margin-top: 1rem; color: #bbb; padding-left: 1.2rem;">
-              <li><strong>Anonymous user IDs</strong> via SHA-256 fingerprinting</li>
-              <li><strong>No browsing history</strong> stored on servers</li>
-              <li><strong>Encrypted API calls</strong> to all services</li>
-              <li><strong>GDPR & CCPA</strong> compliant data handling</li>
-              <li><strong>Optional offline mode</strong> with local cache</li>
             </ul>
           </div>
         </div>
@@ -1077,10 +1058,6 @@
             <h3>🔍 External APIs</h3>
             <p><strong>Google Fact Check + Custom Search</strong> - Professional verification and evidence</p>
           </div>
-          <div class="feature-item">
-            <h3>🔐 Security</h3>
-            <p><strong>Anonymous fingerprinting + encrypted calls</strong> - Privacy-first design</p>
-          </div>
         </div>
       </section>
 
@@ -1129,12 +1106,12 @@
               Advanced machine learning models for text analysis, image verification, and credibility scoring.
             </p>
             <div class="arch-components">
-              <span class="arch-component">🧠 Gemini AI (Reasoning)</span>
-              <span class="arch-component">🎯 Vertex AI (ML Classifier)</span>
-              <span class="arch-component">👁️ Google Cloud Vision (Image)</span>
-              <span class="arch-component">✅ Google Fact Check API</span>
-              <span class="arch-component">🔍 Google Custom Search</span>
-              <span class="arch-component">📊 Sentence Transformers (Embeddings)</span>
+              <span class="arch-component"> Gemini AI (Reasoning)</span>
+              <span class="arch-component"> Vertex AI (ML Classifier)</span>
+              <span class="arch-component"> Google Cloud Vision (Image)</span>
+              <span class="arch-component"> Google Fact Check API</span>
+              <span class="arch-component"> Google Custom Search</span>
+              <span class="arch-component"> Sentence Transformers (Embeddings)</span>
             </div>
           </div>
 
@@ -1165,7 +1142,7 @@
           </div>
           <div class="feature-item">
             <h3>Step 2: Cache Check</h3>
-            <p><strong>Pinecone semantic search</strong> queries for similar content. If found with 85%+ similarity and 1+ user confirmation, return cached result.</p>
+            <p><strong>Pinecone semantic search</strong> queries for similar content. If found with similarity(cosine and verified fakes search) and 1+ user confirmation, return cached result.</p>
           </div>
           <div class="feature-item">
             <h3>Step 3: AI Analysis</h3>
@@ -1198,50 +1175,7 @@
         </div>
       </section>
 
-      <!-- Key Algorithms -->
-      <section>
-        <h2>🧮 Key Algorithms</h2>
-        <div class="architecture-section">
-          <div class="feature-grid">
-            <div class="feature-item">
-              <h3>🎯 Ensemble Scoring Formula</h3>
-              <p style="font-family: 'Courier New', monospace; background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
-                final_conf = <br>
-                &nbsp;&nbsp;0.5 × gemini_conf + <br>
-                &nbsp;&nbsp;0.3 × vertex_conf + <br>
-                &nbsp;&nbsp;0.2 × fact_check_conf<br><br>
-                if domain highly_trusted:<br>
-                &nbsp;&nbsp;final_conf += 2% bonus
-              </p>
-            </div>
-            <div class="feature-item">
-              <h3>🔍 Semantic Similarity</h3>
-              <p style="font-family: 'Courier New', monospace; background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
-                embedding = <br>
-                &nbsp;&nbsp;SentenceTransformer(<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;"all-MiniLM-L6-v2"<br>
-                &nbsp;&nbsp;).encode(text)<br><br>
-                similarity = <br>
-                &nbsp;&nbsp;cosine(query_emb, cached_emb)<br><br>
-                if similarity > 0.85:<br>
-                &nbsp;&nbsp;return cached_result
-              </p>
-            </div>
-            <div class="feature-item">
-              <h3>👥 Community Weighting</h3>
-              <p style="font-family: 'Courier New', monospace; background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
-                new_score = <br>
-                &nbsp;&nbsp;(old_avg × num_votes + <br>
-                &nbsp;&nbsp;&nbsp;new_score) / <br>
-                &nbsp;&nbsp;(num_votes + 1)<br><br>
-                unique_users += 1<br><br>
-                if unique_users >= 3:<br>
-                &nbsp;&nbsp;mark_as_reliable
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      
     </div>
   </div>
 
@@ -1285,7 +1219,7 @@
             <div class="step-number">4</div>
             <div class="step-content">
               <h3>Enable Developer Mode</h3>
-                            <p>Toggle the <strong>Developer mode</strong> switch in the top-right corner of the extensions page.</p>
+              <p>Toggle the <strong>Developer mode</strong> switch in the top-right corner of the extensions page.</p>
             </div>
           </div>
 
@@ -1405,7 +1339,7 @@
           <div class="feature-item">
             <h3>👥 Team IPV3</h3>
             <p>Built for the <strong>GenAI Hackathon</strong> by passionate developers committed to fighting misinformation with cutting-edge AI.</p>
-            <p style="margin-top: 0.5rem; color: #bbb;">Contributors: Akshay Nair & Team</p>
+            <p style="margin-top: 0.5rem; color: #bbb;">Contributors: <strong> Akshay Nair, Gokul Krishna and Sarath Rajendran</strong>.</p>
           </div>
           <div class="feature-item">
             <h3>📞 Support & Contact</h3>
@@ -1413,7 +1347,6 @@
             <ul style="color: #bbb; padding-left: 1.2rem; margin-top: 0.5rem;">
               <li>Open an issue on GitHub</li>
               <li>Check documentation in README</li>
-              <li>Join community discussions</li>
             </ul>
           </div>
         </div>
@@ -1429,8 +1362,8 @@
               <h3>Backend</h3>
               <div style="margin-top: 0.5rem;">
                 <span class="tech-badge">Python 3.8+</span>
-                <span class="tech-badge">Flask</span>
                 <span class="tech-badge">Google Cloud SDK</span>
+                <span class="tech-badge">Flask</span>
               </div>
             </div>
             <div class="feature-item">
