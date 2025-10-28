@@ -118,17 +118,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             session_id: sessionId
           }));
           
-          sendResponse(resultsWithSession);
           resultsWithSession.forEach(res => sendToTab("IMAGE_ANALYSIS_RESULT", res));
+          sendResponse({ success: true });
         })
         .catch(err => {
-          console.error("Image analysis error:", err);
           const errorMsg = { 
             error: err.message || "Unknown error during image analysis.",
             session_id: sessionId
           };
-          sendResponse(errorMsg);
           sendToTab("ANALYSIS_ERROR", errorMsg);
+          sendResponse(errorMsg);
         });
       return true;
     }
@@ -322,10 +321,10 @@ async function analyzeImage(tabId, payload, sessionId) {
       }));
     } else if (data.details && Array.isArray(data.details)) {
       resultsToSend = data.details.map((d, idx) => ({
-        url: d.url || urls[idx],
+        url: d.url || d.image_source || urls[idx],
         score: d.score || data.score || 0,
         explanation: d.explanation || data.explanation || "No explanation available.",
-        prediction: d.prediction || "Unknown",
+        prediction: d.verdict || d.prediction || "Unknown",
         cached: d.cached || false
       }));
     } else {

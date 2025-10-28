@@ -393,11 +393,280 @@ Object.assign(imageSection.style, {
   border: "1px solid rgba(226, 232, 240, 0.8)"
 });
 
+const sourcesSection = document.createElement("div");
+// ---------------------------
+// SOURCES SECTION (MODERN SCROLLABLE)
+// ---------------------------
+sourcesSection.id = "sources-section";
+Object.assign(sourcesSection.style, {
+  fontSize: "13px",
+  color: "#334155",
+  lineHeight: "1.6",
+  padding: "0",
+  background: "linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%)",
+  borderRadius: "14px",
+  border: "1px solid rgba(226, 232, 240, 0.8)",
+  maxHeight: "300px",
+  overflowY: "auto",
+  display: "none" // Hidden initially
+});
+
+const sourcesHeader = document.createElement("div");
+Object.assign(sourcesHeader.style, {
+  position: "sticky",
+  top: "0",
+  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+  padding: "12px 14px",
+  borderRadius: "14px 14px 0 0",
+  fontWeight: "700",
+  fontSize: "14px",
+  color: "#ffffff",
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  zIndex: "10",
+  boxShadow: "0 2px 8px rgba(102, 126, 234, 0.2)"
+});
+sourcesHeader.innerHTML = "🔗 Verified Sources";
+
+const sourcesContent = document.createElement("div");
+sourcesContent.id = "sources-content";
+Object.assign(sourcesContent.style, {
+  padding: "14px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "10px"
+});
+
+sourcesSection.appendChild(sourcesHeader);
+sourcesSection.appendChild(sourcesContent);
 panel.appendChild(header);
 panel.appendChild(subScores);
 panel.appendChild(scoreRow);
 panel.appendChild(textSection);
+panel.appendChild(sourcesSection);
 panel.appendChild(imageSection);
+
+// Custom scrollbar for sources
+const sourcesScrollStyle = document.createElement('style');
+sourcesScrollStyle.textContent = `
+  #sources-section::-webkit-scrollbar {
+    width: 6px;
+  }
+  #sources-section::-webkit-scrollbar-track {
+    background: rgba(241, 245, 249, 0.5);
+    border-radius: 3px;
+  }
+  #sources-section::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+    border-radius: 3px;
+  }
+  #sources-section::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #764ba2 0%, #667eea 100%);
+  }
+`;
+document.head.appendChild(sourcesScrollStyle);
+
+// Helper function to display sources
+function displaySources(sources) {
+  const sourcesContent = document.getElementById("sources-content");
+  const sourcesSection = document.getElementById("sources-section");
+  
+  if (!sources || (!sources.corroboration?.length && !sources.fact_checks?.length)) {
+    sourcesSection.style.display = "none";
+    return;
+  }
+
+  sourcesContent.innerHTML = ""; // Clear existing
+  sourcesSection.style.display = "block";
+
+  // Display corroboration sources (Google search results)
+  if (sources.corroboration && sources.corroboration.length > 0) {
+    const corrobSection = document.createElement("div");
+    corrobSection.style.marginBottom = "16px";
+
+    const corrobTitle = document.createElement("div");
+    corrobTitle.textContent = "📰 News Articles";
+    Object.assign(corrobTitle.style, {
+      fontWeight: "700",
+      fontSize: "13px",
+      color: "#334155",
+      marginBottom: "10px",
+      display: "flex",
+      alignItems: "center",
+      gap: "6px"
+    });
+    corrobSection.appendChild(corrobTitle);
+
+    sources.corroboration.forEach((source, idx) => {
+      const sourceCard = document.createElement("a");
+      sourceCard.href = source.link;
+      sourceCard.target = "_blank";
+      sourceCard.rel = "noopener noreferrer";
+      
+      Object.assign(sourceCard.style, {
+        display: "block",
+        padding: "12px",
+        background: "linear-gradient(135deg, #ffffff 0%, #fafbfc 100%)",
+        borderRadius: "10px",
+        border: "1px solid rgba(226, 232, 240, 0.6)",
+        marginBottom: "8px",
+        textDecoration: "none",
+        color: "inherit",
+        transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+        cursor: "pointer",
+        position: "relative",
+        overflow: "hidden"
+      });
+
+      // Score indicator color
+      const score = source.evidence_score || source.similarity || 0;
+      const scorePercent = Math.round(score * 100);
+      let scoreColor = "#15803d";
+      if (scorePercent < 75) scoreColor = "#ca8a04";
+      if (scorePercent < 45) scoreColor = "#b91c1c";
+
+      sourceCard.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 13px; color: #667eea; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              ${source.title || "Untitled"}
+            </div>
+            <div style="font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
+              <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: rgba(102, 126, 234, 0.1); border-radius: 6px; font-weight: 600;">
+                🌐 ${source.domain || new URL(source.link).hostname}
+              </span>
+              ${source.is_new_domain ? '<span style="padding: 2px 8px; background: rgba(234, 179, 8, 0.1); color: #ca8a04; border-radius: 6px; font-size: 10px; font-weight: 600;">NEW</span>' : ''}
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-left: 12px;">
+            <div style="font-size: 11px; font-weight: 700; color: ${scoreColor}; background: ${scoreColor}15; padding: 4px 8px; border-radius: 6px;">
+              ${scorePercent}%
+            </div>
+            ${source.domain_score ? `<div style="font-size: 9px; color: #64748b;">Trust: ${Math.round(source.domain_score * 100)}%</div>` : ''}
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #64748b; line-height: 1.5; margin-bottom: 6px;">
+          ${source.snippet ? source.snippet.substring(0, 150) + (source.snippet.length > 150 ? '...' : '') : 'No preview available'}
+        </div>
+        <div style="height: 3px; background: rgba(226, 232, 240, 0.5); border-radius: 2px; overflow: hidden;">
+          <div style="width: ${scorePercent}%; height: 100%; background: ${scoreColor}; transition: width 0.3s ease; border-radius: 2px;"></div>
+        </div>
+      `;
+
+      sourceCard.addEventListener("mouseenter", () => {
+        sourceCard.style.transform = "translateX(4px)";
+        sourceCard.style.boxShadow = "0 4px 12px rgba(102, 126, 234, 0.2)";
+        sourceCard.style.borderColor = "rgba(102, 126, 234, 0.4)";
+      });
+
+      sourceCard.addEventListener("mouseleave", () => {
+        sourceCard.style.transform = "translateX(0)";
+        sourceCard.style.boxShadow = "none";
+        sourceCard.style.borderColor = "rgba(226, 232, 240, 0.6)";
+      });
+
+      corrobSection.appendChild(sourceCard);
+    });
+
+    sourcesContent.appendChild(corrobSection);
+  }
+
+  if (sources.fact_checks && sources.fact_checks.length > 0) {
+    const factCheckSection = document.createElement("div");
+
+    const factCheckTitle = document.createElement("div");
+    factCheckTitle.textContent = "Sources and Fact-Checks";
+    Object.assign(factCheckTitle.style, {
+      fontWeight: "700",
+      fontSize: "13px",
+      color: "#334155",
+      marginBottom: "10px",
+      display: "flex",
+      alignItems: "center",
+      gap: "6px"
+    });
+    factCheckSection.appendChild(factCheckTitle);
+
+    sources.fact_checks.forEach((fc, idx) => {
+      let ratingColor = "#64748b";
+      let ratingBg = "rgba(100, 116, 139, 0.1)";
+      
+      if (fc.rating_category === "false") {
+        ratingColor = "#b91c1c";
+        ratingBg = "rgba(239, 68, 68, 0.1)";
+      } else if (fc.rating_category === "true") {
+        ratingColor = "#15803d";
+        ratingBg = "rgba(34, 197, 94, 0.1)";
+      } else if (fc.rating_category === "mixed") {
+        ratingColor = "#ca8a04";
+        ratingBg = "rgba(234, 179, 8, 0.1)";
+      }
+
+      const factCheckCard = document.createElement("a");
+      factCheckCard.href = fc.link;
+      factCheckCard.target = "_blank";
+      factCheckCard.rel = "noopener noreferrer";
+      
+      Object.assign(factCheckCard.style, {
+        display: "block",
+        padding: "12px",
+        background: "linear-gradient(135deg, #ffffff 0%, #fafbfc 100%)",
+        borderRadius: "10px",
+        border: `1px solid ${ratingColor}40`,
+        borderLeft: `4px solid ${ratingColor}`,
+        marginBottom: "8px",
+        textDecoration: "none",
+        color: "inherit",
+        transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+        cursor: "pointer"
+      });
+
+      factCheckCard.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 4px;">
+              ${fc.publisher || "Unknown Publisher"}
+            </div>
+            <div style="font-size: 11px; color: #64748b; line-height: 1.4;">
+              ${fc.title || fc.claim || "No details available"}
+            </div>
+          </div>
+          <div style="margin-left: 12px; white-space: nowrap;">
+            <span style="font-size: 10px; font-weight: 700; color: ${ratingColor}; background: ${ratingBg}; padding: 4px 10px; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+              ${fc.rating || fc.rating_category || "Unknown"}
+            </span>
+          </div>
+        </div>
+      `;
+
+      factCheckCard.addEventListener("mouseenter", () => {
+        factCheckCard.style.transform = "translateX(4px)";
+        factCheckCard.style.boxShadow = `0 4px 12px ${ratingColor}20`;
+      });
+
+      factCheckCard.addEventListener("mouseleave", () => {
+        factCheckCard.style.transform = "translateX(0)";
+        factCheckCard.style.boxShadow = "none";
+      });
+
+      factCheckSection.appendChild(factCheckCard);
+    });
+
+    sourcesContent.appendChild(factCheckSection);
+  }
+
+  // Add empty state if no sources
+  if (sourcesContent.children.length === 0) {
+    sourcesContent.innerHTML = `
+      <div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 13px;">
+        <div style="font-size: 32px; margin-bottom: 8px; opacity: 0.5;">🔍</div>
+        No verified sources found for this content.
+      </div>
+    `;
+  }
+}
+
 document.documentElement.appendChild(panel);
 
 // ---------------------------
@@ -654,6 +923,29 @@ chrome.runtime.onMessage.addListener(message => {
       if (overall.session_id && overall.session_id !== sessionId) {
         console.warn("Received result for different session:", overall.session_id);
       }
+
+      if (overall.sources) {
+        displaySources(overall.sources);
+      } 
+      else if (overall.raw_details && overall.raw_details.length > 0) {
+        const allSources = { corroboration: [], fact_checks: [] };
+
+        overall.raw_details.forEach(detail => {
+          if (detail.evidence && Array.isArray(detail.evidence)) {
+            allSources.corroboration.push(...detail.evidence);
+          }
+          if (detail.fact_check && Array.isArray(detail.fact_check.fact_checks)) {
+            allSources.fact_checks.push(...detail.fact_check.fact_checks);
+          }
+          if (detail.corroboration && Array.isArray(detail.corroboration.evidences)) {
+            allSources.corroboration.push(...detail.corroboration.evidences);
+          }
+        });
+
+        if (allSources.corroboration.length || allSources.fact_checks.length) {
+          displaySources(allSources);
+        }
+      }
       break;
 
     case "IMAGE_ANALYSIS_RESULT": {
@@ -808,7 +1100,7 @@ chrome.runtime.onMessage.addListener(message => {
 // ---------------------------
 // AUTO RUN TEXT ANALYSIS
 // ---------------------------
-setTimeout(analyzeTextNow, 4000);
+setTimeout(analyzeTextNow, 1000);
 
 // ---------------------------
 // BADGE CLICK TOGGLE

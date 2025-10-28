@@ -128,7 +128,7 @@ def detect_text():
         print(f"URL IS  '{url}'- \n")
 
         text = original_text.strip()
-        if not text or len(text) < 50:
+        if not text or len(text) < 5:
             return jsonify({"error": "Text too short or missing"}), 400
 
         article_id = generate_id(url, text)

@@ -188,18 +188,15 @@ def ask_gemini_structured(prompt: str) -> Dict[str, Any]:
 # ---------------- Google Fact Check API ----------------
 def query_google_fact_check_api(text: str, max_results=5) -> dict:
     """
-    Query Google Fact Check Tools API for existing fact-checks.
+    Fast version: Query Google Fact Check Tools API for existing fact-checks.
+    Simplified for speed, preserves identical return structure.
     """
     try:
-        refine_prompt = f"""
-        Extract the core factual claim from this text in 5-15 words.
-        Focus on the verifiable statement, remove opinions and context.
-        Return ONLY the claim, nothing else.
-        
-        Text: "{text[:200]}"
-        """
-        refined_claim = ask_gemini_structured(refine_prompt).get("raw_text", "").strip('"').strip()
-        print(f"[Fact Check API] Query: {refined_claim}")
+
+        sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+        candidates = [s for s in sentences if 5 <= len(s.split()) <= 20]
+        refined_claim = max(candidates, key=len, default=text[:100]).strip()
+        print(f"[Fact Check API] Query: {refined_claim[:80]}...")
 
         url = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
         params = {
@@ -208,22 +205,18 @@ def query_google_fact_check_api(text: str, max_results=5) -> dict:
             "pageSize": max_results,
             "languageCode": "en"
         }
-        
-        resp = requests.get(url, params=params, timeout=10)
-        
+        resp = requests.get(url, params=params, timeout=8)
         if resp.status_code != 200:
-            print(f"[Fact Check API] Error: {resp.status_code}")
+            print(f"[Fact Check API] Error {resp.status_code}")
             return {
                 "status": "api_error",
                 "fact_checks": [],
                 "summary": {"total": 0, "false_count": 0, "true_count": 0, "mixed_count": 0}
             }
-        
+
         data = resp.json()
         claims = data.get("claims", [])
-        
         if not claims:
-            print("[Fact Check API] No existing fact-checks found")
             return {
                 "status": "no_fact_checks",
                 "fact_checks": [],
@@ -231,71 +224,68 @@ def query_google_fact_check_api(text: str, max_results=5) -> dict:
             }
 
         fact_checks = []
-        ratings_counter = {"false": 0, "true": 0, "mixed": 0, "unknown": 0}
-        
-        for claim in claims[:max_results]:
-            claim_text = claim.get("text", "")
-            claim_review = claim.get("claimReview", [])
-            
-            if claim_review:
-                for review in claim_review[:2]:
-                    publisher = review.get("publisher", {}).get("name", "Unknown")
-                    url = review.get("url", "")
-                    rating = review.get("textualRating", "").lower()
-                    title = review.get("title", "")
+        counters = {"false": 0, "true": 0, "mixed": 0, "unknown": 0}
 
-                    if any(word in rating for word in ["false", "fake", "incorrect", "misleading", "pants on fire"]):
-                        rating_category = "false"
-                        ratings_counter["false"] += 1
-                    elif any(word in rating for word in ["true", "correct", "accurate", "verified"]):
-                        rating_category = "true"
-                        ratings_counter["true"] += 1
-                    elif any(word in rating for word in ["mixed", "partially", "half", "mostly"]):
-                        rating_category = "mixed"
-                        ratings_counter["mixed"] += 1
-                    else:
-                        rating_category = "unknown"
-                        ratings_counter["unknown"] += 1
-                    
-                    fact_checks.append({
-                        "claim": claim_text[:150],
-                        "publisher": publisher,
-                        "rating": rating,
-                        "rating_category": rating_category,
-                        "title": title,
-                        "url": url
-                    })
-                    
-                    print(f"[Fact Check] {publisher}: {rating} ({rating_category})")
+        for claim in claims[:max_results]:
+            text_snippet = claim.get("text", "")[:150]
+            for review in claim.get("claimReview", [])[:2]:
+                publisher = review.get("publisher", {}).get("name", "Unknown")
+                url = review.get("url", "")
+                rating_raw = review.get("textualRating", "").lower()
+                title = review.get("title", "")
+
+                if any(w in rating_raw for w in ("false", "fake", "incorrect", "misleading", "pants on fire")):
+                    cat = "false"
+                elif any(w in rating_raw for w in ("true", "correct", "accurate", "verified")):
+                    cat = "true"
+                elif any(w in rating_raw for w in ("mixed", "partial", "half", "mostly")):
+                    cat = "mixed"
+                else:
+                    cat = "unknown"
+                counters[cat] += 1
+
+                fact_checks.append({
+                    "claim": text_snippet,
+                    "publisher": publisher,
+                    "rating": rating_raw,
+                    "rating_category": cat,
+                    "title": title,
+                    "url": url
+                })
 
         total = len(fact_checks)
-        false_ratio = ratings_counter["false"] / max(total, 1)
-        true_ratio = ratings_counter["true"] / max(total, 1)
-        
-        if false_ratio >= 0.6:
+        if not total:
+            return {
+                "status": "no_fact_checks",
+                "fact_checks": [],
+                "summary": {"total": 0, "false_count": 0, "true_count": 0, "mixed_count": 0}
+            }
+
+        false_r = counters["false"] / total
+        true_r = counters["true"] / total
+
+        if false_r >= 0.6:
             status = "predominantly_false"
-        elif true_ratio >= 0.6:
+        elif true_r >= 0.6:
             status = "predominantly_true"
-        elif ratings_counter["mixed"] >= 2:
+        elif counters["mixed"] >= 2:
             status = "mixed_ratings"
         else:
             status = "inconclusive"
-        
-        print(f"[Fact Check API] Status: {status} (False: {ratings_counter['false']}, True: {ratings_counter['true']}, Mixed: {ratings_counter['mixed']})")
-        
+
         return {
             "status": status,
             "fact_checks": fact_checks,
             "summary": {
                 "total": total,
-                "false_count": ratings_counter["false"],
-                "true_count": ratings_counter["true"],
-                "mixed_count": ratings_counter["mixed"]
+                "false_count": counters["false"],
+                "true_count": counters["true"],
+                "mixed_count": counters["mixed"]
             }
         }
-        
+
     except Exception as e:
-        print(f"[Fact Check API] Exception: {str(e)}")
+        print(f"[Fact Check API] Exception: {e}")
         return {
             "status": "error",
             "fact_checks": [],
@@ -328,26 +318,61 @@ def extract_metadata_with_gemini(text: str) -> dict:
 
 @retry
 def predict_with_vertex_ai(metadata: dict) -> dict:
-    headers = {"Authorization": f"Bearer {get_access_token()}", "Content-Type": "application/json"}
-    response = requests.post(PREDICT_URL, headers=headers, json={"instances": [metadata]}, timeout=15)
-    if response.status_code != 200:
-        raise Exception(f"Vertex AI Error {response.status_code}: {response.text}")
 
-    print(f"[Vertex AI] Response: {response.text}")
-    return response.json()
+    try:
+        headers = {
+            "Authorization": f"Bearer {get_access_token()}",
+            "Content-Type": "application/json"
+        }
+
+        response = requests.post(
+            PREDICT_URL,
+            headers=headers,
+            json={"instances": [metadata]},
+            timeout=15
+        )
+
+        if response.status_code != 200:
+            print(f"[Vertex AI] ⚠️ Endpoint returned {response.status_code}: {response.text[:200]}")
+            return {"predictions": [{"classes": ["Real", "Fake", "Misleading"], "scores": [0.7, 0.2, 0.1]}]}
+
+        try:
+            data = response.json()
+        except Exception as e:
+            print(f"[Vertex AI] ⚠️ Invalid JSON response: {e}")
+            return {"predictions": [{"classes": ["Real", "Fake", "Misleading"], "scores": [0.7, 0.2, 0.1]}]}
+
+        print("[Vertex AI] ✅ Response received successfully")
+        return data
+
+    except requests.exceptions.Timeout:
+        print("[Vertex AI] ⏰ Timeout — using fallback prediction.")
+    except requests.exceptions.ConnectionError:
+        print("[Vertex AI] 🌐 Connection error — spot instance may be unavailable.")
+    except Exception as e:
+        print(f"[Vertex AI] ⚠️ Unexpected error: {e}")
+
+    return {"predictions": [{"classes": ["Real", "Fake", "Misleading"], "scores": [0.7, 0.2, 0.1]}]}
+
 
 def extract_vertex_scores(vertex_result: dict) -> dict:
-    """Map Vertex AI output to Real/Fake/Misleading dict."""
+
     try:
         preds = vertex_result.get("predictions", [{}])[0]
         classes = preds.get("classes", [])
         scores = preds.get("scores", [])
         score_map = {cls.capitalize(): float(score) for cls, score in zip(classes, scores)}
-        return {"Real": score_map.get("Real", 0.0),
-                "Fake": score_map.get("Fake", 0.0),
-                "Misleading": score_map.get("Misleading", 0.0)}
-    except Exception:
+
+        return {
+            "Real": score_map.get("Real", 0.7),
+            "Fake": score_map.get("Fake", 0.3),
+            "Misleading": score_map.get("Misleading", 0.0)
+        }
+
+    except Exception as e:
+        print(f"[Vertex AI] ⚠️ Score extraction failed: {e}")
         return {"Real": 0.7, "Fake": 0.3, "Misleading": 0.0}
+
 
 def clear_cache_for_text(text: str) -> bool:
     """
@@ -485,7 +510,7 @@ async def corroborate_all_with_google_async(claims: List[str]) -> Dict[str, Any]
 
             Text: {claim}
             """
-            resp = ask_gemini_structured(prompt)
+            resp = await asyncio.to_thread(ask_gemini_structured, prompt)
             keywords = []
             if "parsed" in resp:
                 keywords = [k.lower() for k in resp["parsed"] if isinstance(k, str) and len(k) > 2]
@@ -496,59 +521,63 @@ async def corroborate_all_with_google_async(claims: List[str]) -> Dict[str, Any]
             print(f"⚠️ Keyword extraction failed: {e}")
             return []
 
+    keyword_tasks = [extract_dynamic_keywords(claim) for claim in claims]
+    dynamic_keyword_sets = await asyncio.gather(*keyword_tasks)
+    claim_keywords = {claim: kws for claim, kws in zip(claims, dynamic_keyword_sets)}
+
     async with aiohttp.ClientSession() as session:
         tasks = []
         for claim in claims:
-            dynamic_keywords = await extract_dynamic_keywords(claim)
+            dynamic_keywords = claim_keywords.get(claim, [])
             all_keywords = list(set(NEWS_KEYWORDS + dynamic_keywords))
- 
+
             site_filter = ""
             if len(CREDIBLE_DOMAINS) >= 5:
                 site_filter = " OR ".join([f"site:{d}" for d in CREDIBLE_DOMAINS[:10]])
-            
-            keyword_query = " OR ".join(all_keywords[:8])
 
+            keyword_query = " OR ".join(all_keywords[:8])
             query = f'"{claim}" ({keyword_query})'
             if site_filter:
                 query += f" ({site_filter})"
-            
+
             print(f"🔍 Google query: {query}")
             tasks.append(fetch_google(session, query))
-        
+
         results = await asyncio.gather(*tasks)
 
+    emb_cache = {}
+
+    def get_cached_embedding(text):
+        if text not in emb_cache:
+            emb_cache[text] = get_embedding(text)
+        return emb_cache[text]
+
     for claim, items in zip(claims, results):
-        claim_emb = get_embedding(claim)
+        claim_emb = get_cached_embedding(claim)
         claim_evidences = []
+        dynamic_keywords = claim_keywords.get(claim, [])
 
         for it in items:
             link = it.get("link", "")
             domain = urlparse(link).netloc.lower()
             snippet = html.unescape(it.get("snippet", ""))[:400]
-
             is_known_credible = any(d in domain for d in CREDIBLE_DOMAINS)
-            
-            has_news_keywords = any(k in snippet.lower() for k in NEWS_KEYWORDS + await extract_dynamic_keywords(claim))
+
+            has_news_keywords = any(k in snippet.lower() for k in NEWS_KEYWORDS + dynamic_keywords)
             if not has_news_keywords:
-                print(f"⏭️ Skipping {domain} - no news keywords in snippet")
                 continue
 
-            snippet_emb = get_embedding(snippet)
+            snippet_emb = get_cached_embedding(snippet)
             similarity = float(util.cos_sim(claim_emb, snippet_emb))
-
-            print(f"📰 {domain} ({'KNOWN' if is_known_credible else 'NEW'}): similarity={similarity:.3f}")
 
             threshold = EMB_SIM_THRESHOLD if is_known_credible else EMB_SIM_THRESHOLD + 0.10
             if similarity < threshold:
-                print(f"⏭️ Skipping {domain} - similarity {similarity:.3f} below threshold {threshold:.3f}")
                 continue
 
             score = domain_score_for_url(link)
-            
             if not is_known_credible and score == 0.0:
-                score = 0.3 
-                print(f"🆕 NEW domain {domain} - assigning starter score: {score}")
-            
+                score = 0.3
+
             evidence_score = round(clamp01(0.7 * similarity + 0.3 * score), 3)
 
             claim_evidences.append({
@@ -558,11 +587,9 @@ async def corroborate_all_with_google_async(claims: List[str]) -> Dict[str, Any]
                 "domain_score": score,
                 "similarity": round(similarity, 3),
                 "evidence_score": evidence_score,
-                "is_new_domain": not is_known_credible 
+                "is_new_domain": not is_known_credible
             })
-
             domain_updates[domain] = evidence_score
-            print(f"✅ Added {domain} to domain_updates with score {evidence_score}")
 
         top_evidences = sorted(claim_evidences, key=lambda x: x["evidence_score"], reverse=True)[:3]
         evidences.extend(top_evidences)
@@ -570,13 +597,16 @@ async def corroborate_all_with_google_async(claims: List[str]) -> Dict[str, Any]
     if domain_updates:
         try:
             print(f"💾 Updating {len(domain_updates)} domains in Firestore...")
-            add_or_update_trusted_sources_batch(domain_updates)
+            await asyncio.to_thread(add_or_update_trusted_sources_batch, domain_updates)
             print(f"✅ Successfully updated {len(domain_updates)} domains")
         except Exception as e:
             print(f"⚠️ Firestore batch update failed: {e}")
 
-    status = "corroborated" if len(set([urlparse(e["link"]).netloc for e in evidences])) >= 2 else \
-             "weak" if evidences else "no_results"
+    status = (
+        "corroborated" if len(set(urlparse(e["link"]).netloc for e in evidences)) >= 2
+        else "weak" if evidences
+        else "no_results"
+    )
 
     return {"status": status, "evidences": evidences}
 
@@ -704,67 +734,44 @@ SPECIAL CASES:
 
 Return ONLY valid JSON. No additional text.
 """
-    
+import asyncio
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 def detect_fake_text(text: str) -> dict:
-
     start_total = time.time()
-
     text = re.sub(r"(?<=[a-zA-Z])\.(?=[A-Z])", ". ", text)
 
-    # ============================================
-    # PHASE 1: PARALLEL API CALLS (Independent)
-    # ============================================
-    print("[Phase 1] Starting parallel: Fact Check + Metadata Extraction...")
-    
-    def run_fact_check():
-        """Wrapper for fact check to run in thread"""
-        return query_google_fact_check_api(text)
-    
-    def run_metadata_extraction():
-        """Wrapper for metadata extraction to run in thread"""
-        return extract_metadata_with_gemini(text)
-    
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        future_fact_check = executor.submit(run_fact_check)
-        future_metadata = executor.submit(run_metadata_extraction)
+    async def run_parallel_phase1():
+        """Run Fact Check + Metadata Extraction concurrently"""
+        loop = asyncio.get_running_loop()
+        fact_check_task = loop.run_in_executor(None, query_google_fact_check_api, text)
+        metadata_task = loop.run_in_executor(None, extract_metadata_with_gemini, text)
+        fact_check_results, metadata = await asyncio.gather(fact_check_task, metadata_task)
+        return fact_check_results, metadata
 
-        fact_check_results = future_fact_check.result()
-        metadata = future_metadata.result()
-    
-    print(f"[Phase 1] Complete! Fact Check + Metadata done in {time.time() - start_total:.2f}s")
+    async def run_parallel_phase2(metadata):
+        """Run Vertex AI + Corroboration concurrently"""
+        claims = simple_sentence_split(metadata["text"])
+        loop = asyncio.get_running_loop()
+        vertex_task = loop.run_in_executor(None, lambda: extract_vertex_scores(predict_with_vertex_ai(metadata)))
+        corroboration_task = corroborate_all_with_google_async(claims)
+        vertex_scores, corroboration_data = await asyncio.gather(vertex_task, corroboration_task)
+        return vertex_scores, corroboration_data, claims
 
-    # ============================================
-    # PHASE 2: PARALLEL PROCESSING (Depends on Metadata)
-    # ============================================
-    print("[Phase 2] Starting parallel: Vertex AI + Corroboration...")
+    async def run_parallel_claim_checks(claims, corroboration_data, fact_check_results, metadata, vertex_scores):
+        """Run Gemini claim checks concurrently (in threads for I/O + CPU balance)"""
+        loop = asyncio.get_running_loop()
 
-    claims = simple_sentence_split(metadata["text"])
-    
-    def run_vertex_ai():
-        """Wrapper for Vertex AI prediction"""
-        vertex_result = predict_with_vertex_ai(metadata)
-        return extract_vertex_scores(vertex_result)
-    
-    def run_corroboration():
-        """Wrapper for Google corroboration"""
-        return asyncio.run(corroborate_all_with_google_async(claims))
-    
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        future_vertex = executor.submit(run_vertex_ai)
-        future_corroboration = executor.submit(run_corroboration)
-        
-        # Wait for both to complete
-        vertex_scores = future_vertex.result()
-        corroboration_data = future_corroboration.result()
-    
-    print(f"[Phase 2] Complete! Vertex AI + Corroboration done in {time.time() - start_total:.2f}s")
+        async def process_claim_async(claim):
+            return await loop.run_in_executor(
+                None,
+                lambda: process_claim_sync(claim, corroboration_data, fact_check_results, metadata, vertex_scores)
+            )
 
-    # ============================================
-    # PHASE 3: PARALLEL GEMINI CLAIM CHECKS 
-    # ============================================
-    print(f"[Phase 3] Processing {len(claims)} claims in parallel...")
-    
-    def process_claim(claim: str):
+        tasks = [process_claim_async(claim) for claim in claims]
+        return await asyncio.gather(*tasks)
+
+    def process_claim_sync(claim, corroboration_data, fact_check_results, metadata, vertex_scores):
         gem_resp = ask_gemini_structured(
             assemble_gemini_prompt_structured(
                 claim,
@@ -778,16 +785,13 @@ def detect_fake_text(text: str) -> dict:
         gem_pred = parsed.get("prediction", "Unknown")
         gem_conf = int(parsed.get("confidence", 70))
         explanation = parsed.get("explanation", "Based on available evidence.")
-
         final_pred, final_conf = adjusted_ensemble(
-            gem_pred, gem_conf, vertex_scores, 
-            fact_check_results.get("status", "no_fact_checks")
+            gem_pred, gem_conf, vertex_scores, fact_check_results.get("status", "no_fact_checks")
         )
-
         return {
             "claim_text": claim,
             "gemini": parsed,
-            "vertex_ai": vertex_scores, 
+            "vertex_ai": vertex_scores,
             "fact_check": fact_check_results,
             "corroboration": corroboration_data,
             "ensemble": {
@@ -799,46 +803,16 @@ def detect_fake_text(text: str) -> dict:
             "evidence": corroboration_data["evidences"]
         }, final_conf, final_pred, explanation
 
-    results, overall_scores, preds, explanations = [], [], [], []
+    async def run_parallel_storage(text, overall_conf, overall_label, combined_explanation):
+        """Run Firestore + Pinecone storage in parallel"""
+        loop = asyncio.get_running_loop()
+        firestore_task = loop.run_in_executor(None, lambda: store_in_firestore(text, overall_conf, overall_label, combined_explanation))
+        pinecone_task = loop.run_in_executor(None, lambda: store_in_pinecone(text, overall_conf, overall_label, combined_explanation))
+        firestore_success, pinecone_success = await asyncio.gather(firestore_task, pinecone_task)
+        return firestore_success, pinecone_success
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        future_to_claim = {executor.submit(process_claim, claim): claim for claim in claims}
-        for future in as_completed(future_to_claim):
-            res, final_conf, final_pred, explanation = future.result()
-            results.append(res)
-            overall_scores.append(final_conf)
-            preds.append(final_pred)
-            explanations.append(explanation)
-    
-    print(f"[Phase 3] Complete! Claims processed in {time.time() - start_total:.2f}s")
-
-    # ============================================
-    # PHASE 4: CALCULATE FINAL RESULTS
-    # ============================================
-    overall_conf = int(sum(overall_scores) / len(overall_scores)) if overall_scores else 0
-    overall_label = max(set(preds), key=preds.count) if preds else "Unknown"
-    combined_explanation = " | ".join(explanations[:3]) if explanations else "No detailed explanation available."
-
-    source_domain = domain_from_url(metadata.get("source", ""))
-    domain_bonus = get_domain_bonus(source_domain)
-    if domain_bonus > 0:
-        bonus_points = int(overall_conf * domain_bonus)
-        overall_conf = min(100, overall_conf + bonus_points)
-        combined_explanation += f" | Small credibility bonus applied due to trusted source ({source_domain})"
-
-    result_summary = {
-        "score": overall_conf, 
-        "prediction": overall_label,
-        "explanation": combined_explanation,
-    }
-
-    # ============================================
-    # PHASE 5: PARALLEL STORAGE (Firestore + Pinecone)
-    # ============================================
-    print("[Phase 5] Starting parallel storage: Firestore + Pinecone...")
-    
-    def store_in_firestore():
-        """Store result in Firestore"""
+    # --- define storage helpers (same logic, just isolated for async calls) ---
+    def store_in_firestore(text, overall_conf, overall_label, combined_explanation):
         try:
             embedding = [float(x) for x in get_embedding(text).tolist()]
             if db:
@@ -847,7 +821,7 @@ def detect_fake_text(text: str) -> dict:
                     "text": text,
                     "embedding": embedding,
                     "verified": True,
-                    "text_score": overall_conf / 100, 
+                    "text_score": overall_conf / 100,
                     "prediction": overall_label,
                     "gemini_reasoning": combined_explanation,
                     "text_explanation": combined_explanation,
@@ -857,10 +831,9 @@ def detect_fake_text(text: str) -> dict:
                 return True
         except Exception as e:
             print(f"[Firestore Embedding Storage Failed] {e}")
-            return False
-    
-    def store_in_pinecone():
-        """Cache result in Pinecone"""
+        return False
+
+    def store_in_pinecone(text, overall_conf, overall_label, combined_explanation):
         try:
             store_feedback(
                 text=text,
@@ -874,21 +847,61 @@ def detect_fake_text(text: str) -> dict:
             return True
         except Exception as e:
             print(f"[Pinecone Cache Store Failed] {e}")
-            return False
+        return False
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        future_firestore = executor.submit(store_in_firestore)
-        future_pinecone = executor.submit(store_in_pinecone)
+    # ===========================
+    # MAIN ASYNC EXECUTION LOGIC
+    # ===========================
+    async def main_pipeline():
+        print("[Phase 1] Starting parallel: Fact Check + Metadata Extraction...")
+        fact_check_results, metadata = await run_parallel_phase1()
+        print(f"[Phase 1] Done in {time.time() - start_total:.2f}s")
 
-        firestore_success = future_firestore.result()
-        pinecone_success = future_pinecone.result()
-    
-    total_time = round(time.time() - start_total, 2)
-    print(f"[COMPLETE] Total runtime: {total_time}s (Firestore: {firestore_success}, Pinecone: {pinecone_success})")
+        print("[Phase 2] Starting parallel: Vertex AI + Corroboration...")
+        vertex_scores, corroboration_data, claims = await run_parallel_phase2(metadata)
+        print(f"[Phase 2] Done in {time.time() - start_total:.2f}s")
 
-    return {
-        "summary": result_summary,
-        "runtime": total_time,
-        "claims_checked": len(results),
-        "raw_details": results
-    }
+        print(f"[Phase 3] Processing {len(claims)} claims concurrently...")
+        results_raw = await run_parallel_claim_checks(claims, corroboration_data, fact_check_results, metadata, vertex_scores)
+        print(f"[Phase 3] Done in {time.time() - start_total:.2f}s")
+
+        results, overall_scores, preds, explanations = [], [], [], []
+        for res, conf, pred, exp in results_raw:
+            results.append(res)
+            overall_scores.append(conf)
+            preds.append(pred)
+            explanations.append(exp)
+
+        # === Phase 4 (no change) ===
+        overall_conf = int(sum(overall_scores) / len(overall_scores)) if overall_scores else 0
+        overall_label = max(set(preds), key=preds.count) if preds else "Unknown"
+        combined_explanation = " | ".join(explanations[:3]) if explanations else "No detailed explanation available."
+
+        source_domain = domain_from_url(metadata.get("source", ""))
+        domain_bonus = get_domain_bonus(source_domain)
+        if domain_bonus > 0:
+            bonus_points = int(overall_conf * domain_bonus)
+            overall_conf = min(100, overall_conf + bonus_points)
+            combined_explanation += f" | Small credibility bonus applied due to trusted source ({source_domain})"
+
+        result_summary = {
+            "score": overall_conf,
+            "prediction": overall_label,
+            "explanation": combined_explanation,
+        }
+
+        # === Phase 5 (parallel storage) ===
+        print("[Phase 5] Starting parallel storage: Firestore + Pinecone...")
+        firestore_success, pinecone_success = await run_parallel_storage(text, overall_conf, overall_label, combined_explanation)
+
+        total_time = round(time.time() - start_total, 2)
+        print(f"[COMPLETE] Total runtime: {total_time}s (Firestore: {firestore_success}, Pinecone: {pinecone_success})")
+
+        return {
+            "summary": result_summary,
+            "runtime": total_time,
+            "claims_checked": len(results),
+            "raw_details": results
+        }
+
+    return asyncio.run(main_pipeline())
