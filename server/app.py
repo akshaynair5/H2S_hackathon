@@ -268,6 +268,28 @@ def detect_text():
     except Exception as e:
         print(f"Error in /detect_text: {e}")
         return jsonify({"error": str(e)}), 500
+    
+@app.route("/detect_text_initial", methods=["POST"])
+@limiter.limit("60 per minute")
+def detect_text_initial():
+    try:
+        data = request.json
+        text = data.get("text", "").strip()
+
+        if not text or len(text) < 5:
+            return jsonify({"error": "Text too short or missing"}), 400
+
+        from misinfo_model import quick_initial_assessment
+        result = quick_initial_assessment(text)
+
+        return jsonify({
+            "initial_analysis": result.get("initial_analysis", ""),
+            "status": result.get("status", "ok"),
+        }), 200
+
+    except Exception as e:
+        print(f"Error in /detect_text_initial: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------

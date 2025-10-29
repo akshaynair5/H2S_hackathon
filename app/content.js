@@ -841,6 +841,30 @@ function collectVisibleImages(maxCount = 3) {
 // ---------------------------
 // ANALYZE FUNCTIONS 
 // ---------------------------
+function analyzeTextInitial(visibleText) {
+  chrome.runtime.sendMessage(
+    {
+      type: "ANALYZE_TEXT_INITIAL",
+      payload: {
+        text: visibleText,
+        url: location.href,
+        session_id: sessionId,
+      },
+    },
+    (response) => {
+      if (!response || response.error) {
+        console.warn("Initial analysis failed:", response?.error);
+        return;
+      }
+
+      document.getElementById("text-result").textContent =
+        response.initial_analysis || "Gathering initial impression...";
+
+      badge.textContent = "Analyzing…";
+    }
+  );
+}
+
 function analyzeTextNow() {
   setWorking("Analyzing visible text...");
   textScores = [];
@@ -854,16 +878,22 @@ function analyzeTextNow() {
     return;
   }
 
+  showPanel();
+
+  // ✅ NEW: run fast initial impression first
+  analyzeTextInitial(visibleText);
+
+  // ✅ Existing deep analysis continues as usual
   chrome.runtime.sendMessage(
-    { 
-      type: "ANALYZE_TEXT", 
-      payload: { 
-        text: visibleText, 
+    {
+      type: "ANALYZE_TEXT",
+      payload: {
+        text: visibleText,
         url: location.href,
-        session_id: sessionId  
-      } 
+        session_id: sessionId,
+      },
     },
-    response => {
+    (response) => {
       stopWorking();
       if (!response || response.error) {
         setError(response?.error || "No response from backend.");
@@ -872,8 +902,8 @@ function analyzeTextNow() {
       }
       setResult(response.score ?? 0, response.explanation);
 
-      if (response.session_id) {
-        console.log("Analysis completed for session:", response.session_id);
+      if (response.sources) {
+        displaySources(response.sources);
       }
     }
   );
@@ -915,6 +945,10 @@ chrome.runtime.onMessage.addListener(message => {
   if (!message?.type) return;
 
   switch (message.type) {
+    case "TEXT_INITIAL_RESULT":
+    document.getElementById("text-result").textContent =
+      message.payload.initial_analysis || "Reviewing information...";
+    break;
     case "TEXT_ANALYSIS_RESULT":
       console.log("Received TEXT_ANALYSIS_RESULT:", message.payload);
       const overall = message.payload || {};

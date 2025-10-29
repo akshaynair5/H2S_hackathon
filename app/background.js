@@ -74,6 +74,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   };
 
   switch (message.type) {
+    case "ANALYZE_TEXT_INITIAL": {
+      const sessionId = message.payload?.session_id || getSessionForTab(tabId);
+
+      fetch(`${BACKEND_BASE}/detect_text_initial`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-ID": sessionId
+        },
+        body: JSON.stringify({
+          text: message.payload?.text,
+          url: message.payload?.url,
+          session_id: sessionId
+        })
+      })
+        .then(res => res.json())
+        .then(data => {
+          chrome.tabs.sendMessage(tabId, {
+            type: "TEXT_INITIAL_RESULT",
+            payload: {
+              initial_analysis: data.initial_analysis,
+              session_id: sessionId
+            }
+          });
+        })
+        .catch(err => {
+          console.error("Initial analysis request failed:", err);
+        });
+
+      sendResponse({ received: true });
+      return true;
+    }
 
     case "ANALYZE_TEXT": {
       const sessionId = message.payload?.session_id || getSessionForTab(tabId);
@@ -195,24 +227,18 @@ async function analyzeText(tabId, payload, sessionId) {
   const { text, url } = payload || {};
   if (!text?.trim()) throw new Error("No text provided.");
 
+  // Ensure objects exist
   textLocksPerTab[tabId] = textLocksPerTab[tabId] || false;
   lastTextPerTab[tabId] = lastTextPerTab[tabId] || "";
 
   if (textLocksPerTab[tabId]) {
-    console.warn(`[Tab ${tabId}] Blocked new text request: analysis already in progress.`);
-    return {
-      success: false,
-      source: "lock",
-      input_text: text,
-      session_id: sessionId,
-      score: 0,
-      explanation: "Another analysis is already running. Please wait.",
-      prediction: "Unknown"
-    };
+    console.warn(`[Tab ${tabId}] Previous analysis still marked running → releasing lock`);
+    textLocksPerTab[tabId] = false;
+    ongoingTextPromises[tabId] = null;
   }
 
   if (ongoingTextPromises[tabId] && lastTextPerTab[tabId] === text) {
-    console.warn(`[Tab ${tabId}] Duplicate text request detected; using existing promise.`);
+    console.warn(`[Tab ${tabId}] Duplicate text detected — returning previous promise`);
     return ongoingTextPromises[tabId];
   }
 
@@ -222,6 +248,7 @@ async function analyzeText(tabId, payload, sessionId) {
   const fetchOnce = async (url, options) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
     try {
       const res = await fetch(url, { ...options, signal: controller.signal });
       clearTimeout(timer);
@@ -235,19 +262,16 @@ async function analyzeText(tabId, payload, sessionId) {
     }
   };
 
+  // Store the promise so duplicate requests reuse it
   ongoingTextPromises[tabId] = (async () => {
     try {
       const data = await fetchOnce(`${BACKEND_BASE}/detect_text`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "X-Session-ID": sessionId  
+          "X-Session-ID": sessionId
         },
-        body: JSON.stringify({ 
-          text, 
-          url,
-          session_id: sessionId 
-        })
+        body: JSON.stringify({ text, url, session_id: sessionId })
       });
       return data;
     } finally {

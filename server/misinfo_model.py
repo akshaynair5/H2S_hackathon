@@ -187,35 +187,32 @@ def ask_gemini_structured(prompt: str) -> Dict[str, Any]:
 
 # ---------------- Google Fact Check API ----------------
 def query_google_fact_check_api(text: str, max_results=5) -> dict:
-    """
-    Fast version: Query Google Fact Check Tools API for existing fact-checks.
-    Simplified for speed, preserves identical return structure.
-    """
-    try:
+    import requests, re
 
+    try:
         sentences = re.split(r'(?<=[.!?])\s+', text.strip())
         candidates = [s for s in sentences if 5 <= len(s.split()) <= 20]
-        refined_claim = max(candidates, key=len, default=text[:100]).strip()
-        print(f"[Fact Check API] Query: {refined_claim[:80]}...")
+        refined = max(candidates, key=len, default=text[:100]).strip()
 
-        url = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
-        params = {
-            "key": FACT_CHECK_API_KEY,
-            "query": refined_claim,
-            "pageSize": max_results,
-            "languageCode": "en"
-        }
-        resp = requests.get(url, params=params, timeout=8)
+        resp = requests.get(
+            "https://factchecktools.googleapis.com/v1alpha1/claims:search",
+            params={
+                "key": FACT_CHECK_API_KEY,
+                "query": refined,
+                "pageSize": max_results,
+                "languageCode": "en"
+            },
+            timeout=6
+        )
+
         if resp.status_code != 200:
-            print(f"[Fact Check API] Error {resp.status_code}")
             return {
                 "status": "api_error",
                 "fact_checks": [],
                 "summary": {"total": 0, "false_count": 0, "true_count": 0, "mixed_count": 0}
             }
 
-        data = resp.json()
-        claims = data.get("claims", [])
+        claims = resp.json().get("claims", [])
         if not claims:
             return {
                 "status": "no_fact_checks",
@@ -224,33 +221,34 @@ def query_google_fact_check_api(text: str, max_results=5) -> dict:
             }
 
         fact_checks = []
-        counters = {"false": 0, "true": 0, "mixed": 0, "unknown": 0}
+        counters = {"false": 0, "true": 0, "mixed": 0}
 
         for claim in claims[:max_results]:
             text_snippet = claim.get("text", "")[:150]
-            for review in claim.get("claimReview", [])[:2]:
-                publisher = review.get("publisher", {}).get("name", "Unknown")
-                url = review.get("url", "")
-                rating_raw = review.get("textualRating", "").lower()
-                title = review.get("title", "")
+            reviews = claim.get("claimReview", [])[:2]
 
-                if any(w in rating_raw for w in ("false", "fake", "incorrect", "misleading", "pants on fire")):
+            for r in reviews:
+                rating = r.get("textualRating", "").lower()
+
+                if "false" in rating or "fake" in rating or "incorrect" in rating or "misleading" in rating or "pants" in rating:
                     cat = "false"
-                elif any(w in rating_raw for w in ("true", "correct", "accurate", "verified")):
+                elif "true" in rating or "correct" in rating or "accurate" in rating or "verified" in rating:
                     cat = "true"
-                elif any(w in rating_raw for w in ("mixed", "partial", "half", "mostly")):
+                elif "mixed" in rating or "partial" in rating or "mostly" in rating or "half" in rating:
                     cat = "mixed"
                 else:
                     cat = "unknown"
-                counters[cat] += 1
+
+                if cat in counters:
+                    counters[cat] += 1
 
                 fact_checks.append({
                     "claim": text_snippet,
-                    "publisher": publisher,
-                    "rating": rating_raw,
+                    "publisher": r.get("publisher", {}).get("name", "Unknown"),
+                    "rating": rating,
                     "rating_category": cat,
-                    "title": title,
-                    "url": url
+                    "title": r.get("title", ""),
+                    "url": r.get("url", "")
                 })
 
         total = len(fact_checks)
@@ -261,12 +259,12 @@ def query_google_fact_check_api(text: str, max_results=5) -> dict:
                 "summary": {"total": 0, "false_count": 0, "true_count": 0, "mixed_count": 0}
             }
 
-        false_r = counters["false"] / total
-        true_r = counters["true"] / total
+        fr = counters["false"] / total
+        tr = counters["true"] / total
 
-        if false_r >= 0.6:
+        if fr >= 0.6:
             status = "predominantly_false"
-        elif true_r >= 0.6:
+        elif tr >= 0.6:
             status = "predominantly_true"
         elif counters["mixed"] >= 2:
             status = "mixed_ratings"
@@ -285,7 +283,6 @@ def query_google_fact_check_api(text: str, max_results=5) -> dict:
         }
 
     except Exception as e:
-        print(f"[Fact Check API] Exception: {e}")
         return {
             "status": "error",
             "fact_checks": [],
@@ -403,37 +400,98 @@ def clear_cache_for_text(text: str) -> bool:
         return False
 
 
-def adjusted_ensemble(gem_pred: str, gem_conf: int, vertex_scores: dict, fact_check_status: str, threshold=0.165) -> (str, int):
+def adjusted_ensemble(
+    gem_pred: str,
+    gem_conf: int,
+    vertex_scores: dict,
+    fact_check_status: str,
+    corroboration_status: str,
+    evidence_count: int = 0,
+    threshold=0.15
+) -> tuple[str, int]:
     """
-    Combine Gemini, Vertex AI, and Fact Check with soft thresholding.
-    Fact Check overrides if strong signal.
+    ✅ New evidence-first ensemble logic.
+    Real-world corroboration > ML models.
     """
+
     C_real = vertex_scores.get("Real", 0.7)
     C_fake = vertex_scores.get("Fake", 0.3)
     C_mis = vertex_scores.get("Misleading", 0.0)
-    max_vertex = max(("Real", C_real), ("Fake", C_fake), ("Misleading", C_mis), key=lambda x: x[1])
-    vertex_label, vertex_conf = max_vertex[0], int(max_vertex[1] * 100)
 
+    # ======================================================
+    # 1. Professional Fact-Checks OVERRIDE prediction
+    # ======================================================
     if fact_check_status == "predominantly_false":
-        return "Fake", max(85, gem_conf, vertex_conf)
-    elif fact_check_status == "predominantly_true":
-        return "Real", max(85, gem_conf, vertex_conf)
-    elif fact_check_status == "mixed_ratings":
-        return "Misleading", max(60, gem_conf, vertex_conf)
+        return "Fake", min(97, gem_conf + 10)
 
-    final_conf = int(0.5 * gem_conf + 0.3 * vertex_conf + 0.2 * (80 if fact_check_status != "no_fact_checks" else 50))
+    if fact_check_status == "predominantly_true":
+        boost = 5 if corroboration_status != "corroborated" else 12
+        return "Real", min(98, max(gem_conf, 85) + boost)
 
-    if gem_pred == vertex_label:
-        final_pred = gem_pred
-    elif "Misleading" in (gem_pred, vertex_label):
-        if final_conf > 50:
-            final_pred = "Misleading"
+    if fact_check_status == "mixed_ratings":
+        return "Misleading", max(70, gem_conf)
+
+    # ======================================================
+    # ✅ NEW OVERRIDE: Strong corroboration beats ML hesitation
+    # ======================================================
+    if corroboration_status == "corroborated" and evidence_count >= 3:
+        override_conf = max(gem_conf, 88 + (evidence_count * 2))  # 3 evidences → 94%, 5 → 98%
+        return "Real", min(98, override_conf)
+
+    # ======================================================
+    # 2. Vertex AI influence (reduced weight)
+    # ======================================================
+    strong_vertex_fake = C_fake > 0.45
+
+    if strong_vertex_fake and corroboration_status != "corroborated":
+        # Vertex strongly detects fake AND no evidence supporting claim
+        return "Fake", max(70, int(C_fake * 100))
+
+    # If vertex AI is mildly suspicious – DO NOT penalize if evidence exists
+    vertex_penalty = int(C_fake * 8) if corroboration_status == "no_results" else 0
+
+    # ======================================================
+    # 3. Base confidence from Gemini (kept as is)
+    # ======================================================
+    base_conf = gem_conf - vertex_penalty
+
+    # ======================================================
+    # ✅ New Evidence Weighting (MUCH stronger)
+    # ======================================================
+    if corroboration_status == "corroborated":
+        if evidence_count >= 5:
+            evidence_boost = 25
+        elif evidence_count >= 3:
+            evidence_boost = 18
         else:
-            final_pred = gem_pred if gem_conf >= vertex_conf else vertex_label
-    else:
-        final_pred = gem_pred if gem_conf >= vertex_conf else vertex_label
+            evidence_boost = 10
 
-    return final_pred, final_conf
+    elif corroboration_status == "weak":
+        evidence_boost = 0
+        base_conf = max(55, base_conf - 5)
+
+    else:  # "no_results"
+        evidence_boost = 0
+        base_conf = max(60, base_conf)  # ✅ No penalty anymore
+
+    # ======================================================
+    # 4. Combine signals
+    # ======================================================
+    final_conf = min(100, base_conf + evidence_boost)
+
+    # ======================================================
+    # 5. Final Prediction Rules
+    # ======================================================
+    if gem_pred == "Real":
+        return "Real", final_conf
+
+    if gem_pred == "Fake":
+        return "Fake", max(final_conf, 70 if corroboration_status == "no_results" else 60)
+
+    if gem_pred == "Misleading":
+        return "Misleading", max(final_conf, 60)
+
+    return gem_pred, max(50, final_conf)
 
 def load_credible_domains() -> List[str]:
     """
@@ -469,145 +527,221 @@ def get_domain_bonus(domain: str) -> float:
         print(f"⚠️ Domain bonus fetch failed for {domain}: {e}")
         return 0.0
 
-async def fetch_google(session, query):
+async def fetch_google(session, query, num_results=None):
     try:
+        limit = int(num_results or MAX_SEARCH_RESULTS)
+
+        params = {
+            "key": str(GOOGLE_KEY or ""),
+            "cx": str(CX_ID or ""),
+            "q": str(query or ""),
+            "num": limit
+        }
+
         async with session.get(
             "https://www.googleapis.com/customsearch/v1",
-            params={"key": GOOGLE_KEY, "cx": CX_ID, "q": query, "num": MAX_SEARCH_RESULTS},
+            params=params,
             timeout=10
         ) as resp:
             data = await resp.json()
-            return data.get("items", [])
-    except Exception:
+            return data.get("items", [])[:limit]
+    except Exception as e:
+        print(f"❌ Google fetch failed: {e}")
         return []
 
+async def extract_keywords(claim: str) -> List[str]:
+    """Extract keywords with robust error handling."""
+    try:
+        prompt = f"""
+Extract 4-8 keywords/entities from this text.
+Return ONLY a JSON array: ["keyword1", "keyword2", ...]
+
+Text: {claim}
+"""
+        resp = await asyncio.to_thread(ask_gemini_structured, prompt)
+        
+        if "error" in resp:
+            print(f"⚠️ Keyword extraction error: {resp['error']}")
+            return []
+        
+        parsed = resp.get("parsed")
+        
+        # Handle different response formats
+        if isinstance(parsed, list):
+            keys = parsed
+        elif isinstance(parsed, dict):
+            keys = parsed.get("keywords", parsed.get("entities", []))
+        elif "raw_text" in resp:
+            raw = resp["raw_text"]
+            # Try extracting quoted strings first
+            keys = re.findall(r'"([^"]+)"', raw)
+            if not keys:
+                # Fallback: comma-separated
+                keys = [w.strip() for w in raw.replace("[", "").replace("]", "").split(",")]
+        else:
+            return []
+        
+        # Validate and clean
+        if not isinstance(keys, (list, tuple)):
+            return []
+        
+        return [
+            k.strip().lower() 
+            for k in keys 
+            if isinstance(k, str) and 2 < len(k.strip()) < 30
+        ][:8]
+        
+    except Exception as e:
+        print(f"❌ Keyword extraction exception: {e}")
+        return []
+
+
+async def summarize_claim(claim: str) -> str:
+    """Summarize claim into Google query with fallback."""
+    try:
+        prompt = f"""
+Rewrite this as a concise Google search query (5-10 words).
+Return ONLY the query text, no JSON, no quotes, no explanation.
+
+Text: {claim}
+"""
+        resp = await asyncio.to_thread(ask_gemini_structured, prompt)
+        
+        if "error" in resp:
+            print(f"⚠️ Summarization error: {resp['error']}")
+            return claim[:100]
+        
+        # Check parsed first
+        parsed = resp.get("parsed")
+        if isinstance(parsed, dict):
+            result = parsed.get("query", parsed.get("summary", ""))
+            if result:
+                return str(result).strip()[:150]
+        elif isinstance(parsed, str):
+            return parsed.strip()[:150]
+        
+        # Fallback to raw_text
+        raw = resp.get("raw_text", "").strip()
+        if raw:
+            # Clean JSON artifacts
+            clean = re.sub(r'[\{\}":]', '', raw).strip()
+            # Remove common prefixes
+            clean = re.sub(r'^(query|summary):\s*', '', clean, flags=re.IGNORECASE)
+            if len(clean) >= 10:
+                return clean[:150]
+        
+        # Last resort: use original claim
+        return claim[:100]
+        
+    except Exception as e:
+        print(f"❌ Summarization exception: {e}")
+        return claim[:100]
+
+
 async def corroborate_all_with_google_async(claims: List[str]) -> Dict[str, Any]:
+    """Corroborate claims with Google search - with validation."""
     evidences = []
     CREDIBLE_DOMAINS = load_credible_domains_cached()
     domain_updates: Dict[str, float] = {}
-
-    NEWS_KEYWORDS = [
-        "report", "reports", "reported",
-        "say", "says", "said",
-        "announce", "announces", "announced",
-        "state", "states", "stated",
-        "claim", "claims", "claimed",
-        "confirm", "confirms", "confirmed",
-        "according to", "according",
-        "told", "revealed", "issued", "released",
-        "declared", "denied", "explained", "described",
-        "statement from", "spokesperson", "press release",
-        "officials", "authorities", "investigation", "evidence"
-    ]
-
-    async def extract_dynamic_keywords(claim: str) -> List[str]:
-        """Use Gemini to extract meaningful keywords from the claim via ask_gemini_structured."""
-        try:
-            prompt = f"""
-            Extract 5–10 important keywords or named entities from this statement.
-            Focus on event-related, geographic, and proper nouns (people, places, incidents).
-            Return as a JSON array of strings. No explanation.
-
-            Text: {claim}
-            """
-            resp = await asyncio.to_thread(ask_gemini_structured, prompt)
-            keywords = []
-            if "parsed" in resp:
-                keywords = [k.lower() for k in resp["parsed"] if isinstance(k, str) and len(k) > 2]
-            elif "raw_text" in resp:
-                keywords = [w.strip().lower() for w in re.split(r"[,|]", resp["raw_text"]) if len(w.strip()) > 2]
-            return keywords[:10]
-        except Exception as e:
-            print(f"⚠️ Keyword extraction failed: {e}")
-            return []
-
-    keyword_tasks = [extract_dynamic_keywords(claim) for claim in claims]
-    dynamic_keyword_sets = await asyncio.gather(*keyword_tasks)
-    claim_keywords = {claim: kws for claim, kws in zip(claims, dynamic_keyword_sets)}
-
+    
+    # Extract keywords and summaries in parallel
+    keyword_tasks = [extract_keywords(claim) for claim in claims]
+    summary_tasks = [summarize_claim(claim) for claim in claims]
+    
+    keywords_list = await asyncio.gather(*keyword_tasks)
+    summaries_list = await asyncio.gather(*summary_tasks)
+    
+    # Build Google queries with validation
     async with aiohttp.ClientSession() as session:
         tasks = []
-        for claim in claims:
-            dynamic_keywords = claim_keywords.get(claim, [])
-            all_keywords = list(set(NEWS_KEYWORDS + dynamic_keywords))
-
-            site_filter = ""
-            if len(CREDIBLE_DOMAINS) >= 5:
-                site_filter = " OR ".join([f"site:{d}" for d in CREDIBLE_DOMAINS[:10]])
-
-            keyword_query = " OR ".join(all_keywords[:8])
-            query = f'"{claim}" ({keyword_query})'
-            if site_filter:
-                query += f" ({site_filter})"
-
-            print(f"🔍 Google query: {query}")
-            tasks.append(fetch_google(session, query))
-
-        results = await asyncio.gather(*tasks)
-
+        for claim, kws, summary in zip(claims, keywords_list, summaries_list):
+            # Validate summary
+            if not summary or len(summary) < 10 or "{" in summary or "error" in summary.lower():
+                print(f"⚠️ Invalid summary, using claim: {claim[:60]}")
+                summary = claim[:100]
+            
+            # Build query
+            if kws and len(kws) > 0:
+                kw_str = " ".join(kws[:4])
+                # Only add keywords if not already in summary
+                if kw_str.lower() not in summary.lower():
+                    query = f"{summary} {kw_str}".strip()
+                else:
+                    query = summary
+            else:
+                query = summary
+            
+            print(f"🔍 Google query => {query[:80]}")
+            tasks.append(fetch_google(session, query, num_results=10))
+        
+        results_list = await asyncio.gather(*tasks)
+    
+    # Process results
     emb_cache = {}
-
-    def get_cached_embedding(text):
+    def get_emb(text):
         if text not in emb_cache:
             emb_cache[text] = get_embedding(text)
         return emb_cache[text]
-
-    for claim, items in zip(claims, results):
-        claim_emb = get_cached_embedding(claim)
+    
+    for claim, items in zip(claims, results_list):
+        if not items:
+            print(f"⚠️ No Google results for claim: {claim[:60]}")
+            continue
+        
+        print(f"📰 Results retrieved: {len(items)}")
+        
+        claim_emb = get_emb(claim)
         claim_evidences = []
-        dynamic_keywords = claim_keywords.get(claim, [])
-
-        for it in items:
+        
+        for it in items[:10]:
             link = it.get("link", "")
-            domain = urlparse(link).netloc.lower()
-            snippet = html.unescape(it.get("snippet", ""))[:400]
-            is_known_credible = any(d in domain for d in CREDIBLE_DOMAINS)
-
-            has_news_keywords = any(k in snippet.lower() for k in NEWS_KEYWORDS + dynamic_keywords)
-            if not has_news_keywords:
+            snippet = html.unescape(it.get("snippet", "")).strip()[:400]
+            
+            # Validate snippet
+            if not snippet or len(snippet) < 20:
                 continue
-
-            snippet_emb = get_cached_embedding(snippet)
+            
+            snippet_emb = get_emb(snippet)
             similarity = float(util.cos_sim(claim_emb, snippet_emb))
-
-            threshold = EMB_SIM_THRESHOLD if is_known_credible else EMB_SIM_THRESHOLD + 0.10
+            
+            domain = urlparse(link).netloc.lower()
+            score = domain_score_for_url(link)
+            
+            is_credible = domain in CREDIBLE_DOMAINS
+            threshold = 0.45 if is_credible else 0.50
+            
             if similarity < threshold:
                 continue
-
-            score = domain_score_for_url(link)
-            if not is_known_credible and score == 0.0:
-                score = 0.3
-
-            evidence_score = round(clamp01(0.7 * similarity + 0.3 * score), 3)
-
+            
+            evidence_score = round(clamp01(0.75 * similarity + 0.25 * score), 3)
+            
             claim_evidences.append({
-                "title": it.get("title", ""),
+                "title": it.get("title", "No title"),
                 "link": link,
                 "snippet": snippet,
-                "domain_score": score,
                 "similarity": round(similarity, 3),
+                "domain_score": score,
                 "evidence_score": evidence_score,
-                "is_new_domain": not is_known_credible
+                "is_new_domain": not is_credible
             })
-            domain_updates[domain] = evidence_score
-
-        top_evidences = sorted(claim_evidences, key=lambda x: x["evidence_score"], reverse=True)[:3]
-        evidences.extend(top_evidences)
-
+            
+            if evidence_score > 0.7:
+                domain_updates[domain] = evidence_score
+        
+        # Add top 3 evidences per claim
+        top = sorted(claim_evidences, key=lambda x: x["evidence_score"], reverse=True)[:3]
+        evidences.extend(top)
+    
+    # Update domain scores
     if domain_updates:
-        try:
-            print(f"💾 Updating {len(domain_updates)} domains in Firestore...")
-            await asyncio.to_thread(add_or_update_trusted_sources_batch, domain_updates)
-            print(f"✅ Successfully updated {len(domain_updates)} domains")
-        except Exception as e:
-            print(f"⚠️ Firestore batch update failed: {e}")
-
+        await asyncio.to_thread(add_or_update_trusted_sources_batch, domain_updates)
+    
     status = (
-        "corroborated" if len(set(urlparse(e["link"]).netloc for e in evidences)) >= 2
-        else "weak" if evidences
-        else "no_results"
+        "corroborated" if len(evidences) >= 2 else
+        "weak" if evidences else
+        "no_results"
     )
-
+    
     return {"status": status, "evidences": evidences}
 
 def extract_local_context(claim: str, full_text: str, window: int = 2) -> str:
@@ -737,6 +871,40 @@ Return ONLY valid JSON. No additional text.
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+def quick_initial_assessment(text: str) -> dict:
+    """
+    Fast lightweight Gemini-only initial impression.
+    Returns a short neutral paragraph without predictions or scores.
+    """
+    prompt = f"""
+    You are assisting in misinformation detection, but this is a *quick initial impression*.
+    DO NOT claim anything is true or false and DO NOT assign confidence or numeric scores.
+
+    Provide a short paragraph (3–5 sentences max) summarizing:
+    - What type of content this text appears to be (news, opinion, speculation)
+    - Whether it *sounds* factual or sensational
+    - Whether anything seems unverifiable at first glance
+    - Ask the user to wait for full fact-check and verification
+
+    Never assert factual accuracy.
+
+    Text to evaluate:
+    \"\"\"{text}\"\"\"
+    """
+
+    try:
+        resp = GEM_MODEL.generate_content(prompt)
+        return {
+            "status": "ok",
+            "initial_analysis": resp.text.strip(),
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "initial_analysis": "Could not analyze text.",
+            "error": str(e)
+        }
+
 def detect_fake_text(text: str) -> dict:
     start_total = time.time()
     text = re.sub(r"(?<=[a-zA-Z])\.(?=[A-Z])", ". ", text)
@@ -785,9 +953,21 @@ def detect_fake_text(text: str) -> dict:
         gem_pred = parsed.get("prediction", "Unknown")
         gem_conf = int(parsed.get("confidence", 70))
         explanation = parsed.get("explanation", "Based on available evidence.")
+
+        evidence_count = len([
+            e for e in corroboration_data.get("evidences", [])
+            if e.get("evidence_score", 0) > 0.6 
+        ])
+ 
         final_pred, final_conf = adjusted_ensemble(
-            gem_pred, gem_conf, vertex_scores, fact_check_results.get("status", "no_fact_checks")
+            gem_pred, 
+            gem_conf, 
+            vertex_scores, 
+            fact_check_results.get("status", "no_fact_checks"),
+            corroboration_data.get("status", "no_results"),
+            evidence_count 
         )
+        
         return {
             "claim_text": claim,
             "gemini": parsed,
@@ -800,7 +980,8 @@ def detect_fake_text(text: str) -> dict:
                 "combined_score": round(final_conf / 100, 3)
             },
             "explanation": explanation,
-            "evidence": corroboration_data["evidences"]
+            "evidence": corroboration_data["evidences"],
+            "evidence_count": evidence_count 
         }, final_conf, final_pred, explanation
 
     async def run_parallel_storage(text, overall_conf, overall_label, combined_explanation):

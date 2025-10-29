@@ -311,7 +311,34 @@ async function handleTextCheck() {
         return;
       }
 
-    
+      chrome.runtime.sendMessage(
+        { type: "ANALYZE_TEXT_INITIAL", payload: { text: textContent } },
+        () => { /* we don't wait here */ }
+      );
+
+      chrome.runtime.onMessage.addListener(function initialListener(message) {
+        if (message.type === "TEXT_INITIAL_RESULT") {
+          
+          const paragraph = message.payload.initial_analysis || "Analyzing...";
+
+          resultsDiv.classList.add("show");
+          resultsDiv.classList.remove("hidden");
+
+          resultsDiv.innerHTML = `
+            <div class="result-card">
+              <span style="font-size: 12px; background: #e5e7eb; padding: 4px 10px; border-radius: 6px;">
+                Initial Analysis
+              </span>
+              <p style="color:#374151; margin-top:10px; line-height:1.5;">
+                ${paragraph}
+              </p>
+              <p style="color:#6b7280; font-size:12px; margin-top:6px;">
+                🔄 Running full fact-check in the background...
+              </p>
+            </div>
+          `;
+        }
+      });
 
       chrome.runtime.sendMessage(
         { type: "ANALYZE_TEXT", payload: { text: textContent } },
@@ -328,7 +355,7 @@ async function handleTextCheck() {
             score: response.score || 0,
             explanation: response.explanation || "Text analyzed",
             prediction: response.prediction || "Unknown",
-            text: textContent
+            input_text: textContent
           });
         }
       );

@@ -17,12 +17,17 @@ def generate_task_id():
 # Start a background task
 # -----------------------------
 def start_task(request_data, session_id=None):
-    from app import detect_text_logic 
+    from app import detect_text_logic  
     task_id = generate_task_id()
+
+    # ✅ NEW: Auto-cancel existing running tasks
+    if session_id:
+        for tid in get_session_tasks(session_id):
+            cancel_task(tid)
 
     def task_wrapper():
         try:
-            result = detect_text_logic(request_data) 
+            result = detect_text_logic(request_data)
             TASKS[task_id]["result"] = result
         except Exception as e:
             TASKS[task_id]["result"] = {"error": str(e)}
@@ -31,11 +36,12 @@ def start_task(request_data, session_id=None):
     p.start()
 
     TASKS[task_id] = {
-        "process": p, 
-        "result": None, 
+        "process": p,
+        "result": None,
         "start_time": datetime.utcnow(),
         "session_id": session_id
     }
+
     return task_id
 
 def task_running(task_id):
@@ -101,7 +107,11 @@ def get_session_tasks(session_id):
     if not session_id:
         return []
     
-    return [
-        tid for tid, task in TASKS.items() 
-        if task.get("session_id") == session_id and task["process"].is_alive()
-    ]
+    active = []
+    for tid, task in TASKS.items():
+        if task.get("session_id") == session_id:
+            if not task["process"].is_alive():
+                TASKS.pop(tid, None) 
+            else:
+                active.append(tid)
+    return active
