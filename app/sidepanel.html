@@ -8,8 +8,43 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="main.css">
+  <style>
+    .close-sidepanel-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: #f1f5f9;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      z-index: 1000;
+    }
+    
+    .close-sidepanel-btn:hover {
+      background: #e2e8f0;
+      transform: scale(1.05);
+    }
+    
+    .close-sidepanel-btn svg {
+      width: 18px;
+      height: 18px;
+      color: #475569;
+    }
+  </style>
 </head>
 <body>
+  <button id="closeSidePanel" class="close-sidepanel-btn" title="Close side panel">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+
   <div class="container">
     <!-- Header Section -->
     <div class="header-section">
@@ -68,6 +103,6 @@
     </div>
   </div>
   
-  <script src="popup.js"></script>
+  <script src="sidepanel.js"></script>
 </body>
 </html>

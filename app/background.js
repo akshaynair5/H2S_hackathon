@@ -14,6 +14,8 @@ const ongoingImagePromises = {};
 const imageLocksPerTab = {};
 const tabSessions = {};  
 
+
+
 // ---------------------------
 // Helper: Get or Create Session for Tab
 // ---------------------------
@@ -24,6 +26,8 @@ function getSessionForTab(tabId) {
   }
   return tabSessions[tabId];
 }
+
+// Keep popup connection alive
 
 // ---------------------------
 // Helper: Clear Session for Tab
@@ -108,29 +112,46 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // ---------------------------
     // Image Analysis 
     // ---------------------------
-    case "ANALYZE_IMAGE": {
-      const sessionId = message.payload?.session_id || getSessionForTab(tabId);
+   case "ANALYZE_IMAGE": {
+  const sessionId = message.payload?.session_id || getSessionForTab(tabId);
+  
+  
+  if (!tabId) {
+    console.error("❌ No tab ID available for image analysis");
+    sendResponse({ error: "No tab context available" });
+    return false;
+  }
+  
+  console.log(`🖼️ Processing image analysis for tab ${tabId}, session ${sessionId}`);
+  
+  analyzeImage(tabId, message.payload, sessionId)
+    .then(results => {
+      console.log(`✅ Image analysis complete for tab ${tabId}:`, results);
       
-      analyzeImage(tabId, message.payload, sessionId)
-        .then(results => {
-          const resultsWithSession = results.map(r => ({
-            ...r,
-            session_id: sessionId
-          }));
-          
-          resultsWithSession.forEach(res => sendToTab("IMAGE_ANALYSIS_RESULT", res));
-          sendResponse({ success: true });
-        })
-        .catch(err => {
-          const errorMsg = { 
-            error: err.message || "Unknown error during image analysis.",
-            session_id: sessionId
-          };
-          sendToTab("ANALYSIS_ERROR", errorMsg);
-          sendResponse(errorMsg);
-        });
-      return true;
-    }
+      const resultsWithSession = results.map(r => ({
+        ...r,
+        session_id: sessionId
+      }));
+      
+      // Send each result to the tab's content script
+      resultsWithSession.forEach(res => {
+        console.log(`📤 Sending IMAGE_ANALYSIS_RESULT to tab ${tabId}:`, res);
+        sendToTab("IMAGE_ANALYSIS_RESULT", res);
+      });
+      
+      sendResponse({ success: true, count: results.length });
+    })
+    .catch(err => {
+      console.error(`❌ Image analysis error for tab ${tabId}:`, err);
+      const errorMsg = { 
+        error: err.message || "Unknown error during image analysis.",
+        session_id: sessionId
+      };
+      sendToTab("ANALYSIS_ERROR", errorMsg);
+      sendResponse(errorMsg);
+    });
+  return true;
+}
     case "CANCEL_SESSION": {
       const sessionId = message.payload?.session_id;
       const targetTabId = message.payload?.tab_id || tabId;

@@ -14,6 +14,7 @@ from google.oauth2 import service_account
 from google.auth.transport.requests import Request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
+import sys
 
 from database import db
 from vectorDb import (
@@ -27,6 +28,52 @@ import asyncio
 
 
 
+# -------------------------------------------------
+#  PRETTY CONSOLE LOGGING (replace every print())
+# -------------------------------------------------
+from datetime import datetime
+import sys
+
+# ANSI colour codes
+class Colors:
+    RESET   = "\033[0m"
+    BOLD    = "\033[1m"
+    CYAN    = "\033[96m"
+    GREEN   = "\033[92m"
+    YELLOW  = "\033[93m"
+    RED     = "\033[91m"
+    PURPLE  = "\033[95m"
+    BLUE    = "\033[94m"
+    GRAY    = "\033[90m"
+
+def _now() -> str:
+    return datetime.now().strftime("%H:%M:%S")
+
+def log_section(title: str):
+    print(f"\n{Colors.BOLD}{Colors.PURPLE}┏{'━' * (len(title) + 4)}┓{Colors.RESET}")
+    print(f"{Colors.BOLD}{Colors.PURPLE}┃  {title}  ┃{Colors.RESET}")
+    print(f"{Colors.BOLD}{Colors.PURPLE}┗{'━' * (len(title) + 4)}┛{Colors.RESET}\n")
+
+def log_info(msg: str):
+    print(f"{Colors.GRAY}[{_now()}] {Colors.CYAN}ℹ INFO{Colors.RESET}  :: {msg}")
+
+def log_success(msg: str):
+    print(f"{Colors.GRAY}[{_now()}] {Colors.GREEN}✓ SUCCESS{Colors.RESET} :: {msg}")
+
+def log_warn(msg: str):
+    print(f"{Colors.GRAY}[{_now()}] {Colors.YELLOW}⚠ WARN{Colors.RESET}  :: {msg}")
+
+def log_error(msg: str):
+    print(f"{Colors.GRAY}[{_now()}] {Colors.RED}✖ ERROR{Colors.RESET} :: {msg}")
+
+def log_phase(phase: str, elapsed: float = None):
+    if elapsed is not None:
+        print(f"{Colors.GRAY}[{_now()}] {Colors.BLUE}▶ PHASE{Colors.RESET}  :: {phase}  ({elapsed:.2f}s)")
+    else:
+        print(f"{Colors.GRAY}[{_now()}] {Colors.BLUE}▶ PHASE{Colors.RESET}  :: {phase}")
+
+def log_debug(msg: str):
+    print(f"{Colors.GRAY}[{_now()}] {Colors.GRAY}DEBUG{Colors.RESET} :: {msg}")
 
 #----------------- Gemini config ----------------
 load_dotenv()
@@ -196,7 +243,8 @@ def query_google_fact_check_api(text: str, max_results=5) -> dict:
         sentences = re.split(r'(?<=[.!?])\s+', text.strip())
         candidates = [s for s in sentences if 5 <= len(s.split()) <= 20]
         refined_claim = max(candidates, key=len, default=text[:100]).strip()
-        print(f"[Fact Check API] Query: {refined_claim[:80]}...")
+        # print(f"[Fact Check API] Query: {refined_claim[:80]}...")
+        log_info(f"Fact-Check API query → {refined_claim[:80]}…")
 
         url = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
         params = {
@@ -207,7 +255,8 @@ def query_google_fact_check_api(text: str, max_results=5) -> dict:
         }
         resp = requests.get(url, params=params, timeout=8)
         if resp.status_code != 200:
-            print(f"[Fact Check API] Error {resp.status_code}")
+            # print(f"[Fact Check API] Error {resp.status_code}")
+            log_warn(f"Fact-Check API returned HTTP {resp.status_code}")
             return {
                 "status": "api_error",
                 "fact_checks": [],
@@ -285,7 +334,8 @@ def query_google_fact_check_api(text: str, max_results=5) -> dict:
         }
 
     except Exception as e:
-        print(f"[Fact Check API] Exception: {e}")
+        # print(f"[Fact Check API] Exception: {e}")
+        log_error(f"Fact-Check API exception: {e}")
         return {
             "status": "error",
             "fact_checks": [],
@@ -333,7 +383,8 @@ def predict_with_vertex_ai(metadata: dict) -> dict:
         )
 
         if response.status_code != 200:
-            print(f"[Vertex AI] ⚠️ Endpoint returned {response.status_code}: {response.text[:200]}")
+            # print(f"[Vertex AI] ⚠️ Endpoint returned {response.status_code}: {response.text[:200]}")
+            log_warn(f"Vertex AI endpoint HTTP {response.status_code}: {response.text[:200]}")
             return {"predictions": [{"classes": ["Real", "Fake", "Misleading"], "scores": [0.7, 0.2, 0.1]}]}
 
         try:
@@ -511,6 +562,7 @@ async def corroborate_all_with_google_async(claims: List[str]) -> Dict[str, Any]
             Text: {claim}
             """
             resp = await asyncio.to_thread(ask_gemini_structured, prompt)
+            print(f'\n  Corroborated Response is  {resp}')
             keywords = []
             if "parsed" in resp:
                 keywords = [k.lower() for k in resp["parsed"] if isinstance(k, str) and len(k) > 2]

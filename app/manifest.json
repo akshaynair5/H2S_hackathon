@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "TrustMeter - Page Text Trust Estimator",
+  "name": "TrustMeter - Testing 1",
   "version": "1.0",
   "description": "Extracts visible text from the current view and asks an LLM how trustworthy it is, showing a trust score in the corner.",
   "permissions": [

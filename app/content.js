@@ -92,6 +92,62 @@ if (!document.getElementById('trustmeter-keyframes')) {
   document.head.appendChild(style);
 }
 
+// ---------------------------
+// LISTEN FOR IMAGE OVERLAY CLICKS
+// ---------------------------
+window.addEventListener('analyze-image', (event) => {
+  const imageUrl = event.detail.url;
+  console.log("🖼️ Image overlay clicked:", imageUrl);
+  
+  // Show loading state
+  const container = document.getElementById("image-results");
+  if (container) {
+    const loadingDiv = document.createElement("div");
+    loadingDiv.id = `loading-${imageUrl}`;
+    loadingDiv.style.cssText = `
+      padding: 12px;
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #667eea;
+    `;
+    loadingDiv.innerHTML = `
+      <div style="width: 16px; height: 16px; border: 2px solid rgba(102, 126, 234, 0.3); border-top-color: #667eea; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+      Analyzing image...
+    `;
+    container.appendChild(loadingDiv);
+  }
+  
+  // Send message to background from content script (has tab context)
+  chrome.runtime.sendMessage(
+    { 
+      type: "ANALYZE_IMAGE", 
+      payload: { 
+        urls: [imageUrl],
+        session_id: sessionId 
+      } 
+    },
+    (response) => {
+      console.log("Image analysis response:", response);
+      
+      // Remove loading indicator
+      const loadingDiv = document.getElementById(`loading-${imageUrl}`);
+      if (loadingDiv) loadingDiv.remove();
+      
+      if (response && response.error) {
+        console.error("❌ Image analysis error:", response.error);
+      }
+    }
+  );
+  
+  // Open panel to show results
+  showPanel();
+});
+
 function setWorking(msg) {
   scoreText.textContent = "Score: …";
   document.getElementById("text-result").textContent = msg || "Analyzing...";
@@ -949,136 +1005,166 @@ chrome.runtime.onMessage.addListener(message => {
       break;
 
     case "IMAGE_ANALYSIS_RESULT": {
-      const { url, score, explanation, session_id: responseSessionId } = message.payload;
+  console.log("🎯 Received IMAGE_ANALYSIS_RESULT:", message.payload);
+  
+  const { 
+    url, 
+    image_source,
+    score, 
+    explanation, 
+    prediction, 
+    verdict, 
+    session_id: responseSessionId 
+  } = message.payload;
 
-      if (responseSessionId && responseSessionId !== sessionId) {
-        console.warn("Received image result for different session:", responseSessionId);
-        return; 
-      }
-      
-      const container = document.getElementById("image-results");
-      if (!container) return;
-      if (container.textContent.includes("No images")) container.innerHTML = "";
+  // Use image_source if url is not available
+  const imageUrl = url || image_source;
 
-      if (!document.getElementById("image-analysis-header")) {
-        const header = document.createElement("h3");
-        header.id = "image-analysis-header";
-        header.textContent = "🖼️ Image Analysis Results";
-        Object.assign(header.style, {
-          margin: "10px 0 14px",
-          fontSize: "15px",
-          fontWeight: "700",
-          color: "#334155",
-          letterSpacing: "-0.3px"
-        });
-        container.prepend(header);
-      }
+  if (responseSessionId && responseSessionId !== sessionId) {
+    console.warn("⚠️ Received image result for different session:", responseSessionId);
+    return; 
+  }
+  
+  const container = document.getElementById("image-results");
+  if (!container) {
+    console.error("❌ image-results container not found!");
+    return;
+  }
+  
+  console.log("✅ Processing image result:", {
+    url: imageUrl,
+    score,
+    verdict: verdict || prediction,
+    explanation: explanation ? explanation.substring(0, 100) : 'No explanation'
+  });
+  
+  if (container.textContent.includes("No images")) container.innerHTML = "";
 
-      const validity = normalizeScore(score);
-      const timestamp = new Date().toLocaleTimeString();
+  if (!document.getElementById("image-analysis-header")) {
+    const header = document.createElement("h3");
+    header.id = "image-analysis-header";
+    header.textContent = "🖼️ Image Analysis Results";
+    Object.assign(header.style, {
+      margin: "10px 0 14px",
+      fontSize: "15px",
+      fontWeight: "700",
+      color: "#334155",
+      letterSpacing: "-0.3px"
+    });
+    container.prepend(header);
+  }
 
-      imageScores.push(validity);
+  const validity = normalizeScore(score);
+  const timestamp = new Date().toLocaleTimeString();
 
-      const imgEntry = document.createElement("div");
-      imgEntry.className = "image-result-entry";
-      Object.assign(imgEntry.style, {
-        display: "flex",
-        flexDirection: "column",
-        gap: "10px",
-        padding: "16px",
-        borderRadius: "14px",
-        marginBottom: "14px",
-        background: "linear-gradient(135deg, #ffffff 0%, #fafbfc 100%)",
-        border: "1px solid rgba(226, 232, 240, 0.6)",
-        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06)",
-        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-        animation: "fadeIn 0.4s ease",
-        position: "relative",
-        overflow: "hidden"
-      });
+  imageScores.push(validity);
 
-      // Add gradient border accent
-      const borderAccent = document.createElement("div");
-      Object.assign(borderAccent.style, {
-        position: "absolute",
-        top: "0",
-        left: "0",
-        width: "4px",
-        height: "100%",
-        background: "linear-gradient(180deg, #667eea 0%, #764ba2 100%)",
-        opacity: "0",
-        transition: "opacity 0.3s ease"
-      });
-      imgEntry.appendChild(borderAccent);
+  const imgEntry = document.createElement("div");
+  imgEntry.className = "image-result-entry";
+  Object.assign(imgEntry.style, {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    padding: "16px",
+    borderRadius: "14px",
+    marginBottom: "14px",
+    background: "linear-gradient(135deg, #ffffff 0%, #fafbfc 100%)",
+    border: "1px solid rgba(226, 232, 240, 0.6)",
+    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06)",
+    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+    animation: "fadeIn 0.4s ease",
+    position: "relative",
+    overflow: "hidden"
+  });
 
-      imgEntry.addEventListener("mouseenter", () => {
-        imgEntry.style.transform = "translateX(4px)";
-        imgEntry.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.08)";
-        imgEntry.style.borderColor = "rgba(102, 126, 234, 0.3)";
-        borderAccent.style.opacity = "1";
-      });
+  const borderAccent = document.createElement("div");
+  Object.assign(borderAccent.style, {
+    position: "absolute",
+    top: "0",
+    left: "0",
+    width: "4px",
+    height: "100%",
+    background: "linear-gradient(180deg, #667eea 0%, #764ba2 100%)",
+    opacity: "0",
+    transition: "opacity 0.3s ease"
+  });
+  imgEntry.appendChild(borderAccent);
 
-      imgEntry.addEventListener("mouseleave", () => {
-        imgEntry.style.transform = "translateX(0)";
-        imgEntry.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06)";
-        imgEntry.style.borderColor = "rgba(226, 232, 240, 0.6)";
-        borderAccent.style.opacity = "0";
-      });
+  imgEntry.addEventListener("mouseenter", () => {
+    imgEntry.style.transform = "translateX(4px)";
+    imgEntry.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.08)";
+    imgEntry.style.borderColor = "rgba(102, 126, 234, 0.3)";
+    borderAccent.style.opacity = "1";
+  });
 
-      let color = "#b91c1c";
-      let label = "AI Generated";
-      let bgGradient = "linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%)";
-      
-      if (validity >= 75) {
-        color = "#15803d";
-        label = "Likely Authentic";
-        bgGradient = "linear-gradient(90deg, rgba(34, 197, 94, 0.1) 0%, rgba(22, 163, 74, 0.05) 100%)";
-      } else if (validity >= 45) {
-        color = "#ca8a04";
-        label = "Uncertain";
-        bgGradient = "linear-gradient(90deg, rgba(234, 179, 8, 0.1) 0%, rgba(202, 138, 4, 0.05) 100%)";
-      }
+  imgEntry.addEventListener("mouseleave", () => {
+    imgEntry.style.transform = "translateX(0)";
+    imgEntry.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06)";
+    imgEntry.style.borderColor = "rgba(226, 232, 240, 0.6)";
+    borderAccent.style.opacity = "0";
+  });
 
-      const contentWrapper = document.createElement("div");
-      contentWrapper.style.position = "relative";
-      contentWrapper.style.zIndex = "1";
+  // Determine verdict from backend response
+  const resultVerdict = (verdict || prediction || "Unknown").toLowerCase();
+  
+  let color = "#b91c1c";
+  let label = "🤖 AI Generated";
+  let bgGradient = "linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%)";
+  
+  console.log("🏷️ Result verdict:", resultVerdict);
+  
+  if (resultVerdict.includes("real") || resultVerdict.includes("authentic")) {
+    color = "#15803d";
+    label = "✅ Likely Real";
+    bgGradient = "linear-gradient(90deg, rgba(34, 197, 94, 0.1) 0%, rgba(22, 163, 74, 0.05) 100%)";
+  } else if (resultVerdict.includes("uncertain") || (validity >= 45 && validity < 75)) {
+    color = "#ca8a04";
+    label = "⚠️ Uncertain";
+    bgGradient = "linear-gradient(90deg, rgba(234, 179, 8, 0.1) 0%, rgba(202, 138, 4, 0.05) 100%)";
+  }
 
-      contentWrapper.innerHTML = `
-        <div style="display:flex; align-items:center; gap:14px;">
-          <img src="${url}" 
-              style="width:100px; height:70px; border-radius:10px; object-fit:cover; border:1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);">
-          <div style="flex:1;">
-            <div style="font-weight:700; color:${color}; font-size:15px; margin-bottom: 6px; letter-spacing: -0.2px;">
-              ${label}
-            </div>
-            <div style="height:8px; background: rgba(226, 232, 240, 0.5); border-radius:4px; overflow:hidden; position: relative;">
-              <div style="width:${validity}%; background:${color}; height:100%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 4px; box-shadow: 0 0 8px ${color}40;"></div>
-            </div>
-            <div style="margin-top: 6px; font-size: 13px; font-weight: 600; color: ${color};">
-              ${validity}% Confidence
-            </div>
-          </div>
+  const contentWrapper = document.createElement("div");
+  contentWrapper.style.position = "relative";
+  contentWrapper.style.zIndex = "1";
+
+  contentWrapper.innerHTML = `
+    <div style="display:flex; align-items:center; gap:14px;">
+      <img src="${imageUrl}" 
+          style="width:100px; height:70px; border-radius:10px; object-fit:cover; border:1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);"
+          onerror="this.style.display='none'">
+      <div style="flex:1;">
+        <div style="font-weight:700; color:${color}; font-size:15px; margin-bottom: 6px; letter-spacing: -0.2px;">
+          ${label}
         </div>
-        <div style="margin-top:12px; padding: 12px; background: ${bgGradient}; border-radius: 10px; border-left: 3px solid ${color};">
-          <div style="font-size:13px; color:#475569; line-height: 1.6;">
-            <strong style="color: #334155;">Analysis:</strong> ${explanation || "No details available."}
-          </div>
+        <div style="height:8px; background: rgba(226, 232, 240, 0.5); border-radius:4px; overflow:hidden; position: relative;">
+          <div style="width:${validity}%; background:${color}; height:100%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 4px; box-shadow: 0 0 8px ${color}40;"></div>
         </div>
-        <div style="font-size:11px; color:#94a3b8; margin-top:8px; display: flex; align-items: center; gap: 6px;">
-          <span style="width: 6px; height: 6px; background: ${color}; border-radius: 50%; display: inline-block;"></span>
-          Analyzed at ${timestamp}
+        <div style="margin-top: 6px; font-size: 13px; font-weight: 600; color: ${color};">
+          ${validity}% Confidence
         </div>
-      `;
+      </div>
+    </div>
+    <div style="margin-top:12px; padding: 12px; background: ${bgGradient}; border-radius: 10px; border-left: 3px solid ${color};">
+      <div style="font-size:13px; color:#475569; line-height: 1.6;">
+        <strong style="color: #334155;">Analysis:</strong> ${explanation || "No details available."}
+      </div>
+    </div>
+    <div style="font-size:11px; color:#94a3b8; margin-top:8px; display: flex; align-items: center; gap: 6px;">
+      <span style="width: 6px; height: 6px; background: ${color}; border-radius: 50%; display: inline-block;"></span>
+      Analyzed at ${timestamp}
+    </div>
+  `;
 
-      imgEntry.appendChild(contentWrapper);
-      container.appendChild(imgEntry);
+  imgEntry.appendChild(contentWrapper);
+  container.appendChild(imgEntry);
 
-      updateTextAverage();
-      updateImageAverage();
-      updateBadge();
-      showPanel();
-      break;
-    }
+  updateImageAverage();
+  updateBadge();
+  showPanel();
+  
+  console.log("✅ Image result displayed successfully");
+  break;
+}
 
     case "ANALYSIS_ERROR":
       setError("Analysis failed or not supported on this page.");

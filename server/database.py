@@ -13,7 +13,7 @@ from sentence_transformers import util, SentenceTransformer
 load_dotenv()
 
 cred_path = os.getenv("FIRESTORE_CREDENTIALS_PATH")
-fallback_path = os.getenv("FIREBASE_KEY_PATH")
+fallback_path = os.getenv("FIREBASE_KEY_PATH" , "gen-ai-h2s-project-562ce7c50fcf-vertex-ai-fact-check.json")
 
 if not cred_path or not os.path.exists(cred_path):
     script_dir = os.path.dirname(os.path.abspath(__file__))
