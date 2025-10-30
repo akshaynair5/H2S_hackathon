@@ -550,49 +550,48 @@ async def fetch_google(session, query, num_results=None):
         return []
 
 async def extract_keywords(claim: str) -> List[str]:
-    """Extract keywords with robust error handling."""
+    """
+    Reformulate the claim into 3–6 compressed variations preserving meaning.
+    Returns an array of alternate phrasing, not keywords.
+    """
     try:
         prompt = f"""
-Extract 4-8 keywords/entities from this text.
-Return ONLY a JSON array: ["keyword1", "keyword2", ...]
+Rewrite this claim into 3–6 alternative formulations that preserve meaning.
+Each reformulation should be concise, factual, and under 25 words.
+Return ONLY a JSON array of strings.
 
 Text: {claim}
 """
         resp = await asyncio.to_thread(ask_gemini_structured, prompt)
-        
+
         if "error" in resp:
-            print(f"⚠️ Keyword extraction error: {resp['error']}")
+            print(f"⚠️ Reformulation error: {resp['error']}")
             return []
-        
+
         parsed = resp.get("parsed")
-        
-        # Handle different response formats
+
+        # Accept JSON list
         if isinstance(parsed, list):
-            keys = parsed
+            variations = parsed
+        # Sometimes model returns { "rewrites": [...] }
         elif isinstance(parsed, dict):
-            keys = parsed.get("keywords", parsed.get("entities", []))
-        elif "raw_text" in resp:
-            raw = resp["raw_text"]
-            # Try extracting quoted strings first
-            keys = re.findall(r'"([^"]+)"', raw)
-            if not keys:
-                # Fallback: comma-separated
-                keys = [w.strip() for w in raw.replace("[", "").replace("]", "").split(",")]
+            variations = parsed.get("rewrites") or parsed.get("summaries") or parsed.get("sentences", [])
+        # As fallback parse raw text into JSON-like list
         else:
-            return []
-        
-        # Validate and clean
-        if not isinstance(keys, (list, tuple)):
-            return []
-        
-        return [
-            k.strip().lower() 
-            for k in keys 
-            if isinstance(k, str) and 2 < len(k.strip()) < 30
-        ][:8]
-        
+            raw = resp.get("raw_text", "")
+            variations = re.findall(r'"([^"]+)"', raw)
+
+        # Cleanup
+        clean = [
+            v.strip()
+            for v in variations
+            if isinstance(v, str) and len(v.strip()) > 5
+        ]
+
+        return clean[:6]
+
     except Exception as e:
-        print(f"❌ Keyword extraction exception: {e}")
+        print(f"❌ Reformulation exception: {e}")
         return []
 
 
@@ -885,6 +884,7 @@ def quick_initial_assessment(text: str) -> dict:
     - Whether it *sounds* factual or sensational
     - Whether anything seems unverifiable at first glance
     - Ask the user to wait for full fact-check and verification
+    - Assume that the date is {datetime.now().strftime("%B %d, %Y")}
 
     Never assert factual accuracy.
 

@@ -92,9 +92,66 @@ if (!document.getElementById('trustmeter-keyframes')) {
   document.head.appendChild(style);
 }
 
+// ---------------------------
+// LISTEN FOR IMAGE OVERLAY CLICKS
+// ---------------------------
+window.addEventListener('analyze-image', (event) => {
+  const imageUrl = event.detail.url;
+  console.log("🖼️ Image overlay clicked:", imageUrl);
+  
+  // Show loading state
+  const container = document.getElementById("image-results");
+  if (container) {
+    const loadingDiv = document.createElement("div");
+    loadingDiv.id = `loading-${imageUrl}`;
+    loadingDiv.style.cssText = `
+      padding: 12px;
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #667eea;
+    `;
+    loadingDiv.innerHTML = `
+      <div style="width: 16px; height: 16px; border: 2px solid rgba(102, 126, 234, 0.3); border-top-color: #667eea; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+      Analyzing image...
+    `;
+    container.appendChild(loadingDiv);
+  }
+  
+  // Send message to background from content script (has tab context)
+  chrome.runtime.sendMessage(
+    { 
+      type: "ANALYZE_IMAGE", 
+      payload: { 
+        urls: [imageUrl],
+        session_id: sessionId 
+      } 
+    },
+    (response) => {
+      console.log("Image analysis response:", response);
+      
+      // Remove loading indicator
+      const loadingDiv = document.getElementById(`loading-${imageUrl}`);
+      if (loadingDiv) loadingDiv.remove();
+      
+      if (response && response.error) {
+        console.error("❌ Image analysis error:", response.error);
+      }
+    }
+  );
+  
+  // Open panel to show results
+  showPanel();
+});
+
 function setWorking(msg) {
   scoreText.textContent = "Score: …";
-  document.getElementById("text-result").textContent = msg || "Analyzing...";
+  const tr = document.getElementById("text-result");
+  if (tr) tr.textContent = msg || "Analyzing...";
 
   if (!badge.contains(spinner)) {
     badge.textContent = "Trust Score: …";
@@ -408,7 +465,7 @@ Object.assign(sourcesSection.style, {
   border: "1px solid rgba(226, 232, 240, 0.8)",
   maxHeight: "300px",
   overflowY: "auto",
-  display: "none" // Hidden initially
+  display: "none"
 });
 
 const sourcesHeader = document.createElement("div");
@@ -526,6 +583,14 @@ function displaySources(sources) {
       if (scorePercent < 75) scoreColor = "#ca8a04";
       if (scorePercent < 45) scoreColor = "#b91c1c";
 
+      // Safely derive domain
+      let domainLabel = source.domain || "";
+      try {
+        if (!domainLabel && source.link) domainLabel = new URL(source.link).hostname;
+      } catch (e) {
+        domainLabel = source.domain || "source";
+      }
+
       sourceCard.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
           <div style="flex: 1; min-width: 0;">
@@ -534,7 +599,7 @@ function displaySources(sources) {
             </div>
             <div style="font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
               <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: rgba(102, 126, 234, 0.1); border-radius: 6px; font-weight: 600;">
-                🌐 ${source.domain || new URL(source.link).hostname}
+                🌐 ${domainLabel}
               </span>
               ${source.is_new_domain ? '<span style="padding: 2px 8px; background: rgba(234, 179, 8, 0.1); color: #ca8a04; border-radius: 6px; font-size: 10px; font-weight: 600;">NEW</span>' : ''}
             </div>
@@ -547,7 +612,7 @@ function displaySources(sources) {
           </div>
         </div>
         <div style="font-size: 12px; color: #64748b; line-height: 1.5; margin-bottom: 6px;">
-          ${source.snippet ? source.snippet.substring(0, 150) + (source.snippet.length > 150 ? '...' : '') : 'No preview available'}
+          ${source.snippet ? (source.snippet.length > 150 ? source.snippet.substring(0,150) + '...' : source.snippet) : 'No preview available'}
         </div>
         <div style="height: 3px; background: rgba(226, 232, 240, 0.5); border-radius: 2px; overflow: hidden;">
           <div style="width: ${scorePercent}%; height: 100%; background: ${scoreColor}; transition: width 0.3s ease; border-radius: 2px;"></div>
@@ -604,7 +669,7 @@ function displaySources(sources) {
       }
 
       const factCheckCard = document.createElement("a");
-      factCheckCard.href = fc.link;
+      factCheckCard.href = fc.url || fc.link || "#";
       factCheckCard.target = "_blank";
       factCheckCard.rel = "noopener noreferrer";
       
@@ -676,14 +741,17 @@ let collectedScores = [];
 let textScores = [];
 let imageScores = [];
 
+// ---------------------------
+// UI STATE HELPERS
+// ---------------------------
 function setError(err) {
   scoreText.textContent = "Score: —";
   scoreText.style.background = "linear-gradient(135deg, rgba(254, 202, 202, 0.3) 0%, rgba(252, 165, 165, 0.2) 100%)";
   scoreText.style.border = "1px solid rgba(239, 68, 68, 0.2)";
   scoreText.style.color = "#b91c1c";
   
-  document.getElementById("text-result").textContent =
-    "Error: " + (err || "Analysis failed or not supported.");
+  const tr = document.getElementById("text-result");
+  if (tr) tr.textContent = "Error: " + (err || "Analysis failed or not supported.");
   badge.textContent = "Trust Score: —";
   badge.style.background = "linear-gradient(135deg, #e53e3e 0%, #c53030 100%)";
 }
@@ -709,8 +777,8 @@ function setResult(score, explanation) {
     scoreText.style.border = "1px solid rgba(239, 68, 68, 0.2)";
   }
 
-  document.getElementById("text-result").textContent =
-    explanation || "No explanation returned.";
+  const tr = document.getElementById("text-result");
+  if (tr) tr.textContent = explanation || "No explanation returned.";
 
   updateTextAverage();
   updateImageAverage();
@@ -744,7 +812,9 @@ function updateTextAverage() {
       : "—";
   
   const textScoreCard = document.querySelector("#sub-scores div:nth-child(1)");
+  if (!textScoreCard) return;
   const scoreSpan = textScoreCard.querySelector("span");
+  if (!scoreSpan) return;
   scoreSpan.textContent = avgText !== "—" ? `${avgText}%` : "—";
   
   if (avgText !== "—") {
@@ -761,7 +831,9 @@ function updateImageAverage() {
       : "—";
   
   const imageScoreCard = document.querySelector("#sub-scores div:nth-child(2)");
+  if (!imageScoreCard) return;
   const scoreSpan = imageScoreCard.querySelector("span");
+  if (!scoreSpan) return;
   scoreSpan.textContent = avgImage !== "—" ? `${avgImage}%` : "—";
   
   if (avgImage !== "—") {
@@ -801,7 +873,13 @@ function collectVisibleText(maxChars = 20000) {
         const value = node.nodeValue.trim();
         if (!value) return NodeFilter.FILTER_REJECT;
         const el = node.parentElement;
-        if (!el || el.closest(removeSelectors.join(","))) return NodeFilter.FILTER_REJECT;
+        if (!el) return NodeFilter.FILTER_REJECT;
+        // if element matches any remove selectors, reject
+        try {
+          if (el.closest(removeSelectors.join(","))) return NodeFilter.FILTER_REJECT;
+        } catch (e) {
+          // If selector construction fails, continue
+        }
         const style = window.getComputedStyle(el);
         if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0" || el.offsetParent === null) {
           return NodeFilter.FILTER_REJECT;
@@ -830,7 +908,7 @@ function collectVisibleImages(maxCount = 3) {
   return Array.from(document.images)
     .filter(
       img =>
-        img.src.startsWith("http") &&
+        img.src && img.src.startsWith && img.src.startsWith("http") &&
         img.offsetWidth > 10 &&
         img.offsetHeight > 10
     )
@@ -857,8 +935,8 @@ function analyzeTextInitial(visibleText) {
         return;
       }
 
-      document.getElementById("text-result").textContent =
-        response.initial_analysis || "Gathering initial impression...";
+      const tr = document.getElementById("text-result");
+      if (tr) tr.textContent = response.initial_analysis || "Gathering initial impression...";
 
       badge.textContent = "Analyzing…";
     }
@@ -880,10 +958,10 @@ function analyzeTextNow() {
 
   showPanel();
 
-  // ✅ NEW: run fast initial impression first
+  // run fast initial impression first
   analyzeTextInitial(visibleText);
 
-  // ✅ Existing deep analysis continues as usual
+  // deep analysis continues as usual
   chrome.runtime.sendMessage(
     {
       type: "ANALYZE_TEXT",
@@ -904,67 +982,10 @@ function analyzeTextNow() {
 
       if (response.sources) {
         displaySources(response.sources);
-      }
-    }
-  );
-}
-
-function analyzeImagesNow() {
-  const container = document.getElementById("image-results");
-  setWorking("Analyzing images...");
-
-  const visibleImages = collectVisibleImages(3);
-  if (visibleImages.length === 0) {
-    stopWorking();
-    container.textContent = "No images found on this page.";
-    return;
-  }
-  chrome.runtime.sendMessage(
-    { 
-      type: "ANALYZE_IMAGE", 
-      payload: { 
-        urls: visibleImages,
-        session_id: sessionId  
-      } 
-    },
-    response => {
-      stopWorking();
-      if (!response || response.error) {
-        container.textContent = "Image analysis failed or not supported.";
-      } else {
-        container.textContent = "";
-      }
-      if (response.session_id) {
-        console.log("Image analysis completed for session:", response.session_id);
-      }
-    }
-  );
-}
-
-chrome.runtime.onMessage.addListener(message => {
-  if (!message?.type) return;
-
-  switch (message.type) {
-    case "TEXT_INITIAL_RESULT":
-    document.getElementById("text-result").textContent =
-      message.payload.initial_analysis || "Reviewing information...";
-    break;
-    case "TEXT_ANALYSIS_RESULT":
-      console.log("Received TEXT_ANALYSIS_RESULT:", message.payload);
-      const overall = message.payload || {};
-      setResult(overall.score || 0, overall.explanation || "No explanation");
-
-      if (overall.session_id && overall.session_id !== sessionId) {
-        console.warn("Received result for different session:", overall.session_id);
-      }
-
-      if (overall.sources) {
-        displaySources(overall.sources);
-      } 
-      else if (overall.raw_details && overall.raw_details.length > 0) {
+      } else if (response.raw_details && response.raw_details.length > 0) {
         const allSources = { corroboration: [], fact_checks: [] };
 
-        overall.raw_details.forEach(detail => {
+        response.raw_details.forEach(detail => {
           if (detail.evidence && Array.isArray(detail.evidence)) {
             allSources.corroboration.push(...detail.evidence);
           }
@@ -980,18 +1001,126 @@ chrome.runtime.onMessage.addListener(message => {
           displaySources(allSources);
         }
       }
+    }
+  );
+}
+
+function analyzeImagesNow() {
+  const container = document.getElementById("image-results");
+  setWorking("Analyzing images...");
+
+  const visibleImages = collectVisibleImages(3);
+  if (visibleImages.length === 0) {
+    stopWorking();
+    if (container) container.textContent = "No images found on this page.";
+    return;
+  }
+  chrome.runtime.sendMessage(
+    { 
+      type: "ANALYZE_IMAGE", 
+      payload: { 
+        urls: visibleImages,
+        session_id: sessionId  
+      } 
+    },
+    response => {
+      stopWorking();
+      const container2 = document.getElementById("image-results");
+      if (!response || response.error) {
+        if (container2) container2.textContent = "Image analysis failed or not supported.";
+      } else {
+        if (container2) container2.textContent = "";
+      }
+      if (response && response.session_id) {
+        console.log("Image analysis completed for session:", response.session_id);
+      }
+    }
+  );
+}
+
+// ---------------------------
+// MESSAGE HANDLER
+// ---------------------------
+chrome.runtime.onMessage.addListener(message => {
+  if (!message?.type) return;
+
+  switch (message.type) {
+    case "TEXT_INITIAL_RESULT":
+      {
+        const tr = document.getElementById("text-result");
+        if (tr) tr.textContent = message.payload.initial_analysis || "Reviewing information...";
+      }
+      break;
+
+    case "TEXT_ANALYSIS_RESULT":
+      {
+        console.log("Received TEXT_ANALYSIS_RESULT:", message.payload);
+        const overall = message.payload || {};
+        setResult(overall.score || 0, overall.explanation || "No explanation");
+
+        if (overall.session_id && overall.session_id !== sessionId) {
+          console.warn("Received result for different session:", overall.session_id);
+        }
+
+        if (overall.sources) {
+          displaySources(overall.sources);
+        } 
+        else if (overall.raw_details && overall.raw_details.length > 0) {
+          const allSources = { corroboration: [], fact_checks: [] };
+
+          overall.raw_details.forEach(detail => {
+            if (detail.evidence && Array.isArray(detail.evidence)) {
+              allSources.corroboration.push(...detail.evidence);
+            }
+            if (detail.fact_check && Array.isArray(detail.fact_check.fact_checks)) {
+              allSources.fact_checks.push(...detail.fact_check.fact_checks);
+            }
+            if (detail.corroboration && Array.isArray(detail.corroboration.evidences)) {
+              allSources.corroboration.push(...detail.corroboration.evidences);
+            }
+          });
+
+          if (allSources.corroboration.length || allSources.fact_checks.length) {
+            displaySources(allSources);
+          }
+        }
+      }
       break;
 
     case "IMAGE_ANALYSIS_RESULT": {
-      const { url, score, explanation, session_id: responseSessionId } = message.payload;
+      console.log("🎯 Received IMAGE_ANALYSIS_RESULT:", message.payload);
+      
+      const { 
+        url, 
+        image_source,
+        score, 
+        explanation, 
+        prediction, 
+        verdict, 
+        session_id: responseSessionId 
+      } = message.payload;
+
+      // Use image_source if url is not available
+      const imageUrl = url || image_source;
 
       if (responseSessionId && responseSessionId !== sessionId) {
-        console.warn("Received image result for different session:", responseSessionId);
+        console.warn("⚠️ Received image result for different session:", responseSessionId);
         return; 
       }
       
       const container = document.getElementById("image-results");
-      if (!container) return;
+      if (!container) {
+        console.error("❌ image-results container not found!");
+        return;
+      }
+      
+      console.log("✅ Processing image result:", {
+        url: imageUrl,
+        score,
+        verdict: verdict || prediction,
+        explanation: explanation ? explanation.substring(0, 100) : 'No explanation'
+      });
+      
       if (container.textContent.includes("No images")) container.innerHTML = "";
 
       if (!document.getElementById("image-analysis-header")) {
@@ -1031,7 +1160,6 @@ chrome.runtime.onMessage.addListener(message => {
         overflow: "hidden"
       });
 
-      // Add gradient border accent
       const borderAccent = document.createElement("div");
       Object.assign(borderAccent.style, {
         position: "absolute",
@@ -1059,17 +1187,22 @@ chrome.runtime.onMessage.addListener(message => {
         borderAccent.style.opacity = "0";
       });
 
+      // Determine verdict from backend response
+      const resultVerdict = (verdict || prediction || "Unknown").toLowerCase();
+      
       let color = "#b91c1c";
-      let label = "AI Generated";
+      let label = "🤖 AI Generated";
       let bgGradient = "linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%)";
       
-      if (validity >= 75) {
+      console.log("🏷️ Result verdict:", resultVerdict);
+      
+      if (resultVerdict.includes("real") || resultVerdict.includes("authentic")) {
         color = "#15803d";
-        label = "Likely Authentic";
+        label = "✅ Likely Real";
         bgGradient = "linear-gradient(90deg, rgba(34, 197, 94, 0.1) 0%, rgba(22, 163, 74, 0.05) 100%)";
-      } else if (validity >= 45) {
+      } else if (resultVerdict.includes("uncertain") || (validity >= 45 && validity < 75)) {
         color = "#ca8a04";
-        label = "Uncertain";
+        label = "⚠️ Uncertain";
         bgGradient = "linear-gradient(90deg, rgba(234, 179, 8, 0.1) 0%, rgba(202, 138, 4, 0.05) 100%)";
       }
 
@@ -1079,8 +1212,9 @@ chrome.runtime.onMessage.addListener(message => {
 
       contentWrapper.innerHTML = `
         <div style="display:flex; align-items:center; gap:14px;">
-          <img src="${url}" 
-              style="width:100px; height:70px; border-radius:10px; object-fit:cover; border:1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);">
+          <img src="${imageUrl}" 
+              style="width:100px; height:70px; border-radius:10px; object-fit:cover; border:1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);"
+              onerror="this.style.display='none'">
           <div style="flex:1;">
             <div style="font-weight:700; color:${color}; font-size:15px; margin-bottom: 6px; letter-spacing: -0.2px;">
               ${label}
@@ -1107,10 +1241,11 @@ chrome.runtime.onMessage.addListener(message => {
       imgEntry.appendChild(contentWrapper);
       container.appendChild(imgEntry);
 
-      updateTextAverage();
       updateImageAverage();
       updateBadge();
       showPanel();
+      
+      console.log("✅ Image result displayed successfully");
       break;
     }
 
@@ -1282,4 +1417,4 @@ sessionInfo.addEventListener("mouseleave", () => {
 panel.appendChild(sessionInfo);
 
 console.log("✨ TrustMeter initialized with modern UI");
-console.log("📊 Session ID:", sessionId); 
+console.log("📊 Session ID:", sessionId);

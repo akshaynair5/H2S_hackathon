@@ -1,246 +1,17 @@
-let factInterval = null;
-
+// ==========================================
+// UTILITY FUNCTIONS
+// ==========================================
 function $(id) {
   const el = document.getElementById(id);
   if (!el) console.warn(`⚠️ Missing element: #${id}`);
   return el;
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  initializeTrustMeterUI();
-});
+// ==========================================
+// GLOBAL VARIABLES
+// ==========================================
+let factInterval = null;
 
-function initializeTrustMeterUI() {
-  const checkTextBtn = $("checkText");
-  const clickToCheckBtn = $("clickToCheck");
-  const resultsDiv = $("results");
-  const loadingContainer = $("loadingContainer");
-
-  if (!resultsDiv || !loadingContainer) {
-    console.error("❌ Missing essential DOM elements (results or loadingContainer).");
-    return;
-  }
-
-  if (checkTextBtn) checkTextBtn.addEventListener("click", handleTextCheck);
-  if (clickToCheckBtn) clickToCheckBtn.addEventListener("click", injectImageOverlays);
-
-  renderHistory();
-}
-
-// // ---------------------------
-// // TEST FUNCTION
-// // ---------------------------
-// function testWithDummyData(index = 0) {
-//   const resultsDiv = $("results");
-//   const loading = $("loadingContainer");
-//   if (!resultsDiv || !loading) return;
-
-//   resultsDiv.classList.remove("show");
-//   resultsDiv.classList.add("hidden");
-//   loading.classList.add("show");
-//   startFactsRotation();
-
-//   setTimeout(() => {
-//     loading.classList.remove("show");
-//     stopFactsRotation();
-
-//     const response = dummyResults[index % dummyResults.length];
-//     displayResult({
-//       score: response.score || 0,
-//       explanation: response.explanation || "Text analyzed",
-//       details: response.details || [response],
-//       text: response.text || "unknown"
-//     });
-//   }, 1000);
-// }
-
-// ---------------------------
-// DISPLAY RESULTS
-// ---------------------------
-function displayResult(result) {
-  const resultsDiv = $("results");
-  const loading = $("loadingContainer");
-  if (!resultsDiv || !loading) return;
-
-  loading.classList.remove("show");
-  resultsDiv.classList.add("show");
-  resultsDiv.classList.remove("hidden");
-  resultsDiv.innerHTML = "";
-
-  const prediction = result.prediction || "Unknown";
-  const explanation = result.explanation || "No explanation provided";
-  const text = result.input_text || result.text || "unknown";
-
-  let predictionColor = "background: #f3f4f6; color: #374151;";
-  if (prediction.toLowerCase() === "real") predictionColor = "background: #d1fae5; color: #065f46;";
-  else if (prediction.toLowerCase() === "fake") predictionColor = "background: #fee2e2; color: #991b1b;";
-  else if (prediction.toLowerCase() === "misleading") predictionColor = "background: #feebc8; color: #9c4221;";
-
-  const card = document.createElement("div");
-  card.className = "result-card";
-  card.innerHTML = `
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-      <span style="font-size: 14px; font-weight: 500; color: #6b7280;">Trust Prediction</span>
-      <span style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; ${predictionColor}">${prediction}</span>
-    </div>
-    <p style="color: #374151; font-size: 14px; line-height: 1.5; margin-bottom: 12px;">
-      <strong>Reasoning:</strong> ${explanation}
-    </p>
-  `;
-
-  if (prediction.toLowerCase() === "fake" || prediction.toLowerCase() === "misleading") {
-    setTimeout(() => { showConfirmationPopup(text, explanation); }, 6000);
-  }
-
-  console.log("Text:", text);
-  console.log("Prediction:", prediction);
-  console.log("Full result:", result);
-
-  resultsDiv.appendChild(card);
-}
-
-// ---------------------------
-// SCORE HANDLER
-// ---------------------------
-function setResult(score, explanation) {
-  const percent = normalizeScore(score);
-  const scoreText = $("scoreText");
-  if (!scoreText) return;
-
-  scoreText.textContent = `Score: ${percent}%`;
-  if (percent >= 75) scoreText.style.color = "#0b8043";
-  else if (percent >= 45) scoreText.style.color = "#e09b00";
-  else scoreText.style.color = "#c42f2f";
-
-  const textResult = $("text-result");
-  if (textResult) textResult.textContent = explanation || "No explanation returned.";
-
-  collectedScores.push(percent);
-  updateBadge();
-}
-
-// ---------------------------
-// SCORE HANDLER
-// ---------------------------
-function normalizeScore(score) {
-  if (score == null) return 0;
-  let normalized = score;
-  if (score > 1) normalized = score; // already percentage
-  else normalized = Math.round(score * 100);
-  return Math.min(100, Math.max(0, normalized));
-}
-
-function getPredictionFromScore(score) {
-  const val = normalizeScore(score);
-  if (val >= 70) return "Real";
-  if (val >= 45) return "Misleading";
-  return "Fake";
-}
-
-// ---------------------------
-// HISTORY STORAGE
-// ---------------------------
-function saveToHistory(entry) {
-  const history = JSON.parse(localStorage.getItem("analysisHistory") || "[]");
-  history.unshift({
-    score: normalizeScore(entry.score),
-    prediction: entry.prediction || getPredictionFromScore(entry.score),
-    explanation: entry.explanation,
-    text: entry.text,
-    timestamp: new Date().toLocaleString()
-  });
-  const trimmed = history.slice(0, 5);
-  localStorage.setItem("analysisHistory", JSON.stringify(trimmed));
-  renderHistory();
-}
-
-function renderHistory() {
-  const container = $("historyContainer");
-  if (!container) return;
-
-  const history = JSON.parse(localStorage.getItem("analysisHistory") || "[]");
-  container.innerHTML = "";
-
-  if (history.length === 0) {
-    container.innerHTML = `<p style="color:#6b7280; font-size:13px;">No history available.</p>`;
-    return;
-  }
-
-  history.forEach((item) => {
-    const card = document.createElement("div");
-    card.className = "history-card";
-
-    let badgeColor = "#e5e7eb", badgeText = "#374151";
-    if (item.prediction === "Real") {
-      badgeColor = "#d1fae5"; badgeText = "#065f46";
-    } else if (item.prediction === "Fake") {
-      badgeColor = "#fee2e2"; badgeText = "#991b1b";
-    } else if (item.prediction === "Misleading") {
-      badgeColor = "#feebc8"; badgeText = "#9c4221";
-    }
-
-    card.innerHTML = `
-      <div class="history-header">
-        <span class="prediction-badge" style="background:${badgeColor}; color:${badgeText};">${item.prediction}</span>
-        <span class="timestamp">${item.timestamp}</span>
-      </div>
-      <p class="score-line">Score: ${item.score}%</p>
-      <div class="explanation" style="max-height:0; overflow:hidden; transition:max-height 0.4s ease;">
-        <p style="font-size:13px; color:#4b5563; margin-top:4px;">
-          <strong>Reasoning:</strong> ${item.explanation}
-        </p>
-      </div>
-    `;
-
-    card.addEventListener("click", () => {
-      const exp = card.querySelector(".explanation");
-      exp.style.maxHeight = exp.style.maxHeight === "0px" || exp.style.maxHeight === ""
-        ? exp.scrollHeight + "px"
-        : "0px";
-    });
-
-    container.appendChild(card);
-  });
-}
-
-const originalDisplayResult = displayResult;
-displayResult = function (result) {
-  originalDisplayResult(result);
-  saveToHistory(result);
-};
-
-function displayFeedbackMessage() {
-  const resultsDiv = $("results");
-  if (!resultsDiv) return;
-
-  resultsDiv.classList.add("show");
-  resultsDiv.classList.remove("hidden");
-  resultsDiv.innerHTML = `
-    <p style="color: #065f46; font-weight: 600; padding: 16px; text-align: center; background: #d1fae5; border-radius: 8px; border: 1px solid #a7f3d0;">
-      Thank you for your feedback! It helps us improve our community-driven fact-checking.
-    </p>
-  `;
-  setTimeout(() => {
-    resultsDiv.innerHTML = "";
-    resultsDiv.classList.remove("show");
-    resultsDiv.classList.add("hidden");
-  }, 4000);
-}
-
-function displayError(message) {
-  const resultsDiv = $("results");
-  const loading = $("loadingContainer");
-  if (!resultsDiv || !loading) return;
-
-  loading.classList.remove("show");
-  resultsDiv.classList.add("show");
-  resultsDiv.classList.remove("hidden");
-  resultsDiv.innerHTML = `<p style="color: #dc2626; font-weight: 600; padding: 16px; text-align: center; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">${message}</p>`;
-}
-
-// ---------------------------
-// ROTATING FACTS
-// ---------------------------
 const facts = [
   "Misinformation spreads 6x faster than truth on social media.",
   "Always verify sources before sharing.",
@@ -254,186 +25,286 @@ const facts = [
   "Fake news mixes truth with lies."
 ];
 
+// ==========================================
+// INITIALIZATION
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+  initializeTrustMeterUI();
+});
+
+function initializeTrustMeterUI() {
+  const checkTextBtn = $("checkText");
+  const clickToCheckBtn = $("clickToCheck");
+
+  if (checkTextBtn) checkTextBtn.addEventListener("click", handleTextCheck);
+
+  // restore behavior: inject overlays + send to background
+  if (clickToCheckBtn)
+    clickToCheckBtn.addEventListener("click", async () => {
+      await injectImageOverlays();
+      setTimeout(() => window.close(), 10);
+    });
+
+  renderHistory();
+}
+
+// ==========================================
+// ROTATING FACTS DISPLAY
+// ==========================================
 function startFactsRotation() {
   const factDisplay = $("factDisplay");
   if (!factDisplay) return;
 
-  let factIndex = Math.floor(Math.random() * facts.length);
-  factDisplay.innerText = facts[factIndex];
+  let index = Math.floor(Math.random() * facts.length);
+  factDisplay.innerText = facts[index];
 
   factInterval = setInterval(() => {
     let newIndex;
-    do {
-      newIndex = Math.floor(Math.random() * facts.length);
-    } while (newIndex === factIndex);
-    factIndex = newIndex;
-    factDisplay.innerText = facts[factIndex];
-  }, 2000);
+    do newIndex = Math.floor(Math.random() * facts.length);
+    while (newIndex === index);
+
+    index = newIndex;
+    factDisplay.innerText = facts[index];
+  }, 2500);
 }
 
 function stopFactsRotation() {
-  const factDisplay = $("factDisplay");
   if (factInterval) {
     clearInterval(factInterval);
     factInterval = null;
   }
+  const factDisplay = $("factDisplay");
   if (factDisplay) factDisplay.innerText = "";
 }
 
-// ---------------------------
-// TEXT ANALYSIS HANDLER
-// ---------------------------
-async function handleTextCheck() {
-  const loading = $("loadingContainer");
-  const resultsDiv = $("results");
-  if (!loading || !resultsDiv) return;
-
-  resultsDiv.classList.remove("show");
-  resultsDiv.classList.add("hidden");
-  loading.classList.add("show");
+// ==========================================
+// UI STATE MANAGEMENT
+// ==========================================
+function showLoading() {
+  $("results")?.classList.add("hidden");
+  $("loadingContainer")?.classList.remove("hidden");
   startFactsRotation();
+}
 
-  let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+function hideLoading() {
+  $("loadingContainer")?.classList.add("hidden");
+  stopFactsRotation();
+}
 
-  chrome.scripting.executeScript(
-    { target: { tabId: tab.id }, func: () => window.getSelection().toString() },
-    (results) => {
-      if (chrome.runtime.lastError || !results || !results[0]) {
-        displayError("Failed to extract selected text.");
-        stopFactsRotation();
-        return;
-      }
+function showResults() {
+  $("results")?.classList.remove("hidden");
+}
 
-      const textContent = results[0].result.trim();
-      if (!textContent) {
-        displayError("No text selected.");
-        stopFactsRotation();
-        return;
-      }
+// ==========================================
+// SCORE CALCULATOR
+// ==========================================
+function calculateConfidenceScore(result) {
+  if (result.score != null && result.score > 0) {
+    return result.score > 1 ? Math.round(result.score) : Math.round(result.score * 100);
+  }
 
-      chrome.runtime.sendMessage(
-        { type: "ANALYZE_TEXT_INITIAL", payload: { text: textContent } },
-        () => { /* we don't wait here */ }
-      );
+  const prediction = (result.prediction || "unknown").toLowerCase();
+  if (prediction === "real") return 85 + Math.floor(Math.random() * 15);
+  if (prediction === "fake") return 10 + Math.floor(Math.random() * 20);
+  if (prediction === "misleading") return 40 + Math.floor(Math.random() * 20);
 
-      chrome.runtime.onMessage.addListener(function initialListener(message) {
-        if (message.type === "TEXT_INITIAL_RESULT") {
-          
-          const paragraph = message.payload.initial_analysis || "Analyzing...";
+  return 50;
+}
 
-          resultsDiv.classList.add("show");
-          resultsDiv.classList.remove("hidden");
+// ==========================================
+// DISPLAY RESULT
+// ==========================================
+function displayResult(result) {
+  hideLoading();
+  showResults();
 
-          resultsDiv.innerHTML = `
-            <div class="result-card">
-              <span style="font-size: 12px; background: #e5e7eb; padding: 4px 10px; border-radius: 6px;">
-                Initial Analysis
-              </span>
-              <p style="color:#374151; margin-top:10px; line-height:1.5;">
-                ${paragraph}
-              </p>
-              <p style="color:#6b7280; font-size:12px; margin-top:6px;">
-                🔄 Running full fact-check in the background...
-              </p>
-            </div>
-          `;
+  const resultsDiv = $("results");
+  if (!resultsDiv) return;
+  resultsDiv.innerHTML = "";
+
+  const prediction = result.prediction || "Unknown";
+  const explanation = result.explanation || "No explanation provided";
+  const text = result.input_text || result.text || "unknown";
+
+  const predictionClass = prediction.toLowerCase();
+
+  const card = document.createElement("div");
+  card.className = "result-card";
+  card.innerHTML = `
+    <div class="result-header">
+      <span class="result-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L3 7V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V7L12 2Z"
+           stroke="currentColor" stroke-width="2"/>
+        </svg>
+        Trust Analysis
+      </span>
+      <span class="prediction-badge ${predictionClass}">${prediction}</span>
+    </div>
+    <div class="result-explanation">
+      <strong>Analysis:</strong> ${explanation}
+    </div>
+  `;
+
+  resultsDiv.appendChild(card);
+
+  // Save to history
+  saveToHistory({
+    score: calculateConfidenceScore(result),
+    prediction,
+    explanation,
+    text
+  });
+
+  if (["fake", "misleading"].includes(prediction.toLowerCase())) {
+    setTimeout(() => showConfirmationPopup(text, explanation), 20000);
+  }
+}
+
+// ==========================================
+// ERROR & FEEDBACK MESSAGES
+// ==========================================
+function displayError(message) {
+  hideLoading();
+  showResults();
+  $("results").innerHTML = `<div class="feedback-message error">${message}</div>`;
+}
+
+function displayFeedbackMessage() {
+  $("results").innerHTML = `<div class="feedback-message success">Thank you for your feedback!</div>`;
+  setTimeout(() => $("results").classList.add("hidden"), 4000);
+}
+
+// ==========================================
+// TEXT ANALYSIS HANDLER
+// ==========================================
+async function handleTextCheck() {
+  showLoading();
+
+  try {
+    let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    chrome.scripting.executeScript(
+      {
+        target: { tabId: tab.id },
+        func: () => window.getSelection().toString()
+      },
+      results => {
+        if (!results?.[0]?.result?.trim()) {
+          displayError("No text selected. Please select some text first.");
+          return;
         }
-      });
 
-      chrome.runtime.sendMessage(
-        { type: "ANALYZE_TEXT", payload: { text: textContent } },
-        (response) => {
-          loading.classList.remove("show");
-          stopFactsRotation();
+        const textContent = results[0].result.trim();
 
-          if (!response || response.error) {
-            displayError(response?.error || "Text analysis failed.");
-            return;
+        chrome.runtime.sendMessage(
+          { type: "ANALYZE_TEXT", payload: { text: textContent } },
+          response => {
+            if (!response || response.error) {
+              displayError(response?.error || "Text analysis failed.");
+              return;
+            }
+
+            displayResult({
+              score: response.score,
+              explanation: response.explanation,
+              prediction: response.prediction,
+              text: textContent
+            });
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    displayError("An error occurred during text analysis.");
+  }
+}
+
+// ==========================================
+// IMAGE ANALYSIS OVERLAY (restored Option B)
+// ==========================================
+async function injectImageOverlays() {
+  try {
+    let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        const imgs = [...document.querySelectorAll("img")].filter(
+          img => img.offsetWidth > 100 && img.offsetHeight > 100
+        );
+
+        imgs.forEach(img => {
+          const parent = img.parentElement;
+          if (!parent) return;
+
+          if (getComputedStyle(parent).position === "static") {
+            parent.style.position = "relative";
           }
 
-          displayResult({
-            score: response.score || 0,
-            explanation: response.explanation || "Text analyzed",
-            prediction: response.prediction || "Unknown",
-            input_text: textContent
+          const existing = parent.querySelector(".trustmeter-overlay");
+          if (existing) existing.remove();
+
+          const overlay = document.createElement("div");
+          overlay.className = "trustmeter-overlay";
+          overlay.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24">
+              <path d="M12 2L3 7V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V7L12 2Z"
+              stroke="currentColor" stroke-width="2"/>
+            </svg>
+            <span>Check</span>`;
+
+          overlay.style.cssText = `
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            color: white;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            z-index: 9999;
+            transition: all 0.2s ease;
+          `;
+
+          overlay.addEventListener("click", e => {
+            e.stopPropagation();
+            e.preventDefault();
+
+            chrome.runtime.sendMessage({
+              type: "ANALYZE_IMAGE",
+              payload: { urls: [img.src] }
+            });
           });
-        }
-      );
-    }
-  );
-}
 
-// ---------------------------
-// IMAGE ANALYSIS OVERLAY
-// ---------------------------
-async function injectImageOverlays() {
-  let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: () => {
-      const imgs = Array.from(document.querySelectorAll("img")).filter(
-        img => img.offsetWidth > 10 && img.offsetHeight > 10
-      );
-
-      function addOverlay(img) {
-        const parent = img.parentElement;
-        if (!parent) return;
-        if (getComputedStyle(parent).position === "static") parent.style.position = "relative";
-
-        const existing = parent.querySelector(".misinfo-overlay");
-        if (existing) existing.remove();
-
-        const overlay = document.createElement("div");
-        overlay.innerText = "Check";
-        overlay.className = "misinfo-overlay";
-        overlay.style.cssText = `
-          position: absolute;
-          top: 5px;
-          right: 5px;
-          background: rgba(0,0,0,0.7);
-          color: white;
-          padding: 2px 6px;
-          font-size: 11px;
-          border-radius: 4px;
-          cursor: pointer;
-          z-index: 9999;
-        `;
-        overlay.addEventListener("click", e => e.stopPropagation());
-        overlay.addEventListener("mousedown", e => e.stopPropagation());
-        overlay.addEventListener("mouseup", e => e.stopPropagation());
-
-        parent.appendChild(overlay);
-        overlay.onclick = (e) => {
-          e.stopPropagation();
-          chrome.runtime.sendMessage({ type: "ANALYZE_IMAGE", payload: { urls: [img.src] } });
-        };
+          parent.appendChild(overlay);
+        });
       }
-
-      imgs.forEach(addOverlay);
-      return imgs.map(i => i.src);
-    }
-  }, (results) => {
-    if (!results || !results[0] || results[0].result.length === 0) {
-      displayError("No images found.");
-    }
-  });
+    });
+  } catch (error) {
+    console.error("Image overlay error:", error);
+  }
 }
 
-// ---------------------------
-// RECEIVE IMAGE RESULTS
-// ---------------------------
-chrome.runtime.onMessage.addListener((message) => {
-  if (!message || !message.type) return;
+// ==========================================
+// MESSAGE LISTENER
+// ==========================================
+chrome.runtime.onMessage.addListener(message => {
+  if (!message?.type) return;
 
   if (message.type === "IMAGE_ANALYSIS_RESULT") {
-    chrome.runtime.sendMessage({ type: "EXPAND_PANEL_UI" });
-
-    const { url, score, explanation } = message.payload;
+    const { url, score, explanation, prediction } = message.payload;
     displayResult({
-      score: score || 0,
+      score,
       explanation: explanation || "Image analyzed",
-      details: [message.payload],
+      prediction: prediction || "Unknown",
       text: url
     });
   }
@@ -443,9 +314,53 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
-// ---------------------------
-// CONFIRMATION POPUP
-// ---------------------------
+// ==========================================
+// HISTORY
+// ==========================================
+function saveToHistory(entry) {
+  const history = JSON.parse(localStorage.getItem("analysisHistory") || "[]");
+
+  history.unshift({
+    score: entry.score,
+    prediction: entry.prediction,
+    explanation: entry.explanation,
+    text: entry.text,
+    timestamp: new Date().toLocaleString()
+  });
+
+  localStorage.setItem("analysisHistory", JSON.stringify(history.slice(0, 10)));
+  renderHistory();
+}
+
+function renderHistory() {
+  const container = $("historyContainer");
+  if (!container) return;
+
+  const history = JSON.parse(localStorage.getItem("analysisHistory") || "[]");
+  container.innerHTML = history.length === 0 ? `<p>No recent analyses yet.</p>` : "";
+
+  history.forEach(item => {
+    const card = document.createElement("div");
+    card.className = "history-card";
+    card.innerHTML = `
+      <div class="history-header">
+        <span class="prediction-badge ${item.prediction.toLowerCase()}">${item.prediction}</span>
+        <span class="timestamp">${item.timestamp}</span>
+      </div>
+      <p class="score-line">Confidence: ${item.score}%</p>
+      <div class="explanation">
+        <p><strong>Analyzed:</strong> ${item.text.slice(0, 150)}${item.text.length > 150 ? '...' : ''}</p>
+        <p><strong>Details:</strong> ${item.explanation}</p>
+      </div>
+    `;
+
+    container.appendChild(card);
+  });
+}
+
+// ==========================================
+// CONFIRMATION POPUP + FEEDBACK
+// ==========================================
 const confirmationModal = document.createElement("div");
 confirmationModal.id = "trustmeter-confirmation";
 Object.assign(confirmationModal.style, {
@@ -454,78 +369,56 @@ Object.assign(confirmationModal.style, {
   left: "50%",
   transform: "translate(-50%, -50%)",
   zIndex: "2147483648",
-  background: "rgba(255, 255, 255, 0.95)",
-  backdropFilter: "blur(10px)",
-  padding: "20px",
-  borderRadius: "12px",
-  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.2)",
+  background: "rgba(255, 255, 255, 0.98)",
+  backdropFilter: "blur(12px)",
+  padding: "24px",
+  borderRadius: "16px",
+  boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
   display: "none",
   flexDirection: "column",
   alignItems: "center",
-  gap: "16px",
-  maxWidth: "300px",
-  textAlign: "center",
-  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-  color: "#2d3748"
+  gap: "20px",
+  maxWidth: "320px",
+  fontFamily: "'Inter', sans-serif"
 });
-confirmationModal.setAttribute("role", "dialog");
-confirmationModal.setAttribute("aria-label", "Confirmation Popup");
+
+function createFeedbackButton(text, color) {
+  const button = document.createElement("button");
+  button.textContent = text;
+  button.style.cssText = `
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: none;
+    background: ${color};
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  `;
+  return button;
+}
 
 const questionText = document.createElement("p");
-questionText.textContent = "Does selected text sound malicious to you as well?";
-questionText.style.fontSize = "14px";
-questionText.style.fontWeight = "600";
+questionText.textContent = "Does this content seem misleading to you?";
 
-const buttonContainer = document.createElement("div");
-Object.assign(buttonContainer.style, {
-  display: "flex",
-  gap: "12px"
-});
-
-const yesButton = document.createElement("button");
-yesButton.textContent = "YES";
-Object.assign(yesButton.style, {
-  padding: "8px 16px",
-  borderRadius: "8px",
-  border: "none",
-  background: "linear-gradient(135deg, #667eea, #764ba2)",
-  color: "#ffffff",
-  fontSize: "13px",
-  fontWeight: "600",
-  cursor: "pointer",
-  transition: "transform 0.2s ease"
-});
-yesButton.onmouseover = () => { yesButton.style.transform = "translateY(-1px)"; };
-yesButton.onmouseout = () => { yesButton.style.transform = "translateY(0)"; };
+const yesButton = createFeedbackButton("Yes, it's misleading", "#667eea");
 yesButton.onclick = () => {
   submitFeedback("YES");
   confirmationModal.style.display = "none";
 };
 
-const noButton = document.createElement("button");
-noButton.textContent = "NO";
-Object.assign(noButton.style, {
-  padding: "8px 16px",
-  borderRadius: "8px",
-  border: "none",
-  background: "linear-gradient(135deg, #667eea, #764ba2)",
-  color: "#ffffff",
-  fontSize: "13px",
-  fontWeight: "600",
-  cursor: "pointer",
-  transition: "transform 0.2s ease"
-});
-noButton.onmouseover = () => { noButton.style.transform = "translateY(-1px)"; };
-noButton.onmouseout = () => { noButton.style.transform = "translateY(0)"; };
+const noButton = createFeedbackButton("No, seems fine", "#64748b");
 noButton.onclick = () => {
   submitFeedback("NO");
   confirmationModal.style.display = "none";
 };
 
-buttonContainer.appendChild(yesButton);
-buttonContainer.appendChild(noButton);
-confirmationModal.appendChild(questionText);
-confirmationModal.appendChild(buttonContainer);
+const buttonContainer = document.createElement("div");
+buttonContainer.style.cssText = "display:flex; gap:12px;";
+buttonContainer.append(yesButton, noButton);
+
+confirmationModal.append(questionText, buttonContainer);
 document.documentElement.appendChild(confirmationModal);
 
 function showConfirmationPopup(text, explanation) {
@@ -542,19 +435,13 @@ function submitFeedback(responseType) {
       "user-fingerprint": "user-device-" + Math.random().toString(36).substring(2)
     },
     body: JSON.stringify({
-      text: window.currentText || "unknown",
-      explanation: window.currentExplanation || "No explanation provided",
+      text: window.currentText,
+      explanation: window.currentExplanation,
       response: responseType,
       sources: []
     })
   })
-    .then(res => {
-      if (!res.ok) throw new Error(`Feedback submission failed: ${res.status}`);
-      return res.json();
-    })
-    .then(() => displayFeedbackMessage())
-    .catch(err => {
-      console.error("Error submitting feedback:", err);
-      displayError("Failed to submit feedback.");
-    });
+    .then(res => res.ok ? res.json() : Promise.reject("Failed"))
+    .then(displayFeedbackMessage)
+    .catch(() => displayError("Failed to submit feedback."));
 }

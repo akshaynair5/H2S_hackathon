@@ -25,6 +25,8 @@ function getSessionForTab(tabId) {
   return tabSessions[tabId];
 }
 
+// Keep popup connection alive
+
 // ---------------------------
 // Helper: Clear Session for Tab
 // ---------------------------
@@ -143,17 +145,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "ANALYZE_IMAGE": {
       const sessionId = message.payload?.session_id || getSessionForTab(tabId);
       
+      if (!tabId) {
+        console.error("❌ No tab ID available for image analysis");
+        sendResponse({ error: "No tab context available" });
+        return false;
+      }
+      
+      console.log(`🖼️ Processing image analysis for tab ${tabId}, session ${sessionId}`);
+      
       analyzeImage(tabId, message.payload, sessionId)
         .then(results => {
+          console.log(`✅ Image analysis complete for tab ${tabId}:`, results);
+          
           const resultsWithSession = results.map(r => ({
             ...r,
             session_id: sessionId
           }));
           
-          resultsWithSession.forEach(res => sendToTab("IMAGE_ANALYSIS_RESULT", res));
-          sendResponse({ success: true });
+          // Send each result to the tab's content script
+          resultsWithSession.forEach(res => {
+            console.log(`📤 Sending IMAGE_ANALYSIS_RESULT to tab ${tabId}:`, res);
+            sendToTab("IMAGE_ANALYSIS_RESULT", res);
+          });
+          
+          // sendResponse with count (older UI expectation)
+          sendResponse({ success: true, count: results.length });
         })
         .catch(err => {
+          console.error(`❌ Image analysis error for tab ${tabId}:`, err);
           const errorMsg = { 
             error: err.message || "Unknown error during image analysis.",
             session_id: sessionId
@@ -163,6 +182,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
       return true;
     }
+
     case "CANCEL_SESSION": {
       const sessionId = message.payload?.session_id;
       const targetTabId = message.payload?.tab_id || tabId;
@@ -231,10 +251,18 @@ async function analyzeText(tabId, payload, sessionId) {
   textLocksPerTab[tabId] = textLocksPerTab[tabId] || false;
   lastTextPerTab[tabId] = lastTextPerTab[tabId] || "";
 
+  // **Older UI/flow behavior**: block new requests while lock is active and return a lock-response object
   if (textLocksPerTab[tabId]) {
-    console.warn(`[Tab ${tabId}] Previous analysis still marked running → releasing lock`);
-    textLocksPerTab[tabId] = false;
-    ongoingTextPromises[tabId] = null;
+    console.warn(`[Tab ${tabId}] Blocked new text request: analysis already in progress.`);
+    return {
+      success: false,
+      source: "lock",
+      input_text: text,
+      session_id: sessionId,
+      score: 0,
+      explanation: "Another analysis is already running. Please wait.",
+      prediction: "Unknown"
+    };
   }
 
   if (ongoingTextPromises[tabId] && lastTextPerTab[tabId] === text) {
@@ -410,4 +438,4 @@ setInterval(() => {
       }
     });
   });
-}, 5 * 60 * 1000); 
+}, 5 * 60 * 1000);
