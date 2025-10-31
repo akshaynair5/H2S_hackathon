@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session, make_response
+from flask import Flask, request, jsonify, session, make_response,Response,stream_with_context
 from misinfo_model import detect_fake_text
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -13,7 +13,9 @@ import os
 from dotenv import load_dotenv
 import numpy as np
 import uuid
-
+import queue
+import threading
+import json
 
 
 
@@ -23,6 +25,11 @@ app = Flask(__name__)
 app.secret_key = os.getenv("APP_SECRET_KEY")
 CORS(app, supports_credentials=True)
 
+
+
+# Global log queue for SSE
+log_queues = {}
+log_queues_lock = threading.Lock()
 
 # ---------------------------
 # RATE LIMITER SETUP
@@ -110,19 +117,85 @@ def detect_image():
     return jsonify(response)
 
 
+
+# --------------------------
+# Log info 
+# ---------------------------
+
+
+
+def get_log_queue(session_id):
+    """Get or create a log queue for a session"""
+    with log_queues_lock:
+        if session_id not in log_queues:
+            log_queues[session_id] = queue.Queue(maxsize=100)
+        return log_queues[session_id]
+
+def cleanup_log_queue(session_id):
+    """Remove log queue for session"""
+    with log_queues_lock:
+        log_queues.pop(session_id, None)
+
+# Add endpoint for log detection
+@app.route("/stream_logs/<session_id>", methods=["GET"])
+@limiter.exempt
+def stream_logs(session_id):
+    """Stream logs to frontend via Server-Sent Events"""
+    def generate():
+        log_queue = get_log_queue(session_id)
+        try:
+            while True:
+                try:
+                    # Wait for log message with timeout
+                    msg = log_queue.get(timeout=30)
+                    if msg == "DONE":
+                        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                        break
+                    yield f"data: {json.dumps(msg)}\n\n"
+                except queue.Empty:
+                    # Send heartbeat to keep connection alive
+                    yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+        except GeneratorExit:
+            pass
+        finally:
+            cleanup_log_queue(session_id)
+    
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+
 # ---------------------------
 # TEXT DETECTION 
 # ---------------------------
 @app.route("/detect_text", methods=["POST"])
 @limiter.limit("30 per minute") 
 def detect_text():
+    session_id = None
     try:
         data = request.json 
         original_text = data.get("text", "")
         url = data.get("url", "")
 
         session_id = get_session_id()
+
+        log_queue = get_log_queue(session_id)
+        
+        # Send initial log
+        log_queue.put({"type": "info", "message": "Starting analysis..."})
+
         print(f"Processing request for session: {session_id}")
+
+
+
+
+       
         
         print(f"User selected text: '{original_text}' - \n")
         print(f"URL IS  '{url}'- \n")
@@ -136,8 +209,11 @@ def detect_text():
         norm_id = generate_normalized_id(url, text)
         print(f"Exact ID: {article_id}, Norm ID: {norm_id}")
 
+        log_queue.put({"type": "info", "message": "Checking cache..."})
         cached = get_article_doc(article_id)
         if cached:
+            log_queue.put({"type": "success", "message": "Found in cache!"})
+            log_queue.put("DONE")
             prediction = cached.get("prediction", "Unknown")
             explanation = cached.get("gemini_reasoning", cached.get("text_explanation", ""))
             return jsonify({
@@ -157,8 +233,11 @@ def detect_text():
             })
 
         print("Exact miss; trying Firestore semantic search...")
+        log_queue.put({"type": "info", "message": "Running semantic search..."})
         firestore_semantic = firestore_semantic_search(original_text)
+
         if firestore_semantic:
+            log_queue.put({"type": "success", "message": "Similar article found!"})
             best = firestore_semantic['best']
             best_article_id = firestore_semantic['best_id']
             prediction = best.get("prediction", "Unknown")
@@ -221,7 +300,11 @@ def detect_text():
             })
 
         print(f"No semantic cache hit for text: '{text}' - Running new analysis pipeline")
-        model_result = detect_fake_text(original_text)
+        log_queue.put({"type": "info", "message": "Analyzing with AI models..."})
+        log_queue.put({"type": "phase", "message": "Phase 1: Fact checking"})
+        model_result = detect_fake_text(original_text , log_queue)
+        log_queue.put({"type": "success", "message": "Analysis complete!"})
+        log_queue.put("DONE")
         text_score = model_result.get("summary", {}).get("score", 0.5) / 100
         text_prediction = model_result.get("summary", {}).get("prediction", "Unknown")
         explanation = model_result.get("summary", {}).get("explanation", "Analysis complete.")
@@ -266,8 +349,17 @@ def detect_text():
         return jsonify(response)
 
     except Exception as e:
+        if session_id:  # Only send logs if session_id exists
+            log_queue = get_log_queue(session_id)
+            log_queue.put({"type": "error", "message": "Analysis failed"})
+            log_queue.put("DONE")
         print(f"Error in /detect_text: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+
+
+
 
 
 # ---------------------------

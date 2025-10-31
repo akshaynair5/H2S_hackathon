@@ -5,6 +5,131 @@
 // Prevent popup from closing on certain events
 
 
+
+// ==========================================
+// LIVE LOG STREAMING
+// ==========================================
+let eventSource = null;
+let analysisStartTime = null;
+
+function startLogStream(sessionId) {
+  stopLogStream(); // Clean up any existing stream
+  
+  analysisStartTime = Date.now();
+  
+  const logDisplay = $("factDisplay");
+  if (!logDisplay) return;
+  
+  eventSource = new EventSource(`http://127.0.0.1:5000/stream_logs/${sessionId}`);
+  
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      
+      if (data.type === "done") {
+        stopLogStream();
+        return;
+      }
+      
+      if (data.type === "heartbeat") return;
+      
+      // Update log display with icon based on type
+      const icons = {
+        info: "🔍",
+        success: "✅",
+        warn: "⚠️",
+        error: "❌",
+        phase: "▶️"
+      };
+      
+      const icon = icons[data.type] || "•";
+      logDisplay.textContent = `${icon} ${data.message}`;
+      
+      // Add subtle animation
+      logDisplay.style.opacity = "0.7";
+      setTimeout(() => {
+        logDisplay.style.opacity = "1";
+      }, 100);
+      
+    } catch (e) {
+      console.error("Log stream parse error:", e);
+    }
+  };
+  
+  eventSource.onerror = (err) => {
+    console.warn("Log stream disconnected " , err);
+    stopLogStream();
+
+    if (analysisStartTime) {
+    const partialMsg = "Analysis may have completed partially—check results.";
+    const factDisplay = $("factDisplay");
+    if (factDisplay) factDisplay.textContent = partialMsg;
+  }
+  };
+}
+
+function stopLogStream() {
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
+  }
+}
+
+function showAnalysisTime() {
+  if (!analysisStartTime) return;
+  
+  const duration = (Date.now() - analysisStartTime) / 1000; // seconds
+  const resultsDiv = $("results");
+  if (!resultsDiv) return;
+  
+  let emoji = "⚡";
+  let message = "";
+  
+  if (duration < 2) {
+    emoji = "🚀⚡";
+    message = "Lightning fast";
+  } else if (duration < 5) {
+    emoji = "⚡";
+    message = "Quick";
+  } else if (duration < 10) {
+    emoji = "✓";
+    message = "Fast";
+  } else if (duration < 30) {
+    emoji = "⏱️";
+    message = "Thorough";
+  } else if (duration < 90) {
+    emoji = "🕐";
+    message = "Comprehensive";
+  } else {
+    emoji = "⏳";
+    message = "Deep analysis";
+  }
+  
+  const timeBox = document.createElement("div");
+  timeBox.style.cssText = `
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  `;
+  
+  timeBox.innerHTML = `
+    <span style="font-size: 16px;">${emoji}</span>
+    <span>${message} analysis completed in ${duration.toFixed(1)}s</span>
+  `;
+  
+  resultsDiv.insertBefore(timeBox, resultsDiv.firstChild);
+  
+  analysisStartTime = null;
+}
+
 function $(id) {
   const el = document.getElementById(id);
   if (!el) console.warn(`⚠️ Missing element: #${id}`);
@@ -88,7 +213,11 @@ function showLoading() {
   if (loading) {
     loading.classList.remove("hidden");
   }
-  startFactsRotation();
+  
+   const factDisplay = $("factDisplay");
+  if (factDisplay) {
+    factDisplay.textContent = "🔄 Initializing...";
+  }
 }
 
 function hideLoading() {
@@ -96,7 +225,8 @@ function hideLoading() {
   if (loading) {
     loading.classList.add("hidden");
   }
-  stopFactsRotation();
+  // stopFactsRotation();
+    stopLogStream();
 }
 
 function showResults() {
@@ -128,7 +258,7 @@ function calculateConfidenceScore(result) {
 function displayResult(result) {
   hideLoading();
   showResults();
- 
+
   const resultsDiv = $("results");
   if (!resultsDiv) return;
 
@@ -158,6 +288,8 @@ function displayResult(result) {
   `;
 
   resultsDiv.appendChild(card);
+
+  showAnalysisTime();
 
   // Save to history
   saveToHistory({
@@ -234,12 +366,19 @@ async function handleTextCheck() {
           displayError("No text selected. Please select some text first.");
           return;
         }
+        const sessionId = crypto.randomUUID();
 
         chrome.runtime.sendMessage(
           { type: "ANALYZE_TEXT", payload: { text: textContent } },
           (response) => {
             if (!response || response.error) {
               displayError(response?.error || "Text analysis failed.");
+              return;
+            }
+
+            
+            if (response.error) {
+              displayError(response.error);
               return;
             }
 
@@ -251,6 +390,8 @@ async function handleTextCheck() {
             });
           }
         );
+
+        startLogStream(sessionId);
       }
     );
   } catch (error) {
