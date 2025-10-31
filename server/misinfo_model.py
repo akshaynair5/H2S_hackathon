@@ -25,9 +25,6 @@ from datetime import datetime, timedelta
 import aiohttp
 import asyncio
 
-
-
-
 #----------------- Gemini config ----------------
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -431,9 +428,6 @@ def adjusted_ensemble(
     if fact_check_status == "mixed_ratings":
         return "Misleading", max(70, gem_conf)
 
-    # ======================================================
-    # ✅ NEW OVERRIDE: Strong corroboration beats ML hesitation
-    # ======================================================
     if corroboration_status == "corroborated" and evidence_count >= 3:
         override_conf = max(gem_conf, 88 + (evidence_count * 2))  # 3 evidences → 94%, 5 → 98%
         return "Real", min(98, override_conf)
@@ -472,7 +466,7 @@ def adjusted_ensemble(
 
     else:  # "no_results"
         evidence_boost = 0
-        base_conf = max(60, base_conf)  # ✅ No penalty anymore
+        base_conf = max(60, base_conf) 
 
     # ======================================================
     # 4. Combine signals

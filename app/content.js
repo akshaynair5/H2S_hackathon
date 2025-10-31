@@ -46,6 +46,239 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
   chrome.runtime.onSuspend?.addListener(() => {
     cancelSession();
   });
+
+  // Listen for messages from background script
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (!message?.type) return;
+
+    if (message.type === "IMAGE_ANALYSIS_RESULT") {
+      const result = message.payload;
+      console.log("📊 Received image analysis result:", result);
+      
+      // Only process if session ID matches
+      if (result.session_id !== sessionId) {
+        console.log("Ignoring result from different session");
+        return;
+      }
+
+      // Clean up loading states for matching image
+      const targetImage = document.querySelector(`img[data-analyzing-session="${result.session_id}"]`);
+      if (targetImage) {
+        const overlay = targetImage.closest('.trustmeter-overlay');
+        if (overlay) {
+          overlay.classList.remove('analyzing');
+          overlay.style.pointerEvents = 'auto';
+          overlay.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24">
+              <path d="M12 2L3 7V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V7L12 2Z"
+              stroke="currentColor" stroke-width="2"/>
+            </svg>
+            <span>Check</span>
+          `;
+        }
+        
+        // Remove associated analyzing overlay
+        const analyzingOverlay = document.querySelector(`.analyzing-overlay[data-session="${result.session_id}"]`);
+        if (analyzingOverlay) {
+          analyzingOverlay.remove();
+        }
+        
+        // Clear the analyzing session marker
+        targetImage.removeAttribute('data-analyzing-session');
+      }
+
+      // Update all scores
+      const updateScores = () => {
+        // Calculate average score from all analyzed images
+        const allResults = document.querySelectorAll('#image-results > div[id^="result-"]');
+        let totalScore = 0;
+        let count = 0;
+
+        allResults.forEach(resultDiv => {
+          const scoreElement = resultDiv.querySelector('[data-score]');
+          if (scoreElement) {
+            totalScore += parseInt(scoreElement.dataset.score);
+            count++;
+          }
+        });
+
+        // Update main badge with average score
+        const badge = document.getElementById("trustmeter-badge");
+        if (badge) {
+          const averageScore = count > 0 ? Math.round(totalScore / count) : result.score;
+          badge.textContent = `Trust Score: ${averageScore}%`;
+        }
+
+        // Update image score in sub-scores section
+        const imageScoreElement = document.querySelector('#sub-scores div:nth-child(2) div:last-child');
+        if (imageScoreElement) {
+          const averageScore = count > 0 ? Math.round(totalScore / count) : result.score;
+          imageScoreElement.textContent = `${averageScore}%`;
+        }
+      };
+
+      // Add result to the image-results container
+      const imageResultsArea = document.getElementById("image-results");
+      if (imageResultsArea) {
+        // Clear the "No images analyzed" text before adding results
+        if (imageResultsArea.textContent === "No images analyzed.") {
+          imageResultsArea.innerHTML = "";
+        }
+        // Create result card
+            if (message.type === "IMAGE_ANALYSIS_RESULT") {
+              const result = message.payload;
+              console.log("📊 Received image analysis result:", result);
+              // Only process if session ID matches
+              if (result.session_id !== sessionId) {
+                console.log("Ignoring result from different session");
+                return;
+              }
+              // Clean up loading states for matching image
+              const targetImage = document.querySelector(`img[data-analyzing-session="${result.session_id}"]`);
+              if (targetImage) {
+                // Remove both overlay types for robustness
+                const overlaySibling = targetImage.nextElementSibling;
+                if (overlaySibling && overlaySibling.classList.contains('analyzing-overlay')) {
+                  overlaySibling.remove();
+                }
+                const overlayClosest = targetImage.closest('.trustmeter-overlay');
+                if (overlayClosest) {
+                  overlayClosest.classList.remove('analyzing');
+                  overlayClosest.style.pointerEvents = 'auto';
+                  overlayClosest.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24">
+                      <path d="M12 2L3 7V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V7L12 2Z"
+                      stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    <span>Check</span>
+                  `;
+                }
+                // Remove associated analyzing overlay by session
+                const analyzingOverlay = document.querySelector(`.analyzing-overlay[data-session="${result.session_id}"]`);
+                if (analyzingOverlay) {
+                  analyzingOverlay.remove();
+                }
+                // Clear the analyzing session marker
+                targetImage.removeAttribute('data-analyzing-session');
+              }
+              // Update all scores
+              const allResults = document.querySelectorAll('#image-results > div[id^="result-"]');
+              let totalScore = 0;
+              let count = 0;
+              allResults.forEach(resultDiv => {
+                const scoreElement = resultDiv.querySelector('[data-score]');
+                if (scoreElement) {
+                  totalScore += parseInt(scoreElement.dataset.score);
+                  count++;
+                }
+              });
+              // Update main badge with average score
+              const badge = document.getElementById("trustmeter-badge");
+              if (badge) {
+                const averageScore = count > 0 ? Math.round(totalScore / count) : result.score;
+                badge.textContent = `Trust Score: ${averageScore}%`;
+              }
+              // Update image score in sub-scores section (target the score span)
+              const imageScoreSpan = document.querySelector('#sub-scores div:nth-child(2) div:last-child');
+              if (imageScoreSpan && imageScoreSpan.tagName === 'DIV') {
+                // If the last child is a div, look for the span inside it
+                const scoreSpan = imageScoreSpan.querySelector('span');
+                if (scoreSpan) {
+                  const averageScore = count > 0 ? Math.round(totalScore / count) : result.score;
+                  scoreSpan.textContent = `${averageScore}%`;
+                }
+              } else if (imageScoreSpan) {
+                // If it's a span directly
+                const averageScore = count > 0 ? Math.round(totalScore / count) : result.score;
+                imageScoreSpan.textContent = `${averageScore}%`;
+              }
+            }
+          // The following HTML fragments were misplaced and are removed to fix syntax errors.
+          // If you need to add HTML to the DOM, use proper assignments like .innerHTML or .appendChild.
+          // container.insertBefore(resultDiv, container.firstChild); // If needed, uncomment and use properly
+        
+        // Calculate and update all scores after adding new result
+        const allResults = document.querySelectorAll('#image-results > div[id^="result-"]');
+        let totalScore = 0;
+        let count = 0;
+
+        allResults.forEach(resultDiv => {
+          const scoreElement = resultDiv.querySelector('[data-score]');
+          if (scoreElement) {
+            totalScore += parseInt(scoreElement.dataset.score);
+            count++;
+          }
+        });
+
+        // Update badge with average score and clean up loading states
+        const badge = document.getElementById("trustmeter-badge");
+        if (badge) {
+          const averageScore = count > 0 ? Math.round(totalScore / count) : result.score;
+          badge.textContent = `Trust Score: ${averageScore}%`;
+        }
+        
+        // Clean up all loading states
+        stopWorking();
+
+        // Update image score in sub-scores section
+        const imageScoreElement = document.querySelector('#sub-scores div:nth-child(2) div:last-child');
+        if (imageScoreElement) {
+          const averageScore = count > 0 ? Math.round(totalScore / count) : result.score;
+          imageScoreElement.textContent = `${averageScore}%`;
+        }
+      }
+    }
+
+    if (message.type === "TEXT_INITIAL_RESULT" || message.type === "TEXT_RESULT") {
+      const data = message.payload;
+      if (data && (data.score || data.initial_analysis?.score)) {
+        const score = data.score || data.initial_analysis?.score || 0;
+        // Update text score in sub-scores section (target the score span)
+        const textScoreDiv = document.querySelector('#sub-scores div:nth-child(1) div:last-child');
+        if (textScoreDiv && textScoreDiv.tagName === 'DIV') {
+          const scoreSpan = textScoreDiv.querySelector('span');
+          if (scoreSpan) {
+            scoreSpan.textContent = `${score}%`;
+          } else {
+            textScoreDiv.textContent = `${score}%`;
+          }
+        } else if (textScoreDiv) {
+          textScoreDiv.textContent = `${score}%`;
+        }
+
+        // Update the visible text analysis score (replace only the score, not the label)
+        const textResultSpan = document.getElementById('text-result');
+        if (textResultSpan) {
+          textResultSpan.textContent = `Text Analysis Score: ${score}%`;
+          textResultSpan.style.color = '#667eea';
+          textResultSpan.style.fontWeight = '700';
+        }
+      }
+    }
+
+    if (message.type === "ANALYSIS_ERROR") {
+      console.error("❌ Analysis error:", message.payload);
+      const container = document.getElementById("image-results");
+      if (container) {
+        const errorDiv = document.createElement("div");
+        errorDiv.style.cssText = `
+          padding: 12px;
+          background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          border-radius: 10px;
+          margin-bottom: 10px;
+          font-size: 13px;
+          color: #ef4444;
+        `;
+        errorDiv.innerHTML = `❌ ${message.payload}`;
+        container.insertBefore(errorDiv, container.firstChild);
+      }
+
+      // Reset badge
+      const badge = document.getElementById("trustmeter-badge");
+      if (badge) badge.textContent = "Trust Score: —";
+    }
+  });
 }
 
 function normalizeScore(raw) {
@@ -95,32 +328,151 @@ if (!document.getElementById('trustmeter-keyframes')) {
 // ---------------------------
 // LISTEN FOR IMAGE OVERLAY CLICKS
 // ---------------------------
+// Add keyframe animations for the overlay button and loading state
+const overlayStyles = document.createElement('style');
+overlayStyles.textContent = `
+  @keyframes pulseOverlay {
+    0% { transform: scale(1); opacity: 0.9; }
+    50% { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.9; }
+  }
+  
+  @keyframes imageAnalyzing {
+    0% { 
+      background-position: 0% 0%;
+      opacity: 0.2;
+    }
+    50% { opacity: 0.3; }
+    100% { 
+      background-position: 100% 100%;
+      opacity: 0.2;
+    }
+  }
+
+  .trustmeter-overlay {
+    transition: all 0.2s ease !important;
+  }
+
+  .trustmeter-overlay:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  }
+
+  .trustmeter-overlay.analyzing {
+    animation: pulseOverlay 1.5s infinite ease-in-out !important;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.95), rgba(118, 75, 162, 0.95)) !important;
+  }
+
+  .analyzing-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #667eea33, #764ba233);
+    background-size: 400% 400%;
+    animation: imageAnalyzing 3s infinite ease-in-out;
+    pointer-events: none;
+    z-index: 9998;
+  }
+`;
+document.head.appendChild(overlayStyles);
+
 window.addEventListener('analyze-image', (event) => {
   const imageUrl = event.detail.url;
   console.log("🖼️ Image overlay clicked:", imageUrl);
   
-  // Show loading state
-  const container = document.getElementById("image-results");
-  if (container) {
-    const loadingDiv = document.createElement("div");
-    loadingDiv.id = `loading-${imageUrl}`;
-    loadingDiv.style.cssText = `
-      padding: 12px;
-      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-      border-radius: 10px;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 13px;
-      color: #667eea;
-    `;
-    loadingDiv.innerHTML = `
-      <div style="width: 16px; height: 16px; border: 2px solid rgba(102, 126, 234, 0.3); border-top-color: #667eea; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
-      Analyzing image...
-    `;
-    container.appendChild(loadingDiv);
+  // Get the image element and its overlay
+  const img = event.detail.imageElement;
+  const overlay = event.detail.overlay;
+  const session_id = event.detail.session_id || sessionId;
+  
+  // Mark this image as being analyzed with this session
+  if (img) {
+    img.setAttribute('data-analyzing-session', session_id);
   }
+  
+  // Add analyzing class to the check button overlay
+  if (overlay) {
+    overlay.classList.add('analyzing');
+    overlay.style.pointerEvents = 'none'; // Prevent multiple clicks
+    
+    // Update overlay text to show loading
+    overlay.innerHTML = `
+      <div class="trustmeter-spinner" style="
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-top: 2px solid white;
+        border-radius: 50%;
+        width: 12px;
+        height: 12px;
+        animation: spin 0.8s linear infinite;
+        margin-right: 6px;
+      "></div>
+      Analyzing...
+    `;
+  }
+  
+  // Add analyzing overlay to the image
+  const analyzingOverlay = document.createElement('div');
+  analyzingOverlay.className = 'analyzing-overlay';
+  analyzingOverlay.setAttribute('data-session', session_id);
+  if (img && img.parentElement) {
+    img.parentElement.appendChild(analyzingOverlay);
+  }
+  
+  // Show loading state in badge and panel
+  const badge = document.getElementById("trustmeter-badge");
+  if (badge) {
+    badge.innerHTML = `
+      Trust Score: 
+      <div class="trustmeter-spinner" style="
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        border-top: 2px solid #fff;
+        border-radius: 50%;
+        width: 14px;
+        height: 14px;
+        animation: spin 0.8s linear infinite;
+        display: inline-block;
+        margin-left: 6px;
+        vertical-align: middle;
+      "></div>
+    `;
+  }
+  
+  showPanel();
+  
+  const container = document.getElementById("image-results");
+  if (!container) return;
+
+  // Clear previous results for this image
+  const existingResult = document.getElementById(`result-${btoa(imageUrl).slice(0, 10)}`);
+  if (existingResult) existingResult.remove();
+  
+  // Add loading indicator to results container
+  const loadingDiv = document.createElement("div");
+  loadingDiv.id = `loading-${btoa(imageUrl).slice(0, 10)}`;
+  loadingDiv.style.cssText = `
+    padding: 12px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  `;
+  loadingDiv.innerHTML = `
+    <div class="trustmeter-spinner" style="
+      border: 2px solid rgba(102, 126, 234, 0.1);
+      border-top: 2px solid #667eea;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      animation: spin 0.8s linear infinite;
+    "></div>
+    <span style="color: #667eea; font-size: 13px;">Analyzing image...</span>
+  `;
+  container.insertBefore(loadingDiv, container.firstChild);
   
   // Send message to background from content script (has tab context)
   chrome.runtime.sendMessage(
@@ -135,17 +487,79 @@ window.addEventListener('analyze-image', (event) => {
       console.log("Image analysis response:", response);
       
       // Remove loading indicator
-      const loadingDiv = document.getElementById(`loading-${imageUrl}`);
-      if (loadingDiv) loadingDiv.remove();
+      const loadingElement = document.getElementById(`loading-${btoa(imageUrl).slice(0, 10)}`);
+      if (loadingElement) loadingElement.remove();
       
       if (response && response.error) {
         console.error("❌ Image analysis error:", response.error);
+        const errorDiv = document.createElement("div");
+        errorDiv.id = `result-${btoa(imageUrl).slice(0, 10)}`;
+        errorDiv.style.cssText = `
+          padding: 12px;
+          background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          border-radius: 10px;
+          margin-bottom: 10px;
+          font-size: 13px;
+          color: #ef4444;
+        `;
+        errorDiv.innerHTML = `❌ Failed to analyze image: ${response.error}`;
+        container.appendChild(errorDiv);
+        
+        // Reset badge and all loading states
+        if (badge) badge.textContent = "Trust Score: —";
+        
+        // Clean up loading states
+        stopWorking();
+        return;
+      }
+
+      if (response && response.results && response.results.length > 0) {
+        const result = response.results[0]; // Get first result
+        
+        // Update score in badge
+        const scoreText = document.querySelector("#trustmeter-badge");
+        if (scoreText) scoreText.textContent = `Trust Score: ${result.score}%`;
+
+        // Create result card
+        const resultDiv = document.createElement("div");
+        resultDiv.id = `result-${btoa(imageUrl).slice(0, 10)}`;
+        resultDiv.style.cssText = `
+          padding: 12px;
+          background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+          border: 1px solid rgba(226, 232, 240, 0.8);
+          border-radius: 10px;
+          margin-bottom: 10px;
+        `;
+
+        // Determine verdict icon and color
+        let verdictIcon = '🤔';
+        let verdictColor = '#667eea';
+        if (result.score >= 70) {
+          verdictIcon = '✅';
+          verdictColor = '#22c55e';
+        } else if (result.score <= 30) {
+          verdictIcon = '❌';
+          verdictColor = '#ef4444';
+        }
+
+        resultDiv.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div style="font-weight: 600; color: ${verdictColor};">${verdictIcon} ${result.verdict}</div>
+            <div style="font-weight: 700; color: ${verdictColor};">${result.score}%</div>
+          </div>
+          <div style="font-size: 13px; color: #64748b; line-height: 1.5;">
+            ${result.explanation}
+          </div>
+          <div style="margin-top: 8px; font-size: 12px; color: #94a3b8;">
+            <a href="${imageUrl}" target="_blank" style="color: #667eea; text-decoration: none;">View original image →</a>
+          </div>
+        `;
+        
+        container.insertBefore(resultDiv, container.firstChild);
       }
     }
   );
-  
-  // Open panel to show results
-  showPanel();
 });
 
 function setWorking(msg) {
@@ -160,7 +574,30 @@ function setWorking(msg) {
 }
 
 function stopWorking() {
+  // Remove spinner
   if (spinner.parentElement) spinner.remove();
+
+  // Remove any analyzing overlays
+  const analyzingOverlays = document.querySelectorAll('.analyzing-overlay');
+  analyzingOverlays.forEach(overlay => overlay.remove());
+
+  // Reset any analyzing states on trustmeter overlays
+  const analyzingButtons = document.querySelectorAll('.trustmeter-overlay.analyzing');
+  analyzingButtons.forEach(button => {
+    button.classList.remove('analyzing');
+    button.style.pointerEvents = 'auto';
+    button.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24">
+        <path d="M12 2L3 7V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V7L12 2Z"
+        stroke="currentColor" stroke-width="2"/>
+      </svg>
+      <span>Check</span>
+    `;
+  });
+
+  // Clear analyzing session markers from images
+  const analyzingImages = document.querySelectorAll('img[data-analyzing-session]');
+  analyzingImages.forEach(img => img.removeAttribute('data-analyzing-session'));
 }
 
 // ---------------------------
@@ -296,7 +733,21 @@ Object.assign(header.style, {
 });
 
 const title = document.createElement("div");
-title.textContent = "✨ TrustMeter";
+title.innerHTML = `
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2L3 7V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V7L12 2Z" 
+        stroke="url(#gradient)" stroke-width="2"/>
+      <defs>
+        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color: #667eea"/>
+          <stop offset="100%" style="stop-color: #764ba2"/>
+        </linearGradient>
+      </defs>
+    </svg>
+    TrustMeter
+  </div>
+`;
 Object.assign(title.style, {
   fontWeight: "800",
   fontSize: "18px",
@@ -351,28 +802,6 @@ Object.assign(scoreRow.style, {
   padding: "8px 0"
 });
 
-const subScores = document.createElement("div");
-Object.assign(subScores.style, {
-  fontSize: "13px",
-  color: "#475569",
-  display: "flex",
-  flexDirection: "column",
-  gap: "8px",
-  paddingBottom: "12px",
-  borderBottom: "1px solid rgba(226, 232, 240, 0.8)",
-  width: "100%",
-  fontWeight: "500"
-});
-subScores.id = "sub-scores";
-subScores.innerHTML = `
-  <div style="padding: 10px 14px; background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%); border-radius: 12px; border: 1px solid rgba(226, 232, 240, 0.6);">
-    📝 <strong>Text Score:</strong> <span style="float: right; color: #667eea; font-weight: 700;">—</span>
-  </div>
-  <div style="padding: 10px 14px; background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%); border-radius: 12px; border: 1px solid rgba(226, 232, 240, 0.6);">
-    🖼️ <strong>Image Score:</strong> <span style="float: right; color: #764ba2; font-weight: 700;">—</span>
-  </div>
-`;
-
 const scoreText = document.createElement("div");
 scoreText.textContent = "Score: —";
 Object.assign(scoreText.style, {
@@ -421,30 +850,52 @@ refreshBtn.onclick = () => {
   analyzeImagesNow();
 };
 scoreRow.appendChild(scoreText);
-scoreRow.appendChild(refreshBtn);
+// scoreRow.appendChild(refreshBtn);
 
 // ---------------------------
 // SECTIONS (MODERN DESIGN)
 // ---------------------------
 const textSection = document.createElement("div");
-textSection.innerHTML = "<strong style='color: #334155; font-size: 14px;'>📝 Text Analysis:</strong><br><span id='text-result' style='color: #64748b; font-size: 13px; line-height: 1.6;'>No analysis yet.</span>";
+textSection.innerHTML = `
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+      <polyline points="14 2 14 8 20 8"></polyline>
+      <line x1="16" y1="13" x2="8" y2="13"></line>
+      <line x1="16" y1="17" x2="8" y2="17"></line>
+    </svg>
+    <strong style="color: #334155; font-size: 14px;">Text Analysis</strong>
+  </div>
+  <span id="text-result" style="color: #64748b; font-size: 13px; line-height: 1.6;">No analysis yet.</span>
+`;
 Object.assign(textSection.style, {
   fontSize: "13px",
   color: "#334155",
   lineHeight: "1.6",
-  padding: "14px",
+  padding: "16px",
   background: "linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%)",
   borderRadius: "14px",
-  border: "1px solid rgba(226, 232, 240, 0.8)"
+  border: "1px solid rgba(226, 232, 240, 0.8)",
+  marginBottom: "16px"
 });
 
 const imageSection = document.createElement("div");
-imageSection.innerHTML = "<strong style='color: #334155; font-size: 14px;'>🖼️ Image Analysis:</strong><br><div id='image-results' style='color: #64748b; font-size: 13px; line-height: 1.6; margin-top: 8px;'>No images analyzed.</div>";
+imageSection.innerHTML = `
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+      <polyline points="21 15 16 10 5 21"></polyline>
+    </svg>
+    <strong style="color: #334155; font-size: 14px;">Image Analysis</strong>
+  </div>
+  <div id="image-results" style="color: #64748b; font-size: 13px; line-height: 1.6;">No images analyzed.</div>
+`;
 Object.assign(imageSection.style, {
   fontSize: "13px",
   color: "#334155",
   lineHeight: "1.6",
-  padding: "14px",
+  padding: "16px",
   background: "linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%)",
   borderRadius: "14px",
   border: "1px solid rgba(226, 232, 240, 0.8)"
@@ -498,7 +949,6 @@ Object.assign(sourcesContent.style, {
 sourcesSection.appendChild(sourcesHeader);
 sourcesSection.appendChild(sourcesContent);
 panel.appendChild(header);
-panel.appendChild(subScores);
 panel.appendChild(scoreRow);
 panel.appendChild(textSection);
 panel.appendChild(sourcesSection);
@@ -1057,6 +1507,12 @@ chrome.runtime.onMessage.addListener(message => {
         console.log("Received TEXT_ANALYSIS_RESULT:", message.payload);
         const overall = message.payload || {};
         setResult(overall.score || 0, overall.explanation || "No explanation");
+        
+        // Update text analysis score in the top section
+        const textScoreElement = document.getElementById('text-analysis-score');
+        if (textScoreElement) {
+          textScoreElement.textContent = `${overall.score || 0}%`;
+        }
 
         if (overall.session_id && overall.session_id !== sessionId) {
           console.warn("Received result for different session:", overall.session_id);
@@ -1100,6 +1556,12 @@ chrome.runtime.onMessage.addListener(message => {
         session_id: responseSessionId 
       } = message.payload;
 
+      // Update image analysis score in the top section
+      const imageScoreElement = document.getElementById('image-analysis-score');
+      if (imageScoreElement) {
+        imageScoreElement.textContent = `${score || 0}%`;
+      }
+
       // Use image_source if url is not available
       const imageUrl = url || image_source;
 
@@ -1126,7 +1588,7 @@ chrome.runtime.onMessage.addListener(message => {
       if (!document.getElementById("image-analysis-header")) {
         const header = document.createElement("h3");
         header.id = "image-analysis-header";
-        header.textContent = "🖼️ Image Analysis Results";
+        header.textContent = "";
         Object.assign(header.style, {
           margin: "10px 0 14px",
           fontSize: "15px",
@@ -1210,33 +1672,102 @@ chrome.runtime.onMessage.addListener(message => {
       contentWrapper.style.position = "relative";
       contentWrapper.style.zIndex = "1";
 
-      contentWrapper.innerHTML = `
-        <div style="display:flex; align-items:center; gap:14px;">
+    contentWrapper.innerHTML = `
+      <div style="
+          display: flex;
+          gap: 14px;
+          align-items: center;
+      ">
+        <div style="
+            width: 90px;
+            height: 65px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(226,226,226,0.6);
+            background: #f8fafc;
+            flex-shrink: 0;
+        ">
           <img src="${imageUrl}" 
-              style="width:100px; height:70px; border-radius:10px; object-fit:cover; border:1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);"
-              onerror="this.style.display='none'">
-          <div style="flex:1;">
-            <div style="font-weight:700; color:${color}; font-size:15px; margin-bottom: 6px; letter-spacing: -0.2px;">
+            style="width: 100%; height: 100%; object-fit: cover;"
+            onerror="this.parentElement.style.background='#f1f5f9'; this.remove()"
+          />
+        </div>
+
+        <div style="flex: 1;">
+          <div style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+          ">
+            <span style="
+                font-size: 15px;
+                font-weight: 600;
+                color: ${color};
+            ">
               ${label}
-            </div>
-            <div style="height:8px; background: rgba(226, 232, 240, 0.5); border-radius:4px; overflow:hidden; position: relative;">
-              <div style="width:${validity}%; background:${color}; height:100%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 4px; box-shadow: 0 0 8px ${color}40;"></div>
-            </div>
-            <div style="margin-top: 6px; font-size: 13px; font-weight: 600; color: ${color};">
-              ${validity}% Confidence
-            </div>
+            </span>
+
+            <span style="
+                font-size: 14px;
+                font-weight: 700;
+                color: ${color};
+            ">
+              ${validity}%
+            </span>
+          </div>
+
+          <div style="
+              position: relative;
+              width: 100%;
+              height: 6px;
+              background: rgba(226,232,240,0.6);
+              border-radius: 4px;
+              margin-top: 8px;
+              overflow: hidden;
+          ">
+            <div style="
+                width: ${validity}%;
+                height: 100%;
+                background: ${color};
+                transition: width .4s ease;
+            "></div>
           </div>
         </div>
-        <div style="margin-top:12px; padding: 12px; background: ${bgGradient}; border-radius: 10px; border-left: 3px solid ${color};">
-          <div style="font-size:13px; color:#475569; line-height: 1.6;">
-            <strong style="color: #334155;">Analysis:</strong> ${explanation || "No details available."}
-          </div>
+      </div>
+
+      <div style="
+          margin-top: 14px;
+          padding: 12px 14px;
+          background: rgba(248,250,252,.65);
+          border-left: 3px solid ${color};
+          border-radius: 10px;
+          backdrop-filter: blur(8px);
+      ">
+        <div style="font-size: 13px; color: #475569; line-height: 1.6;">
+          <strong style="color:#334155; font-weight:600;">Analysis Summary</strong><br>
+          ${explanation || "No explanation available."}
         </div>
-        <div style="font-size:11px; color:#94a3b8; margin-top:8px; display: flex; align-items: center; gap: 6px;">
-          <span style="width: 6px; height: 6px; background: ${color}; border-radius: 50%; display: inline-block;"></span>
-          Analyzed at ${timestamp}
-        </div>
-      `;
+      </div>
+
+      <div style="
+          margin-top: 10px;
+          font-size: 11px;
+          color: #94a3b8;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+      ">
+        <span style="
+            width: 6px;
+            height: 6px;
+            background: ${color};
+            border-radius: 50%;
+            display: inline-block;
+        "></span>
+        Analyzed at ${timestamp}
+      </div>
+    `;
+
 
       imgEntry.appendChild(contentWrapper);
       container.appendChild(imgEntry);

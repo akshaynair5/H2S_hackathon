@@ -278,10 +278,20 @@ async function injectImageOverlays() {
             e.stopPropagation();
             e.preventDefault();
 
-            chrome.runtime.sendMessage({
-              type: "ANALYZE_IMAGE",
-              payload: { urls: [img.src] }
-            });
+            // Dispatch custom event with image details
+            const session_id = localStorage.getItem('trustmeter_session_id');
+            img.dispatchEvent(new CustomEvent('analyze-image', {
+              bubbles: true,
+              detail: {
+                url: img.src,
+                imageElement: img,
+                overlay: overlay,
+                session_id: session_id
+              }
+            }));
+            
+            // Close popup after triggering analysis
+            window.close();
           });
 
           parent.appendChild(overlay);
@@ -298,16 +308,6 @@ async function injectImageOverlays() {
 // ==========================================
 chrome.runtime.onMessage.addListener(message => {
   if (!message?.type) return;
-
-  if (message.type === "IMAGE_ANALYSIS_RESULT") {
-    const { url, score, explanation, prediction } = message.payload;
-    displayResult({
-      score,
-      explanation: explanation || "Image analyzed",
-      prediction: prediction || "Unknown",
-      text: url
-    });
-  }
 
   if (message.type === "ANALYSIS_ERROR") {
     displayError(message.payload || "Analysis failed.");

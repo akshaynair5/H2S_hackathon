@@ -141,6 +141,7 @@ def call_gemini_detection(image_path: str) -> Dict[str, Any]:
         prompt = """
         Analyze the provided image to determine if it is likely AI-generated or real/authentic.
         Consider visual artifacts, inconsistencies, lighting, textures, and other indicators of generation.
+        A higher score means more likely to be real and lower score means more likely to be AI-generated.
         
         Output ONLY a valid JSON object with:
         {
