@@ -117,7 +117,7 @@ MAX_SEARCH_RESULTS = 5
 EMB_SIM_THRESHOLD = 0.40
 
 SOCIAL_MEDIA_DOMAINS = [
-    "x.com", "twitter.com", "reddit.com", "instagram.com",
+    "x.com", "reddit.com", "instagram.com",
     "facebook.com", "tiktok.com", "linkedin.com", "youtube.com"
 ]
 
@@ -630,8 +630,30 @@ def load_credible_domains() -> List[str]:
     docs = db.collection("news_sources").where("num_votes", ">=", 1).stream()
     domains = [doc.id for doc in docs]
     if not domains:
-        domains = ["reuters.com", "bbc.com", "apnews.com", "cnn.com", "nytimes.com",
-                   "theguardian.com", "npr.org", "aljazeera.com", "bloomberg.com"]
+        domains = [
+    # Global/general (previously given)
+    "reuters.com", "bbc.com", "apnews.com", "cnn.com", "nytimes.com",
+    "theguardian.com", "npr.org", "indiatoday.in", "bloomberg.com",
+
+    # North America (additional)
+    "washingtonpost.com", "latimes.com", "wsj.com", "cbc.ca", "globalnews.ca",
+
+    # Europe (additional)
+    "thetimes.co.uk", "telegraph.co.uk", "france24.com", "spiegel.de", "elpais.com",
+
+    # Asia (additional)
+    "straitstimes.com", "scmp.com", "khaleejtimes.com", "timesofindia.indiatimes.com", "hindustantimes.com",
+
+    # Africa (additional)
+    "africanews.com", "news24.com", "allafrica.com", "dailyNATION.co.ke", "timeslive.co.za",
+
+    # South America (additional)
+    "clarin.com", "folha.uol.com.br", "elpais.com", "oglobo.globo.com", "lanacion.com.ar",
+
+    # Australia (additional)
+    "abc.net.au/news", "smh.com.au", "theaustralian.com.au", "guardian.com/au", "news.com.au"
+]
+
     return domains
 
 def get_domain_bonus(domain: str) -> float:

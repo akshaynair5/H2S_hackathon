@@ -230,6 +230,7 @@ function hideLoading() {
 }
 
 function showResults() {
+  
   const results = $("results");
   if (results) {
     results.classList.remove("hidden");

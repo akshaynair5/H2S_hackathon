@@ -16,6 +16,7 @@ import uuid
 import queue
 import threading
 import json
+from translate import translate_to_english
 
 
 
@@ -200,8 +201,28 @@ def detect_text():
         print(f"User selected text: '{original_text}' - \n")
         print(f"URL IS  '{url}'- \n")
 
-        text = original_text.strip()
-        if not text or len(text) < 5:
+        if len(original_text) > 1000:  # Adjust threshold as needed
+            return jsonify({"error": "Text is too large to analyze. Please provide shorter text (maximum 2 paragraphs)."}), 400
+        
+        # Translate to English if needed
+        try:
+            translation_result = translate_to_english(original_text)
+            text_for_analysis = translation_result['translated_text']
+            detected_language = translation_result['detected_language']
+            was_translated = translation_result['was_translated']
+    
+            if was_translated:
+                log_queue.put({
+            "type": "info", 
+            "message": f"Detected {detected_language}, translated to English for analysis"
+        })
+        except Exception as e:
+            print(f"Translation error: {e}")
+            return jsonify({"error": "Failed to translate text. Please try again."}), 500
+        originalText = original_text.strip()
+        text = text_for_analysis.strip()
+        print(f'Translated text ' , text)
+        if not text or len(text) < 5: 
             return jsonify({"error": "Text too short or missing"}), 400
 
         article_id = generate_id(url, text)
@@ -234,7 +255,7 @@ def detect_text():
 
         print("Exact miss; trying Firestore semantic search...")
         log_queue.put({"type": "info", "message": "Running semantic search..."})
-        firestore_semantic = firestore_semantic_search(original_text)
+        firestore_semantic = firestore_semantic_search(text)
 
         if firestore_semantic:
             log_queue.put({"type": "success", "message": "Similar article found!"})
@@ -248,7 +269,7 @@ def detect_text():
             if firestore_semantic['similarity'] < 0.95:
                 from misinfo_model import ask_gemini_structured
                 personalization_prompt = f"""
-                Original: "{original_text}"
+                Original: "{text}"
                 Similar cached: "{best.get('text', '')}", score={best.get('text_score', 0.5)}, pred={prediction}, exp="{explanation}"
                 Personalize JSON: {{"score":<0-1>, "prediction":"Fake"/"Real", "explanation":"<reasoning>"}}
                 """
@@ -257,7 +278,7 @@ def detect_text():
                     if isinstance(gemini_resp, dict) and 'parsed' in gemini_resp:
                         pers = gemini_resp['parsed']
                         explanation = pers.get("explanation", explanation)
-                        embedding = generate_embedding(original_text)
+                        embedding = generate_embedding(text)
                         db.collection('articles').document(article_id).set({
                             "url": url, "text": original_text, "normalized_id": norm_id, "embedding": embedding,
                             "text_score": pers.get("score", best.get("text_score", 0.5)),
@@ -282,7 +303,7 @@ def detect_text():
             })
 
         print("No semantic Firestore hit; querying Pinecone for semantic similar verified fakes...")
-        semantic_result = search_feedback_semantic(original_text, article_id=article_id, verified_only=False)
+        semantic_result = search_feedback_semantic(text, article_id=article_id, verified_only=False)
         if semantic_result.get("source") == "cache":
             cached_doc_id = semantic_result.get("article_id")
             return jsonify({
@@ -302,7 +323,7 @@ def detect_text():
         print(f"No semantic cache hit for text: '{text}' - Running new analysis pipeline")
         log_queue.put({"type": "info", "message": "Analyzing with AI models..."})
         log_queue.put({"type": "phase", "message": "Phase 1: Fact checking"})
-        model_result = detect_fake_text(original_text , log_queue)
+        model_result = detect_fake_text(text , log_queue)
         log_queue.put({"type": "success", "message": "Analysis complete!"})
         log_queue.put("DONE")
         text_score = model_result.get("summary", {}).get("score", 0.5) / 100
@@ -310,7 +331,7 @@ def detect_text():
         explanation = model_result.get("summary", {}).get("explanation", "Analysis complete.")
 
         verified = True
-        embedding = generate_embedding(original_text)
+        embedding = generate_embedding(text)
         total_reports = 1 if text_score < 0.5 else 0
         doc_data = {
             "url": url,

@@ -22,3 +22,4 @@ asyncio
 aiohttp
 requests
 Flask-Limiter
+google-cloud-translate
