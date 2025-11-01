@@ -6,7 +6,8 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "declarativeContent"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -21,7 +22,21 @@
   
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "exclude_matches": [
+        "*://google.com/*",
+        "*://www.google.com/*",
+        "*://*.google.com/*",
+        "*://*.google.co.in/*",
+        "*://*.google.co.uk/*",
+        "*://*.bing.com/*",
+        "*://*.duckduckgo.com/*",
+        "*://*.search.brave.com/*",
+        "*://*.yahoo.com/*"
+      ],
       "js": ["content.js", "libs/Readability.js"],
       "run_at": "document_idle",
       "all_frames": false

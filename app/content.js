@@ -47,21 +47,18 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
     cancelSession();
   });
 
-  // Listen for messages from background script
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!message?.type) return;
 
     if (message.type === "IMAGE_ANALYSIS_RESULT") {
       const result = message.payload;
       console.log("📊 Received image analysis result:", result);
-      
-      // Only process if session ID matches
+
       if (result.session_id !== sessionId) {
         console.log("Ignoring result from different session");
         return;
       }
 
-      // Clean up loading states for matching image
       const targetImage = document.querySelector(`img[data-analyzing-session="${result.session_id}"]`);
       if (targetImage) {
         const overlay = targetImage.closest('.trustmeter-overlay');
@@ -76,20 +73,17 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
             <span>Check</span>
           `;
         }
-        
-        // Remove associated analyzing overlay
+
         const analyzingOverlay = document.querySelector(`.analyzing-overlay[data-session="${result.session_id}"]`);
         if (analyzingOverlay) {
           analyzingOverlay.remove();
         }
-        
-        // Clear the analyzing session marker
+
         targetImage.removeAttribute('data-analyzing-session');
       }
 
-      // Update all scores
       const updateScores = () => {
-        // Calculate average score from all analyzed images
+
         const allResults = document.querySelectorAll('#image-results > div[id^="result-"]');
         let totalScore = 0;
         let count = 0;
@@ -102,14 +96,12 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
           }
         });
 
-        // Update main badge with average score
         const badge = document.getElementById("trustmeter-badge");
         if (badge) {
           const averageScore = count > 0 ? Math.round(totalScore / count) : result.score;
           badge.textContent = `Trust Score: ${averageScore}%`;
         }
 
-        // Update image score in sub-scores section
         const imageScoreElement = document.querySelector('#sub-scores div:nth-child(2) div:last-child');
         if (imageScoreElement) {
           const averageScore = count > 0 ? Math.round(totalScore / count) : result.score;
@@ -117,26 +109,20 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
         }
       };
 
-      // Add result to the image-results container
       const imageResultsArea = document.getElementById("image-results");
       if (imageResultsArea) {
-        // Clear the "No images analyzed" text before adding results
         if (imageResultsArea.textContent === "No images analyzed.") {
           imageResultsArea.innerHTML = "";
         }
-        // Create result card
             if (message.type === "IMAGE_ANALYSIS_RESULT") {
               const result = message.payload;
               console.log("📊 Received image analysis result:", result);
-              // Only process if session ID matches
               if (result.session_id !== sessionId) {
                 console.log("Ignoring result from different session");
                 return;
               }
-              // Clean up loading states for matching image
               const targetImage = document.querySelector(`img[data-analyzing-session="${result.session_id}"]`);
               if (targetImage) {
-                // Remove both overlay types for robustness
                 const overlaySibling = targetImage.nextElementSibling;
                 if (overlaySibling && overlaySibling.classList.contains('analyzing-overlay')) {
                   overlaySibling.remove();
@@ -153,15 +139,12 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
                     <span>Check</span>
                   `;
                 }
-                // Remove associated analyzing overlay by session
                 const analyzingOverlay = document.querySelector(`.analyzing-overlay[data-session="${result.session_id}"]`);
                 if (analyzingOverlay) {
                   analyzingOverlay.remove();
                 }
-                // Clear the analyzing session marker
                 targetImage.removeAttribute('data-analyzing-session');
               }
-              // Update all scores
               const allResults = document.querySelectorAll('#image-results > div[id^="result-"]');
               let totalScore = 0;
               let count = 0;
@@ -172,32 +155,24 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
                   count++;
                 }
               });
-              // Update main badge with average score
+
               const badge = document.getElementById("trustmeter-badge");
               if (badge) {
                 const averageScore = count > 0 ? Math.round(totalScore / count) : result.score;
                 badge.textContent = `Trust Score: ${averageScore}%`;
               }
-              // Update image score in sub-scores section (target the score span)
               const imageScoreSpan = document.querySelector('#sub-scores div:nth-child(2) div:last-child');
               if (imageScoreSpan && imageScoreSpan.tagName === 'DIV') {
-                // If the last child is a div, look for the span inside it
                 const scoreSpan = imageScoreSpan.querySelector('span');
                 if (scoreSpan) {
                   const averageScore = count > 0 ? Math.round(totalScore / count) : result.score;
                   scoreSpan.textContent = `${averageScore}%`;
                 }
               } else if (imageScoreSpan) {
-                // If it's a span directly
                 const averageScore = count > 0 ? Math.round(totalScore / count) : result.score;
                 imageScoreSpan.textContent = `${averageScore}%`;
               }
             }
-          // The following HTML fragments were misplaced and are removed to fix syntax errors.
-          // If you need to add HTML to the DOM, use proper assignments like .innerHTML or .appendChild.
-          // container.insertBefore(resultDiv, container.firstChild); // If needed, uncomment and use properly
-        
-        // Calculate and update all scores after adding new result
         const allResults = document.querySelectorAll('#image-results > div[id^="result-"]');
         let totalScore = 0;
         let count = 0;
@@ -210,17 +185,14 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
           }
         });
 
-        // Update badge with average score and clean up loading states
         const badge = document.getElementById("trustmeter-badge");
         if (badge) {
           const averageScore = count > 0 ? Math.round(totalScore / count) : result.score;
           badge.textContent = `Trust Score: ${averageScore}%`;
         }
-        
-        // Clean up all loading states
+
         stopWorking();
 
-        // Update image score in sub-scores section
         const imageScoreElement = document.querySelector('#sub-scores div:nth-child(2) div:last-child');
         if (imageScoreElement) {
           const averageScore = count > 0 ? Math.round(totalScore / count) : result.score;
@@ -233,7 +205,6 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
       const data = message.payload;
       if (data && (data.score || data.initial_analysis?.score)) {
         const score = data.score || data.initial_analysis?.score || 0;
-        // Update text score in sub-scores section (target the score span)
         const textScoreDiv = document.querySelector('#sub-scores div:nth-child(1) div:last-child');
         if (textScoreDiv && textScoreDiv.tagName === 'DIV') {
           const scoreSpan = textScoreDiv.querySelector('span');
@@ -246,7 +217,6 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
           textScoreDiv.textContent = `${score}%`;
         }
 
-        // Update the visible text analysis score (replace only the score, not the label)
         const textResultSpan = document.getElementById('text-result');
         if (textResultSpan) {
           textResultSpan.textContent = `Text Analysis Score: ${score}%`;
@@ -274,7 +244,6 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
         container.insertBefore(errorDiv, container.firstChild);
       }
 
-      // Reset badge
       const badge = document.getElementById("trustmeter-badge");
       if (badge) badge.textContent = "Trust Score: —";
     }
@@ -305,7 +274,6 @@ Object.assign(spinner.style, {
   verticalAlign: "middle",
 });
 
-// Add keyframe animation
 if (!document.getElementById('trustmeter-keyframes')) {
   const style = document.createElement('style');
   style.id = 'trustmeter-keyframes';
@@ -328,7 +296,7 @@ if (!document.getElementById('trustmeter-keyframes')) {
 // ---------------------------
 // LISTEN FOR IMAGE OVERLAY CLICKS
 // ---------------------------
-// Add keyframe animations for the overlay button and loading state
+
 const overlayStyles = document.createElement('style');
 overlayStyles.textContent = `
   @keyframes pulseOverlay {
@@ -382,22 +350,18 @@ window.addEventListener('analyze-image', (event) => {
   const imageUrl = event.detail.url;
   console.log("🖼️ Image overlay clicked:", imageUrl);
   
-  // Get the image element and its overlay
   const img = event.detail.imageElement;
   const overlay = event.detail.overlay;
   const session_id = event.detail.session_id || sessionId;
-  
-  // Mark this image as being analyzed with this session
+
   if (img) {
     img.setAttribute('data-analyzing-session', session_id);
   }
-  
-  // Add analyzing class to the check button overlay
+
   if (overlay) {
     overlay.classList.add('analyzing');
-    overlay.style.pointerEvents = 'none'; // Prevent multiple clicks
-    
-    // Update overlay text to show loading
+    overlay.style.pointerEvents = 'none'; 
+
     overlay.innerHTML = `
       <div class="trustmeter-spinner" style="
         border: 2px solid rgba(255, 255, 255, 0.2);
@@ -411,16 +375,14 @@ window.addEventListener('analyze-image', (event) => {
       Analyzing...
     `;
   }
-  
-  // Add analyzing overlay to the image
+
   const analyzingOverlay = document.createElement('div');
   analyzingOverlay.className = 'analyzing-overlay';
   analyzingOverlay.setAttribute('data-session', session_id);
   if (img && img.parentElement) {
     img.parentElement.appendChild(analyzingOverlay);
   }
-  
-  // Show loading state in badge and panel
+
   const badge = document.getElementById("trustmeter-badge");
   if (badge) {
     badge.innerHTML = `
@@ -439,16 +401,12 @@ window.addEventListener('analyze-image', (event) => {
     `;
   }
   
-  showPanel();
-  
   const container = document.getElementById("image-results");
   if (!container) return;
 
-  // Clear previous results for this image
   const existingResult = document.getElementById(`result-${btoa(imageUrl).slice(0, 10)}`);
   if (existingResult) existingResult.remove();
   
-  // Add loading indicator to results container
   const loadingDiv = document.createElement("div");
   loadingDiv.id = `loading-${btoa(imageUrl).slice(0, 10)}`;
   loadingDiv.style.cssText = `
@@ -473,8 +431,7 @@ window.addEventListener('analyze-image', (event) => {
     <span style="color: #667eea; font-size: 13px;">Analyzing image...</span>
   `;
   container.insertBefore(loadingDiv, container.firstChild);
-  
-  // Send message to background from content script (has tab context)
+
   chrome.runtime.sendMessage(
     { 
       type: "ANALYZE_IMAGE", 
@@ -485,8 +442,7 @@ window.addEventListener('analyze-image', (event) => {
     },
     (response) => {
       console.log("Image analysis response:", response);
-      
-      // Remove loading indicator
+
       const loadingElement = document.getElementById(`loading-${btoa(imageUrl).slice(0, 10)}`);
       if (loadingElement) loadingElement.remove();
       
@@ -505,23 +461,19 @@ window.addEventListener('analyze-image', (event) => {
         `;
         errorDiv.innerHTML = `❌ Failed to analyze image: ${response.error}`;
         container.appendChild(errorDiv);
-        
-        // Reset badge and all loading states
+
         if (badge) badge.textContent = "Trust Score: —";
-        
-        // Clean up loading states
+
         stopWorking();
         return;
       }
 
       if (response && response.results && response.results.length > 0) {
-        const result = response.results[0]; // Get first result
-        
-        // Update score in badge
+        const result = response.results[0]; 
+
         const scoreText = document.querySelector("#trustmeter-badge");
         if (scoreText) scoreText.textContent = `Trust Score: ${result.score}%`;
 
-        // Create result card
         const resultDiv = document.createElement("div");
         resultDiv.id = `result-${btoa(imageUrl).slice(0, 10)}`;
         resultDiv.style.cssText = `
@@ -532,7 +484,6 @@ window.addEventListener('analyze-image', (event) => {
           margin-bottom: 10px;
         `;
 
-        // Determine verdict icon and color
         let verdictIcon = '🤔';
         let verdictColor = '#667eea';
         if (result.score >= 70) {
@@ -574,14 +525,11 @@ function setWorking(msg) {
 }
 
 function stopWorking() {
-  // Remove spinner
   if (spinner.parentElement) spinner.remove();
 
-  // Remove any analyzing overlays
   const analyzingOverlays = document.querySelectorAll('.analyzing-overlay');
   analyzingOverlays.forEach(overlay => overlay.remove());
 
-  // Reset any analyzing states on trustmeter overlays
   const analyzingButtons = document.querySelectorAll('.trustmeter-overlay.analyzing');
   analyzingButtons.forEach(button => {
     button.classList.remove('analyzing');
@@ -595,13 +543,12 @@ function stopWorking() {
     `;
   });
 
-  // Clear analyzing session markers from images
   const analyzingImages = document.querySelectorAll('img[data-analyzing-session]');
   analyzingImages.forEach(img => img.removeAttribute('data-analyzing-session'));
 }
 
 // ---------------------------
-// BADGE (MODERN GLASSMORPHISM)
+// BADGE
 // ---------------------------
 const badge = document.createElement("div");
 badge.id = "trustmeter-badge";
@@ -641,7 +588,7 @@ badge.addEventListener("mouseout", () => {
 document.documentElement.appendChild(badge);
 
 // ---------------------------
-// PANEL (MODERN GLASSMORPHISM)
+// PANEL 
 // ---------------------------
 const panel = document.createElement("div");
 panel.id = "trustmeter-panel";
@@ -675,7 +622,6 @@ Object.assign(panel.style, {
 panel.setAttribute("role", "dialog");
 panel.setAttribute("aria-label", "TrustMeter Analysis Panel");
 
-// Custom scrollbar
 const panelStyle = document.createElement('style');
 panelStyle.textContent = `
   #trustmeter-panel::-webkit-scrollbar {
@@ -792,7 +738,7 @@ header.appendChild(title);
 header.appendChild(closeBtn);
 
 // ---------------------------
-// SCORE ROW (MODERN CARDS)
+// SCORE ROW
 // ---------------------------
 const scoreRow = document.createElement("div");
 Object.assign(scoreRow.style, {
@@ -850,7 +796,6 @@ refreshBtn.onclick = () => {
   analyzeImagesNow();
 };
 scoreRow.appendChild(scoreText);
-// scoreRow.appendChild(refreshBtn);
 
 // ---------------------------
 // SECTIONS (MODERN DESIGN)
@@ -903,7 +848,7 @@ Object.assign(imageSection.style, {
 
 const sourcesSection = document.createElement("div");
 // ---------------------------
-// SOURCES SECTION (MODERN SCROLLABLE)
+// SOURCES SECTION 
 // ---------------------------
 sourcesSection.id = "sources-section";
 Object.assign(sourcesSection.style, {
@@ -954,7 +899,6 @@ panel.appendChild(textSection);
 panel.appendChild(sourcesSection);
 panel.appendChild(imageSection);
 
-// Custom scrollbar for sources
 const sourcesScrollStyle = document.createElement('style');
 sourcesScrollStyle.textContent = `
   #sources-section::-webkit-scrollbar {
@@ -974,7 +918,6 @@ sourcesScrollStyle.textContent = `
 `;
 document.head.appendChild(sourcesScrollStyle);
 
-// Helper function to display sources
 function displaySources(sources) {
   const sourcesContent = document.getElementById("sources-content");
   const sourcesSection = document.getElementById("sources-section");
@@ -984,10 +927,9 @@ function displaySources(sources) {
     return;
   }
 
-  sourcesContent.innerHTML = ""; // Clear existing
+  sourcesContent.innerHTML = ""; 
   sourcesSection.style.display = "block";
 
-  // Display corroboration sources (Google search results)
   if (sources.corroboration && sources.corroboration.length > 0) {
     const corrobSection = document.createElement("div");
     corrobSection.style.marginBottom = "16px";
@@ -1026,14 +968,12 @@ function displaySources(sources) {
         overflow: "hidden"
       });
 
-      // Score indicator color
       const score = source.evidence_score || source.similarity || 0;
       const scorePercent = Math.round(score * 100);
       let scoreColor = "#15803d";
       if (scorePercent < 75) scoreColor = "#ca8a04";
       if (scorePercent < 45) scoreColor = "#b91c1c";
 
-      // Safely derive domain
       let domainLabel = source.domain || "";
       try {
         if (!domainLabel && source.link) domainLabel = new URL(source.link).hostname;
@@ -1171,7 +1111,6 @@ function displaySources(sources) {
     sourcesContent.appendChild(factCheckSection);
   }
 
-  // Add empty state if no sources
   if (sourcesContent.children.length === 0) {
     sourcesContent.innerHTML = `
       <div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 13px;">
@@ -1324,11 +1263,9 @@ function collectVisibleText(maxChars = 20000) {
         if (!value) return NodeFilter.FILTER_REJECT;
         const el = node.parentElement;
         if (!el) return NodeFilter.FILTER_REJECT;
-        // if element matches any remove selectors, reject
         try {
           if (el.closest(removeSelectors.join(","))) return NodeFilter.FILTER_REJECT;
         } catch (e) {
-          // If selector construction fails, continue
         }
         const style = window.getComputedStyle(el);
         if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0" || el.offsetParent === null) {
@@ -1406,12 +1343,8 @@ function analyzeTextNow() {
     return;
   }
 
-  showPanel();
-
-  // run fast initial impression first
   analyzeTextInitial(visibleText);
 
-  // deep analysis continues as usual
   chrome.runtime.sendMessage(
     {
       type: "ANALYZE_TEXT",
@@ -1507,8 +1440,7 @@ chrome.runtime.onMessage.addListener(message => {
         console.log("Received TEXT_ANALYSIS_RESULT:", message.payload);
         const overall = message.payload || {};
         setResult(overall.score || 0, overall.explanation || "No explanation");
-        
-        // Update text analysis score in the top section
+
         const textScoreElement = document.getElementById('text-analysis-score');
         if (textScoreElement) {
           textScoreElement.textContent = `${overall.score || 0}%`;
@@ -1556,13 +1488,11 @@ chrome.runtime.onMessage.addListener(message => {
         session_id: responseSessionId 
       } = message.payload;
 
-      // Update image analysis score in the top section
       const imageScoreElement = document.getElementById('image-analysis-score');
       if (imageScoreElement) {
         imageScoreElement.textContent = `${score || 0}%`;
       }
 
-      // Use image_source if url is not available
       const imageUrl = url || image_source;
 
       if (responseSessionId && responseSessionId !== sessionId) {
@@ -1649,7 +1579,6 @@ chrome.runtime.onMessage.addListener(message => {
         borderAccent.style.opacity = "0";
       });
 
-      // Determine verdict from backend response
       const resultVerdict = (verdict || prediction || "Unknown").toLowerCase();
       
       let color = "#b91c1c";
@@ -1800,7 +1729,7 @@ chrome.runtime.onMessage.addListener(message => {
 // ---------------------------
 // AUTO RUN TEXT ANALYSIS
 // ---------------------------
-setTimeout(analyzeTextNow, 1000);
+setTimeout(analyzeTextNow, 2000);
 
 // ---------------------------
 // BADGE CLICK TOGGLE

@@ -24,9 +24,6 @@ function getSessionForTab(tabId) {
   }
   return tabSessions[tabId];
 }
-
-// Keep popup connection alive
-
 // ---------------------------
 // Helper: Clear Session for Tab
 // ---------------------------
@@ -161,14 +158,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             ...r,
             session_id: sessionId
           }));
-          
-          // Send each result to the tab's content script
+
           resultsWithSession.forEach(res => {
             console.log(`📤 Sending IMAGE_ANALYSIS_RESULT to tab ${tabId}:`, res);
             sendToTab("IMAGE_ANALYSIS_RESULT", res);
           });
-          
-          // sendResponse with count (older UI expectation)
+
           sendResponse({ success: true, count: results.length });
         })
         .catch(err => {
@@ -247,11 +242,9 @@ async function analyzeText(tabId, payload, sessionId) {
   const { text, url } = payload || {};
   if (!text?.trim()) throw new Error("No text provided.");
 
-  // Ensure objects exist
   textLocksPerTab[tabId] = textLocksPerTab[tabId] || false;
   lastTextPerTab[tabId] = lastTextPerTab[tabId] || "";
 
-  // **Older UI/flow behavior**: block new requests while lock is active and return a lock-response object
   if (textLocksPerTab[tabId]) {
     console.warn(`[Tab ${tabId}] Blocked new text request: analysis already in progress.`);
     return {
@@ -290,7 +283,6 @@ async function analyzeText(tabId, payload, sessionId) {
     }
   };
 
-  // Store the promise so duplicate requests reuse it
   ongoingTextPromises[tabId] = (async () => {
     try {
       const data = await fetchOnce(`${BACKEND_BASE}/detect_text`, {

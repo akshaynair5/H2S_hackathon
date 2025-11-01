@@ -588,6 +588,58 @@ Text: {claim}
         print(f"❌ Reformulation exception: {e}")
         return []
 
+def store_in_firestore(text, overall_conf, overall_label, combined_explanation):
+    """
+    Stores evaluated article into Firestore with the SAME schema as your original system.
+    """
+    try:
+        embedding = [float(x) for x in get_embedding(text).tolist()]
+
+        if db:
+            doc_id = hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+            db.collection("articles").document(doc_id).set({
+                "text": text,
+                "embedding": embedding,
+                "verified": True,
+                "prediction": overall_label,
+                "text_score": overall_conf / 100,
+                "gemini_reasoning": combined_explanation,
+                "text_explanation": combined_explanation,
+                "last_updated": datetime.utcnow(),
+                "type": "text"
+            }, merge=True)
+
+            print("[Firestore] ✅ Stored successfully")
+            return True
+
+    except Exception as e:
+        print(f"[Firestore Storage Error] ❌ {e}")
+
+    return False
+
+def store_in_pinecone(text, overall_conf, overall_label, combined_explanation):
+    """
+    Stores text + metadata into Pinecone using store_feedback()
+    """
+    try:
+        store_feedback(
+            text=text,
+            explanation=combined_explanation,
+            sources=[],                 
+            user_fingerprint="system",
+            score=overall_conf / 100,    
+            prediction=overall_label,
+            verified=True,
+        )
+
+        print("[Pinecone] ✅ Stored successfully")
+        return True
+
+    except Exception as e:
+        print(f"[Pinecone Store Error] ❌ {e}")
+
+    return False
 
 async def summarize_claim(claim: str) -> str:
     """Summarize claim into Google query with fallback."""
@@ -899,6 +951,23 @@ def quick_initial_assessment(text: str) -> dict:
             "error": str(e)
         }
 
+async def run_parallel_storage(text, score, label, explanation):
+        loop = asyncio.get_running_loop()
+
+        firestore = loop.run_in_executor(
+            None,
+            lambda text=text, score=score, label=label, explanation=explanation:
+                store_in_firestore(text, score, label, explanation)
+        )
+
+        pinecone = loop.run_in_executor(
+            None,
+            lambda text=text, score=score, label=label, explanation=explanation:
+                store_in_pinecone(text, score, label, explanation)
+        )
+
+        return await asyncio.gather(firestore, pinecone)
+
 def detect_fake_text(text: str) -> dict:
     start_total = time.time()
     text = re.sub(r"(?<=[a-zA-Z])\.(?=[A-Z])", ". ", text)
@@ -906,177 +975,132 @@ def detect_fake_text(text: str) -> dict:
     async def run_parallel_phase1():
         """Run Fact Check + Metadata Extraction concurrently"""
         loop = asyncio.get_running_loop()
-        fact_check_task = loop.run_in_executor(None, query_google_fact_check_api, text)
-        metadata_task = loop.run_in_executor(None, extract_metadata_with_gemini, text)
-        fact_check_results, metadata = await asyncio.gather(fact_check_task, metadata_task)
-        return fact_check_results, metadata
+        fact_check = loop.run_in_executor(None, query_google_fact_check_api, text)
+        metadata = loop.run_in_executor(None, extract_metadata_with_gemini, text)
+        return await asyncio.gather(fact_check, metadata)
 
     async def run_parallel_phase2(metadata):
-        """Run Vertex AI + Corroboration concurrently"""
+        """Run Vertex AI + GOOGLE corroboration using ONE search instead of per-claim search"""
         claims = simple_sentence_split(metadata["text"])
+        combined_query = " OR ".join(claims[:3])
+
         loop = asyncio.get_running_loop()
-        vertex_task = loop.run_in_executor(None, lambda: extract_vertex_scores(predict_with_vertex_ai(metadata)))
-        corroboration_task = corroborate_all_with_google_async(claims)
+        vertex_task = loop.run_in_executor(
+            None, lambda: extract_vertex_scores(predict_with_vertex_ai(metadata))
+        )
+        corroboration_task = corroborate_all_with_google_async([combined_query])
+
         vertex_scores, corroboration_data = await asyncio.gather(vertex_task, corroboration_task)
         return vertex_scores, corroboration_data, claims
 
     async def run_parallel_claim_checks(claims, corroboration_data, fact_check_results, metadata, vertex_scores):
-        """Run Gemini claim checks concurrently (in threads for I/O + CPU balance)"""
+        """Runs Gemini structured decision only if needed"""
         loop = asyncio.get_running_loop()
 
         async def process_claim_async(claim):
-            return await loop.run_in_executor(
-                None,
-                lambda: process_claim_sync(claim, corroboration_data, fact_check_results, metadata, vertex_scores)
+            parsed = {}
+
+            if corroboration_data["status"] == "no_results" and fact_check_results["status"] == "no_fact_checks":
+                gem_pred, gem_conf = "Unknown", 60
+                evidence_count = 0
+            else:
+                gem_resp = await loop.run_in_executor(
+                    None,
+                    lambda: ask_gemini_structured(
+                        assemble_gemini_prompt_structured(
+                            claim,
+                            corroboration_data["evidences"],
+                            corroboration_data["status"],
+                            fact_check_results,
+                            full_text=metadata["text"]
+                        )
+                    )
+                )
+                parsed = gem_resp.get("parsed", {}) or {}
+                gem_pred = parsed.get("prediction", "Unknown")
+                gem_conf = int(parsed.get("confidence", 70))
+
+                evidence_count = len([
+                    e for e in corroboration_data.get("evidences", [])
+                    if e.get("evidence_score", 0) > 0.6
+                ])
+
+            final_pred, final_conf = adjusted_ensemble(
+                gem_pred, gem_conf, vertex_scores,
+                fact_check_results.get("status", "no_fact_checks"),
+                corroboration_data.get("status", "no_results"),
+                evidence_count
             )
 
-        tasks = [process_claim_async(claim) for claim in claims]
-        return await asyncio.gather(*tasks)
-
-    def process_claim_sync(claim, corroboration_data, fact_check_results, metadata, vertex_scores):
-        gem_resp = ask_gemini_structured(
-            assemble_gemini_prompt_structured(
-                claim,
-                corroboration_data["evidences"],
-                corroboration_data["status"],
-                fact_check_results,
-                full_text=metadata["text"]
+            gem_expl = parsed.get("explanation") if isinstance(parsed, dict) else None
+            explanation = (
+                gem_expl.strip()
+                if gem_expl and isinstance(gem_expl, str) and gem_expl.strip()
+                else f"{final_pred}: {final_conf}% — {evidence_count} evidence(s), fact-checks: {fact_check_results.get('status')}"
             )
-        )
-        parsed = gem_resp.get("parsed", {})
-        gem_pred = parsed.get("prediction", "Unknown")
-        gem_conf = int(parsed.get("confidence", 70))
-        explanation = parsed.get("explanation", "Based on available evidence.")
 
-        evidence_count = len([
-            e for e in corroboration_data.get("evidences", [])
-            if e.get("evidence_score", 0) > 0.6 
-        ])
- 
-        final_pred, final_conf = adjusted_ensemble(
-            gem_pred, 
-            gem_conf, 
-            vertex_scores, 
-            fact_check_results.get("status", "no_fact_checks"),
-            corroboration_data.get("status", "no_results"),
-            evidence_count 
-        )
-        
-        return {
-            "claim_text": claim,
-            "gemini": parsed,
-            "vertex_ai": vertex_scores,
-            "fact_check": fact_check_results,
-            "corroboration": corroboration_data,
-            "ensemble": {
-                "final_prediction": final_pred,
-                "final_confidence": final_conf,
-                "combined_score": round(final_conf / 100, 3)
-            },
-            "explanation": explanation,
-            "evidence": corroboration_data["evidences"],
-            "evidence_count": evidence_count 
-        }, final_conf, final_pred, explanation
+            result_obj = {
+                "claim_text": claim,
+                "gemini": {"prediction": gem_pred, "confidence": gem_conf},
+                "vertex_ai": vertex_scores,
+                "fact_check": fact_check_results,
+                "corroboration": corroboration_data,
+                "ensemble": {
+                    "final_prediction": final_pred,
+                    "final_confidence": final_conf,
+                    "combined_score": round(final_conf / 100, 3),
+                },
+                "explanation": explanation,
+                "evidence": corroboration_data.get("evidences", []),
+                "evidence_count": evidence_count,
+            }
 
-    async def run_parallel_storage(text, overall_conf, overall_label, combined_explanation):
-        """Run Firestore + Pinecone storage in parallel"""
-        loop = asyncio.get_running_loop()
-        firestore_task = loop.run_in_executor(None, lambda: store_in_firestore(text, overall_conf, overall_label, combined_explanation))
-        pinecone_task = loop.run_in_executor(None, lambda: store_in_pinecone(text, overall_conf, overall_label, combined_explanation))
-        firestore_success, pinecone_success = await asyncio.gather(firestore_task, pinecone_task)
-        return firestore_success, pinecone_success
+            return result_obj, final_conf, final_pred, explanation
 
-    # --- define storage helpers (same logic, just isolated for async calls) ---
-    def store_in_firestore(text, overall_conf, overall_label, combined_explanation):
-        try:
-            embedding = [float(x) for x in get_embedding(text).tolist()]
-            if db:
-                doc_id = hashlib.sha256(text.encode("utf-8")).hexdigest()
-                db.collection("articles").document(doc_id).set({
-                    "text": text,
-                    "embedding": embedding,
-                    "verified": True,
-                    "text_score": overall_conf / 100,
-                    "prediction": overall_label,
-                    "gemini_reasoning": combined_explanation,
-                    "text_explanation": combined_explanation,
-                    "last_updated": datetime.utcnow(),
-                    "type": "text"
-                }, merge=True)
-                return True
-        except Exception as e:
-            print(f"[Firestore Embedding Storage Failed] {e}")
-        return False
+        return await asyncio.gather(*[process_claim_async(c) for c in claims])
 
-    def store_in_pinecone(text, overall_conf, overall_label, combined_explanation):
-        try:
-            store_feedback(
-                text=text,
-                explanation=combined_explanation,
-                sources=[],
-                user_fingerprint="system",
-                score=overall_conf / 100,
-                prediction=overall_label,
-                verified=True
-            )
-            return True
-        except Exception as e:
-            print(f"[Pinecone Cache Store Failed] {e}")
-        return False
-
-    # ===========================
-    # MAIN ASYNC EXECUTION LOGIC
-    # ===========================
-    async def main_pipeline():
-        print("[Phase 1] Starting parallel: Fact Check + Metadata Extraction...")
+    async def main():
+        # ✅ PHASE 1 — Fact check + metadata
         fact_check_results, metadata = await run_parallel_phase1()
-        print(f"[Phase 1] Done in {time.time() - start_total:.2f}s")
 
-        print("[Phase 2] Starting parallel: Vertex AI + Corroboration...")
+        # ✅ PHASE 2 — Vertex + Google corroboration
         vertex_scores, corroboration_data, claims = await run_parallel_phase2(metadata)
-        print(f"[Phase 2] Done in {time.time() - start_total:.2f}s")
 
-        print(f"[Phase 3] Processing {len(claims)} claims concurrently...")
-        results_raw = await run_parallel_claim_checks(claims, corroboration_data, fact_check_results, metadata, vertex_scores)
-        print(f"[Phase 3] Done in {time.time() - start_total:.2f}s")
+        # ✅ PHASE 3 — Claim-level analysis
+        results_raw = await run_parallel_claim_checks(
+            claims, corroboration_data, fact_check_results, metadata, vertex_scores
+        )
 
-        results, overall_scores, preds, explanations = [], [], [], []
-        for res, conf, pred, exp in results_raw:
+        results, confs, preds, exps = [], [], [], []
+        for res, conf, pred, explanation in results_raw:
             results.append(res)
-            overall_scores.append(conf)
+            confs.append(conf)
             preds.append(pred)
-            explanations.append(exp)
+            exps.append(explanation)
 
-        # === Phase 4 (no change) ===
-        overall_conf = int(sum(overall_scores) / len(overall_scores)) if overall_scores else 0
+        # ✅ PHASE 4 — Combine outputs
+        overall_conf = int(sum(confs) / max(1, len(confs)))
         overall_label = max(set(preds), key=preds.count) if preds else "Unknown"
-        combined_explanation = " | ".join(explanations[:3]) if explanations else "No detailed explanation available."
+        combined_explanation = " | ".join(exps[:3])
 
-        source_domain = domain_from_url(metadata.get("source", ""))
-        domain_bonus = get_domain_bonus(source_domain)
-        if domain_bonus > 0:
-            bonus_points = int(overall_conf * domain_bonus)
-            overall_conf = min(100, overall_conf + bonus_points)
-            combined_explanation += f" | Small credibility bonus applied due to trusted source ({source_domain})"
+        # Domain credibility bonus
+        domain = domain_from_url(metadata.get("source", ""))
+        overall_conf = min(100, overall_conf + int(overall_conf * get_domain_bonus(domain)))
 
-        result_summary = {
+        result = {
             "score": overall_conf,
             "prediction": overall_label,
             "explanation": combined_explanation,
         }
 
-        # === Phase 5 (parallel storage) ===
-        print("[Phase 5] Starting parallel storage: Firestore + Pinecone...")
-        firestore_success, pinecone_success = await run_parallel_storage(text, overall_conf, overall_label, combined_explanation)
-
-        total_time = round(time.time() - start_total, 2)
-        print(f"[COMPLETE] Total runtime: {total_time}s (Firestore: {firestore_success}, Pinecone: {pinecone_success})")
+        # ✅ PHASE 5 — Parallel write (Pinecone + Firestore)
+        await run_parallel_storage(text, overall_conf, overall_label, combined_explanation)
 
         return {
-            "summary": result_summary,
-            "runtime": total_time,
+            "summary": result,
+            "runtime": round(time.time() - start_total, 2),
             "claims_checked": len(results),
             "raw_details": results
         }
 
-    return asyncio.run(main_pipeline())
+    return asyncio.run(main())

@@ -28,7 +28,38 @@ const facts = [
 // ==========================================
 // INITIALIZATION
 // ==========================================
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  const blockDomains = ["google.", "bing.", "duckduckgo.", "yahoo.", "search.brave.com"];
+
+  let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const currentUrl = tab?.url || "";
+
+  const isBlocked = blockDomains.some(domain => currentUrl.includes(domain));
+
+  if (isBlocked) {
+    console.log("TrustMeter disabled on search engine results.");
+
+    const checkText = document.getElementById("checkText");
+    const analyzeImages = document.getElementById("clickToCheck");
+
+    checkText.disabled = true;
+    analyzeImages.disabled = true;
+
+    checkText.style.opacity = 0.4;
+    analyzeImages.style.opacity = 0.4;
+
+    const results = document.getElementById("results");
+    results.classList.remove("hidden");
+    results.innerHTML = `
+      <div class="feedback-message error">
+        TrustMeter is disabled on search result pages.<br/>
+        Open an article or website to use it.
+      </div>
+    `;
+
+    return;
+  }
+
   initializeTrustMeterUI();
 });
 
@@ -38,7 +69,6 @@ function initializeTrustMeterUI() {
 
   if (checkTextBtn) checkTextBtn.addEventListener("click", handleTextCheck);
 
-  // restore behavior: inject overlays + send to background
   if (clickToCheckBtn)
     clickToCheckBtn.addEventListener("click", async () => {
       await injectImageOverlays();
@@ -51,6 +81,70 @@ function initializeTrustMeterUI() {
 // ==========================================
 // ROTATING FACTS DISPLAY
 // ==========================================
+
+function startLogStream(sessionId) {
+  stopLogStream(); // Clean up any existing stream
+  
+  analysisStartTime = Date.now();
+  
+  const logDisplay = $("factDisplay");
+  if (!logDisplay) return;
+  
+  eventSource = new EventSource(`http://127.0.0.1:5000/stream_logs/${sessionId}`);
+  
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      
+      if (data.type === "done") {
+        stopLogStream();
+        return;
+      }
+      
+      if (data.type === "heartbeat") return;
+      
+      // Update log display with icon based on type
+      const icons = {
+        info: "🔍",
+        success: "✅",
+        warn: "⚠️",
+        error: "❌",
+        phase: "▶️"
+      };
+      
+      const icon = icons[data.type] || "•";
+      logDisplay.textContent = `${icon} ${data.message}`;
+      
+      // Add subtle animation
+      logDisplay.style.opacity = "0.7";
+      setTimeout(() => {
+        logDisplay.style.opacity = "1";
+      }, 100);
+      
+    } catch (e) {
+      console.error("Log stream parse error:", e);
+    }
+  };
+  
+  eventSource.onerror = (err) => {
+    console.warn("Log stream disconnected " , err);
+    stopLogStream();
+
+    if (analysisStartTime) {
+    const partialMsg = "Analysis may have completed partially—check results.";
+    const factDisplay = $("factDisplay");
+    if (factDisplay) factDisplay.textContent = partialMsg;
+  }
+  };
+}
+
+function stopLogStream() {
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
+  }
+}
+
 function startFactsRotation() {
   const factDisplay = $("factDisplay");
   if (!factDisplay) return;
@@ -114,9 +208,47 @@ function calculateConfidenceScore(result) {
 // ==========================================
 // DISPLAY RESULT
 // ==========================================
+function switchTab(tabId) {
+
+  document.querySelectorAll(".tab-content").forEach(c => c.classList.add("hidden"));
+
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+
+  document.getElementById(tabId)?.classList.remove("hidden");
+
+  if (tabId === "results") {
+    document.getElementById("tabResults").classList.add("active");
+  } else if (tabId === "historyContainer") {
+    document.getElementById("tabHistory").classList.add("active");
+  }
+}
+
+switchTab("results");
+
+function updateResultsEmptyState() {
+  const hasResults = document.querySelector("#results .result-card") !== null;
+  document.getElementById("resultsEmptyState").style.display = hasResults ? "none" : "flex";
+}
+
+function updateHistoryEmptyState() {
+  const history = JSON.parse(localStorage.getItem("analysisHistory") || "[]");
+  document.getElementById("historyEmptyState").style.display = history.length > 0 ? "none" : "flex";
+}
+
+document.getElementById("tabResults").onclick = () => switchTab("results");
+document.getElementById("tabHistory").onclick = () => switchTab("historyContainer");
+
+const originalDisplayResult = displayResult;
+displayResult = function(result) {
+  switchTab("results");
+  originalDisplayResult(result);
+};
+
 function displayResult(result) {
   hideLoading();
   showResults();
+  updateResultsEmptyState();
+  updateHistoryEmptyState();
 
   const resultsDiv = $("results");
   if (!resultsDiv) return;
@@ -196,7 +328,7 @@ async function handleTextCheck() {
         }
 
         const textContent = results[0].result.trim();
-
+        const sessionId = crypto.randomUUID();
         chrome.runtime.sendMessage(
           { type: "ANALYZE_TEXT", payload: { text: textContent } },
           response => {
@@ -213,6 +345,8 @@ async function handleTextCheck() {
             });
           }
         );
+
+        // startLogStream(sessionId);
       }
     );
   } catch (error) {
@@ -222,7 +356,7 @@ async function handleTextCheck() {
 }
 
 // ==========================================
-// IMAGE ANALYSIS OVERLAY (restored Option B)
+// IMAGE ANALYSIS OVERLAY 
 // ==========================================
 async function injectImageOverlays() {
   try {
@@ -278,7 +412,6 @@ async function injectImageOverlays() {
             e.stopPropagation();
             e.preventDefault();
 
-            // Dispatch custom event with image details
             const session_id = localStorage.getItem('trustmeter_session_id');
             img.dispatchEvent(new CustomEvent('analyze-image', {
               bubbles: true,
@@ -289,8 +422,7 @@ async function injectImageOverlays() {
                 session_id: session_id
               }
             }));
-            
-            // Close popup after triggering analysis
+
             window.close();
           });
 
@@ -337,7 +469,6 @@ function renderHistory() {
   if (!container) return;
 
   const history = JSON.parse(localStorage.getItem("analysisHistory") || "[]");
-  container.innerHTML = history.length === 0 ? `<p>No recent analyses yet.</p>` : "";
 
   history.forEach(item => {
     const card = document.createElement("div");
@@ -353,7 +484,7 @@ function renderHistory() {
         <p><strong>Details:</strong> ${item.explanation}</p>
       </div>
     `;
-
+    updateHistoryEmptyState();
     container.appendChild(card);
   });
 }

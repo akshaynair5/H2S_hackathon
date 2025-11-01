@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session, make_response
+from flask import Flask, request, jsonify, session, Response, stream_with_context
 from misinfo_model import detect_fake_text
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -6,16 +6,16 @@ from flask_limiter.util import get_remote_address
 from vectorDb import search_feedback_semantic, store_feedback, cleanup_expired
 from database import generate_id, generate_normalized_id, generate_embedding, get_article_doc, firestore_semantic_search, db
 from FakeImageDetection import detect_fake_image
-from firebase_admin import credentials, firestore
+from firebase_admin import firestore
 from tasks import cancel_session_tasks, get_session_tasks 
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
 from dotenv import load_dotenv
 import numpy as np
 import uuid
-
-
-
+import queue
+import json
+import threading
 
 load_dotenv()
 
@@ -80,10 +80,59 @@ def get_session_id():
         str(uuid.uuid4()) 
     )
 
+# --------------------------
+# Log info 
+# ---------------------------
+
+log_queues = {}
+log_queues_lock = threading.Lock()
+
+def get_log_queue(session_id):
+    """Get or create a log queue for a session"""
+    with log_queues_lock:
+        if session_id not in log_queues:
+            log_queues[session_id] = queue.Queue(maxsize=100)
+        return log_queues[session_id]
+
+def cleanup_log_queue(session_id):
+    """Remove log queue for session"""
+    with log_queues_lock:
+        log_queues.pop(session_id, None)
+
+@app.route("/stream_logs/<session_id>", methods=["GET"])
+@limiter.exempt
+def stream_logs(session_id):
+    """Stream logs to frontend via Server-Sent Events"""
+    def generate():
+        log_queue = get_log_queue(session_id)
+        try:
+            while True:
+                try:
+                    msg = log_queue.get(timeout=30)
+                    if msg == "DONE":
+                        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                        break
+                    yield f"data: {json.dumps(msg)}\n\n"
+                except queue.Empty:
+                    yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+        except GeneratorExit:
+            pass
+        finally:
+            cleanup_log_queue(session_id)
+    
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 # ---------------------------
 # IMAGE DETECTION 
 # ---------------------------
+
 @app.route("/detect_image", methods=["POST"])
 @limiter.limit("60 per minute") 
 def detect_image():
