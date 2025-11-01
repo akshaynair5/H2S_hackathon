@@ -105,48 +105,90 @@
       background: linear-gradient(135deg, rgba(77, 166, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
       border-radius: 20px;
       margin-bottom: 3rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(77, 166, 255, 0.1) 0%, transparent 70%);
+      animation: pulse 8s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      50% { transform: scale(1.1) rotate(180deg); }
     }
 
     .hero h1 {
-      font-size: clamp(2rem, 6vw, 3.5rem);
+      font-size: clamp(2.5rem, 7vw, 4rem);
       margin-bottom: 1rem;
       background: linear-gradient(135deg, #4da6ff 0%, #66d9ff 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      position: relative;
+      z-index: 1;
     }
 
     .hero p {
-      font-size: clamp(1rem, 3vw, 1.3rem);
+      font-size: clamp(1.1rem, 3vw, 1.4rem);
       color: #bbb;
       max-width: 800px;
       margin: 0 auto 2rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero .tagline {
+      color: #4da6ff;
+      font-weight: 600;
+      font-size: 1.2rem;
+      margin-bottom: 2rem;
     }
 
     .cta-button {
       display: inline-block;
-      padding: 1rem 2.5rem;
+      padding: 1.2rem 3rem;
       background: linear-gradient(135deg, #4da6ff 0%, #3385cc 100%);
       color: white;
       border: none;
       border-radius: 50px;
-      font-size: 1.1rem;
+      font-size: 1.2rem;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.3s ease;
       text-decoration: none;
-      box-shadow: 0 4px 15px rgba(77, 166, 255, 0.3);
+      box-shadow: 0 6px 20px rgba(77, 166, 255, 0.4);
+      position: relative;
+      z-index: 1;
     }
 
     .cta-button:hover {
       transform: translateY(-3px);
-      box-shadow: 0 6px 25px rgba(77, 166, 255, 0.5);
+      box-shadow: 0 10px 35px rgba(77, 166, 255, 0.6);
+    }
+
+    /* Tech Stack Badge */
+    .tech-badge {
+      display: inline-block;
+      background: rgba(77, 166, 255, 0.2);
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      margin: 0.3rem;
+      font-size: 0.9rem;
+      border: 1px solid rgba(77, 166, 255, 0.4);
     }
 
     /* Video Section */
     .video-showcase {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 2rem;
       margin: 3rem 0;
     }
@@ -159,6 +201,7 @@
       cursor: pointer;
       position: relative;
       overflow: hidden;
+      border: 2px solid transparent;
     }
 
     .video-card::before {
@@ -179,33 +222,35 @@
 
     .video-card:hover {
       background: rgba(255, 255, 255, 0.08);
-      transform: translateY(-5px);
-      box-shadow: 0 10px 30px rgba(77, 166, 255, 0.3);
+      transform: translateY(-8px);
+      box-shadow: 0 15px 40px rgba(77, 166, 255, 0.3);
+      border-color: rgba(77, 166, 255, 0.5);
     }
 
     .video-card video {
       width: 100%;
       border-radius: 12px;
       margin-bottom: 1rem;
-      max-height: 200px;
+      max-height: 220px;
       object-fit: cover;
     }
 
     .video-card h3 {
       color: #4da6ff;
       margin-bottom: 0.5rem;
-      font-size: 1.3rem;
+      font-size: 1.4rem;
     }
 
     .video-card p {
       color: #bbb;
-      font-size: 0.95rem;
+      font-size: 1rem;
+      line-height: 1.6;
     }
 
     /* Feature Grid */
     .feature-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
       gap: 2rem;
       margin: 3rem 0;
     }
@@ -216,28 +261,40 @@
       border-radius: 16px;
       border-left: 4px solid #4da6ff;
       transition: all 0.3s ease;
+      position: relative;
     }
 
     .feature-item:hover {
       background: rgba(255, 255, 255, 0.08);
       transform: translateX(10px);
-      box-shadow: 0 8px 25px rgba(77, 166, 255, 0.2);
+      box-shadow: 0 10px 30px rgba(77, 166, 255, 0.2);
     }
 
     .feature-icon {
-      font-size: 2.5rem;
+      font-size: 3rem;
       margin-bottom: 1rem;
+      display: block;
     }
 
     .feature-item h3 {
       color: #4da6ff;
       margin-bottom: 1rem;
-      font-size: 1.4rem;
+      font-size: 1.5rem;
     }
 
     .feature-item p {
       color: #ccc;
-      line-height: 1.7;
+      line-height: 1.8;
+    }
+
+    .feature-item ul {
+      margin-top: 1rem;
+      padding-left: 1.5rem;
+    }
+
+    .feature-item ul li {
+      color: #bbb;
+      margin: 0.5rem 0;
     }
 
     /* Architecture Diagram */
@@ -267,7 +324,7 @@
     .arch-layer h4 {
       color: #4da6ff;
       margin-bottom: 0.8rem;
-      font-size: 1.2rem;
+      font-size: 1.3rem;
     }
 
     .arch-components {
@@ -279,7 +336,7 @@
 
     .arch-component {
       background: rgba(255, 255, 255, 0.1);
-      padding: 0.5rem 1rem;
+      padding: 0.6rem 1rem;
       border-radius: 8px;
       font-size: 0.9rem;
       border: 1px solid rgba(77, 166, 255, 0.3);
@@ -296,20 +353,25 @@
 
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 2rem;
       margin: 2rem 0;
     }
 
     .stat-item {
       text-align: center;
-      padding: 1.5rem;
+      padding: 2rem;
       background: rgba(0, 0, 0, 0.3);
       border-radius: 12px;
+      transition: transform 0.3s ease;
+    }
+
+    .stat-item:hover {
+      transform: scale(1.05);
     }
 
     .stat-number {
-      font-size: 2.5rem;
+      font-size: 3rem;
       font-weight: bold;
       color: #ff6b6b;
       margin-bottom: 0.5rem;
@@ -317,7 +379,7 @@
 
     .stat-label {
       color: #bbb;
-      font-size: 0.9rem;
+      font-size: 1rem;
     }
 
     /* Installation Steps */
@@ -332,7 +394,7 @@
       display: flex;
       align-items: flex-start;
       margin: 1.5rem 0;
-      padding: 1rem;
+      padding: 1.5rem;
       background: rgba(0, 0, 0, 0.2);
       border-radius: 12px;
       transition: all 0.3s ease;
@@ -346,20 +408,21 @@
     .step-number {
       background: #4da6ff;
       color: white;
-      width: 35px;
-      height: 35px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: bold;
-      margin-right: 1rem;
+      margin-right: 1.5rem;
       flex-shrink: 0;
+      font-size: 1.2rem;
     }
 
     .step-content code {
       background: rgba(77, 166, 255, 0.2);
-      padding: 0.2rem 0.6rem;
+      padding: 0.3rem 0.7rem;
       border-radius: 4px;
       font-family: 'Courier New', monospace;
     }
@@ -406,9 +469,9 @@
       color: white;
       border: none;
       border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      font-size: 24px;
+      width: 45px;
+      height: 45px;
+      font-size: 28px;
       cursor: pointer;
       transition: all 0.3s ease;
     }
@@ -421,8 +484,8 @@
     /* Footer */
     footer {
       text-align: center;
-      padding: 2rem;
-      margin-top: 4rem;
+      padding: 3rem 2rem;
+      margin-top: 5rem;
       border-top: 2px solid rgba(77, 166, 255, 0.2);
       color: #777;
     }
@@ -468,7 +531,7 @@
     }
 
     h2 {
-      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      font-size: clamp(2rem, 5vw, 2.8rem);
       margin-bottom: 2rem;
       color: #4da6ff;
       text-align: center;
@@ -477,11 +540,42 @@
     .section-subtitle {
       text-align: center;
       color: #bbb;
-      font-size: 1.1rem;
+      font-size: 1.2rem;
       margin-bottom: 3rem;
-      max-width: 800px;
+      max-width: 850px;
       margin-left: auto;
       margin-right: auto;
+      line-height: 1.8;
+    }
+
+    /* NEW: AI Pipeline Visual */
+    .pipeline-flow {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 3rem 0;
+      gap: 1rem;
+    }
+
+    .pipeline-step {
+      background: rgba(77, 166, 255, 0.1);
+      padding: 1.5rem;
+      border-radius: 12px;
+      text-align: center;
+      min-width: 150px;
+      border: 2px solid rgba(77, 166, 255, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .pipeline-step:hover {
+      transform: scale(1.05);
+      border-color: #4da6ff;
+    }
+
+    .pipeline-arrow {
+      font-size: 2rem;
+      color: #4da6ff;
     }
   </style>
 </head>
@@ -489,13 +583,14 @@
   <!-- Navigation -->
   <nav>
     <div class="nav-container">
-      <div class="logo" onclick="showPage('home')"> TrustMeter</div>
+      <div class="logo" onclick="showPage('home')">🛡️ TrustMeter</div>
       <ul class="nav-links">
         <li onclick="showPage('home')" class="active" data-page="home">Home</li>
         <li onclick="showPage('problem')" data-page="problem">Why This?</li>
         <li onclick="showPage('features')" data-page="features">Features</li>
-        <li onclick="showPage('architecture')" data-page="architecture">Architecture</li>
+        <li onclick="showPage('architecture')" data-page="architecture">How It Works</li>
         <li onclick="showPage('project')" data-page="project">Get Started</li>
+        <li onclick="showPage('setup')" data-page="setup">API Setup</li>
       </ul>
     </div>
   </nav>
@@ -504,98 +599,173 @@
   <div id="home" class="page active">
     <div class="container">
       <div class="hero">
-        <h1>TrustMeter</h1>
-        <p>AI-Powered Browser Extension for Truth & Transparency in Real-Time</p>
-        <!-- Added -->
-        <p style="color:#ccc;max-width:700px;margin:1rem auto;">
-          TrustMeter helps everyday internet users instantly recognize false or manipulated content while browsing — no technical skills needed.
+        <h1>🛡️ TrustMeter</h1>
+        <p class="tagline">Your Real-Time Guardian Against Misinformation</p>
+        <p>AI-Powered Browser Extension for Truth & Transparency Across the Web</p>
+        <p style="color:#ccc;max-width:750px;margin:1.5rem auto;">
+          TrustMeter combines <strong>5 AI models</strong>, <strong>Google Fact Check API</strong>, and <strong>semantic caching</strong> 
+          to verify text, detect fake images, and score website credibility — instantly.
         </p>
-        <button class="cta-button" onclick="showPage('project')">Download Extension</button>
+        <button class="cta-button" onclick="showPage('project')">📥 Download Extension</button>
+        
+        <div style="margin-top: 2rem;">
+          <span class="tech-badge">🤖 Gemini AI</span>
+          <span class="tech-badge">🧠 Vertex AI</span>
+          <span class="tech-badge">🔍 Google Vision</span>
+          <span class="tech-badge">✅ Fact Check API</span>
+          <span class="tech-badge">⚡ Pinecone Cache</span>
+        </div>
       </div>
 
-      <!-- Added: Our Mission -->
+          <!-- AI Pipeline Visual -->
       <section>
-        <h2>Our Mission</h2>
+        <h2>⚙️ Multi-Layer AI Pipeline</h2>
         <p class="section-subtitle">
-          We believe truth should be accessible to everyone. TrustMeter brings real‑time fact checking, image verification, 
-          and credibility scoring right into your browser, making safe and informed browsing effortless.
+          Every verification request flows through multiple AI systems for maximum accuracy
+        </p>
+        <div class="pipeline-flow">
+          <div class="pipeline-step">
+            <div style="font-size:2.5rem;">📝</div>
+            <h4 style="color:#4da6ff;margin-top:0.5rem;">Input</h4>
+            <p style="font-size:0.9rem;color:#bbb;">Text/Image/URL</p>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step">
+            <div style="font-size:2.5rem;">⚡</div>
+            <h4 style="color:#4da6ff;margin-top:0.5rem;">3-Tier Cache</h4>
+            <p style="font-size:0.9rem;color:#bbb;">Hash → Semantic → Verified</p>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step">
+            <div style="font-size:2.5rem;">🤖</div>
+            <h4 style="color:#4da6ff;margin-top:0.5rem;">AI Analysis</h4>
+            <p style="font-size:0.9rem;color:#bbb;">5 AI Models</p>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step">
+            <div style="font-size:2.5rem;">✅</div>
+            <h4 style="color:#4da6ff;margin-top:0.5rem;">Fact Check</h4>
+            <p style="font-size:0.9rem;color:#bbb;">Google API</p>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step">
+            <div style="font-size:2.5rem;">🎯</div>
+            <h4 style="color:#4da6ff;margin-top:0.5rem;">Final Score</h4>
+            <p style="font-size:0.9rem;color:#bbb;">Trust Rating</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Our Mission -->
+      <section>
+        <h2>🎯 Our Mission</h2>
+        <p class="section-subtitle">
+          We believe truth should be accessible to everyone. TrustMeter brings enterprise-grade fact-checking, 
+          image verification, and credibility scoring right into your browser — making safe and informed browsing effortless.
         </p>
       </section>
 
+      <!-- Demo Videos -->
       <section>
-        <h2>See TrustMeter in Action</h2>
+        <h2>🎬 See TrustMeter in Action</h2>
         <div class="video-showcase">
-          <div class="video-card" onclick="openModal('textVerification.mp4', 'Text Verification', 'Instantly spot misleading or biased claims with AI-powered analysis.')">
+          <div class="video-card" onclick="openModal('textVerification.mp4', '📝 Text Verification', 'Multi-AI ensemble system: Gemini + Vertex AI + Fact Check API working together.')">
             <video muted loop playsinline onmouseenter="this.play()" onmouseleave="this.pause()">
               <source src="textVerification.mp4" type="video/mp4">
             </video>
-            <h3>Text Verification</h3>
-            <p>Instantly spot misleading or biased claims with AI-powered analysis.</p>
+            <h3>📝 Text Verification</h3>
+            <p>Instantly detect misleading claims using AI ensemble: <strong>Gemini AI</strong>, <strong>Vertex AI ML</strong>, and <strong>Google Fact Check</strong>.</p>
           </div>
 
-          <div class="video-card" onclick="openModal('imageVerification.mp4', 'Image Authenticity', 'Detect fake or AI-generated visuals directly on any webpage.')">
+          <div class="video-card" onclick="openModal('imageVerification.mp4', '🖼️ Image Authenticity', 'Google Vision API + Vertex AI detect deepfakes and AI-generated images.')">
             <video muted loop playsinline onmouseenter="this.play()" onmouseleave="this.pause()">
               <source src="imageVerification.mp4" type="video/mp4">
             </video>
-            <h3> Image Authenticity</h3>
-            <p>Detect fake or AI-generated visuals directly on any webpage.</p>
+            <h3>🖼️ Image Authenticity</h3>
+            <p>Detect fake or AI-generated visuals using <strong>Google Cloud Vision</strong> and custom <strong>Vertex AI models</strong>.</p>
           </div>
 
-          <div class="video-card" onclick="openModal('websiteCheck.mp4', 'Trust Score & Explanations', 'Get an instant AI trust score to know how credible a website really is.')">
+          <div class="video-card" onclick="openModal('websiteCheck.mp4', '🌐 Website Trust Score', 'Dynamic domain credibility system powered by Firestore and community feedback.')">
             <video muted loop playsinline onmouseenter="this.play()" onmouseleave="this.pause()">
               <source src="websiteCheck.mp4" type="video/mp4">
             </video>
-            <h3> Trust Score</h3>
-            <p>Get an instant AI trust score to know how credible a website really is.</p>
+            <h3>🌐 Trust Score</h3>
+            <p>Get instant credibility scores for any website using <strong>Firestore domain scoring</strong> and <strong>semantic evidence matching</strong>.</p>
           </div>
         </div>
       </section>
 
+      <!-- Core Features -->
       <section>
-        <h2>Quick Overview</h2>
+        <h2>💎 Core Features</h2>
         <div class="feature-grid">
           <div class="feature-item">
-            
+            <span class="feature-icon">🚀</span>
             <h3>Real-Time Analysis</h3>
-            <p>Get instant verification as you browse, powered by advanced AI models.</p>
+            <p><strong>Sub-second verification</strong> powered by 3-Tier Pinecone vector caching, parallel AI processing and Google Custom Search.</p>
           </div>
           <div class="feature-item">
-            
-            <h3>Multi-Layer Detection</h3>
-            <p>Analyzes text, images, and entire websites for comprehensive truth assessment.</p>
+            <span class="feature-icon">🧠</span>
+            <h3>Multi-Model AI Ensemble</h3>
+            <p>Combines <strong>5 AI systems</strong>: Gemini, Vertex AI, Google Vision, Fact Check API, and Sentence Transformers.</p>
+          </div>
+          
+          <div class="feature-item">
+            <span class="feature-icon">👥</span>
+            <h3>Community-Driven</h3>
+            <p>User feedback weighted by <strong>unique user counts</strong> and stored in Pinecone for continuous improvement.</p>
           </div>
           <div class="feature-item">
-
-            <h3>Privacy First</h3>
-            <p>Your browsing data stays secure. We only analyze what you choose to verify.</p>
+            <span class="feature-icon">⚡</span>
+            <h3>Smart Caching</h3>
+            <p><strong>3-Tier search strategy:</strong> Exact hash match → Semantic similarity → Verified fakes. <strong>15-day auto-expiry</strong> with weighted scoring based on unique user confirmations.</p>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">🌍</span>
+            <h3>Dynamic Domain Scoring</h3>
+            <p><strong>Firestore-powered</strong> credibility database that updates in real-time based on verification results.</p>
           </div>
         </div>
       </section>
-      <!-- Added: How It Works -->
+
+      <!-- How It Works -->
       <section>
-        <h2>How It Works</h2>
+        <h2>🔧 How It Works</h2>
         <div class="feature-grid">
           <div class="feature-item">
             <h3>1️⃣ Detect</h3>
-            <p>TrustMeter scans the page for text, images, or links that may need verification.</p>
+            <p>Extension monitors the webpage for text, images, and links that may need verification.</p>
           </div>
           <div class="feature-item">
-            <h3>2️⃣ Analyze</h3>
-            <p>Our AI models and trusted data sources evaluate credibility, detect fakes, and score reliability.</p>
+            <h3>2️⃣ Cache Check</h3>
+            <p><strong>The 3-Tier search</strong> checks if similar content was recently verified.</p>
           </div>
           <div class="feature-item">
-            <h3>3️⃣ Explain</h3>
-            <p>Results are displayed instantly with transparent reasoning and helpful evidence links.</p>
+            <h3>3️⃣ Multi-AI Analysis</h3>
+            <p>If not cached, run parallel analysis through <strong>Gemini</strong>, <strong>Vertex AI</strong>, <strong>Vision API</strong>, and <strong>Fact Check API</strong>.</p>
+          </div>
+          <div class="feature-item">
+            <h3>4️⃣ Corroboration</h3>
+            <p>Search trusted sources using <strong>Google Custom Search</strong> with dynamic keyword extraction via Gemini.</p>
+          </div>
+          <div class="feature-item">
+            <h3>5️⃣ Ensemble Scoring</h3>
+            <p>Weighted combination: Gemini + Vertex AI + Fact Check produces final verdict.</p>
+          </div>
+          <div class="feature-item">
+            <h3>6️⃣ Explain & Cache</h3>
+            <p>Results displayed with transparent reasoning. Stored in <strong>Pinecone</strong> and <strong>Firestore</strong> for future queries.</p>
           </div>
         </div>
       </section>
-      <!-- Added: Why It Matters -->
+
+      <!-- Why It Matters -->
       <section>
-        <h2>Why It Matters</h2>
-        <p class="section-subtitle" style="max-width:850px;">
+        <h2>🌟 Why It Matters</h2>
+        <p class="section-subtitle" style="max-width:900px;">
           Misinformation affects daily decisions, from what we buy to what we believe. 
           By putting AI-powered truth verification directly into your browser, 
-          TrustMeter builds a safer digital world where information is trustworthy and verifiable.
+          TrustMeter builds a safer digital world where information is <strong>Trustworthy</strong>, <strong>Verifiable</strong>, and <strong>Transparent</strong>.
         </p>
       </section>
     </div>
@@ -605,12 +775,12 @@
   <div id="problem" class="page">
     <div class="container">
       <div class="hero">
-        <h1>Why TrustMeter?</h1>
-        <p>TrustMeter is a Chrome extension that detects misinformation on web pages in real time. It uses advanced AI and machine learning models to analyze text for fake or misleading information and identify AI-generated images. The extension provides a trust score, detailed explanations, and allows users to give feedback, helping build a community-driven fact-checking ecosystem that continuously improves accuracy and reliability.</p>
+        <h1> Why TrustMeter?</h1>
+        <p>The misinformation crisis demands intelligent, real-time solutions</p>
       </div>
         
       <div class="problem-section">
-        <h2>The Growing Crisis</h2>
+        <h2>📊 The Growing Crisis</h2>
         <p class="section-subtitle">
           In today's digital landscape, misinformation spreads faster than ever before. 
           Deepfakes, manipulated images, and biased narratives are increasingly difficult to detect.
@@ -619,7 +789,7 @@
         <div class="stats-grid">
           <div class="stat-item">
             <div class="stat-number">64%</div>
-            <div class="stat-label">of peoples struggle to identify fake news</div>
+            <div class="stat-label">of people struggle to identify fake news</div>
           </div>
           <div class="stat-item">
             <div class="stat-number">3.2B</div>
@@ -631,41 +801,41 @@
           </div>
           <div class="stat-item">
             <div class="stat-number">90%</div>
-            <div class="stat-label">of deepfake videos are undetected</div>
+            <div class="stat-label">of deepfake images are undetected</div>
           </div>
         </div>
       </div>
 
       <section>
-        <h2>Key Challenges</h2>
+        <h2>⚠️ Key Challenges</h2>
         <div class="feature-grid">
           <div class="feature-item">
-
+            <span class="feature-icon">📚</span>
             <h3>Information Overload</h3>
             <p>With billions of posts shared daily, manually fact-checking every claim is impossible for the average user.</p>
           </div>
           <div class="feature-item">
-
+            <span class="feature-icon">🎭</span>
             <h3>Sophisticated Manipulation</h3>
             <p>AI-generated deepfakes and edited media are becoming indistinguishable from authentic content.</p>
           </div>
           <div class="feature-item">
-   
+            <span class="feature-icon">⚡</span>
             <h3>Speed of Misinformation</h3>
-            <p>False information spreads 6 times faster than the truth on social media platforms.</p>
+            <p>False information spreads <strong>6 times faster</strong> than the truth on social media platforms.</p>
           </div>
           <div class="feature-item">
-
+            <span class="feature-icon">🎯</span>
             <h3>Targeted Deception</h3>
             <p>Algorithms amplify misleading content, creating echo chambers and reinforcing biases.</p>
           </div>
           <div class="feature-item">
-
+            <span class="feature-icon">🔍</span>
             <h3>Lack of Transparency</h3>
             <p>Users often lack context about source credibility and content authenticity.</p>
           </div>
           <div class="feature-item">
-
+            <span class="feature-icon">⏱️</span>
             <h3>Complex Verification</h3>
             <p>Traditional fact-checking is time-consuming and doesn't scale for real-time browsing.</p>
           </div>
@@ -673,23 +843,35 @@
       </section>
 
       <div class="problem-section" style="background: linear-gradient(135deg, rgba(77, 255, 166, 0.1) 0%, rgba(77, 166, 255, 0.1) 100%); border-color: rgba(77, 166, 255, 0.3);">
-        <h2>Our Solution</h2>
+        <h2>💡 Our Solution</h2>
         <p class="section-subtitle">
           TrustMeter brings enterprise-grade verification tools directly to your browser, 
           empowering every user to make informed decisions in real-time.
         </p>
         <div class="feature-grid">
           <div class="feature-item">
-            <h3> Instant Verification</h3>
-            <p>Real-time analysis as you browse, no manual checking required.</p>
+            <h3>⚡ Instant Verification</h3>
+            <p>Real-time analysis with <strong>3-tier caching system and Pinecone vector storage</strong> — no manual checking required.</p>
           </div>
           <div class="feature-item">
-            <h3> AI-Powered Detection</h3>
-            <p>Advanced models detect manipulated content with high accuracy.</p>
+            <h3>🤖 AI-Powered Detection</h3>
+            <p><strong>5 AI models</strong> working in ensemble detect manipulated content with high accuracy.</p>
           </div>
           <div class="feature-item">
-            <h3> Clear Explanations</h3>
-            <p>Understand why content is flagged with transparent reasoning.</p>
+            <h3>📖 Clear Explanations</h3>
+            <p>Understand <strong><em>why</em></strong> content is flagged with transparent reasoning and evidence links.</p>
+          </div>
+          <div class="feature-item">
+            <h3>✅ Professional Fact Checks</h3>
+            <p>Integrated <strong>Google Fact Check API</strong> provides verified ratings from trusted organizations.</p>
+          </div>
+          <div class="feature-item">
+            <h3>👥 Community Wisdom</h3>
+            <p>User feedback aggregated by <strong>unique user counts</strong> improves accuracy over time.</p>
+          </div>
+          <div class="feature-item">
+            <h3>🌐 Dynamic Domain Scoring</h3>
+            <p><strong>Firestore-powered</strong> credibility database updates based on verification results.</p>
           </div>
         </div>
       </div>
@@ -700,112 +882,141 @@
   <div id="features" class="page">
     <div class="container">
       <div class="hero">
-        <h1>Powerful Features</h1>
+        <h1>✨ Powerful Features</h1>
         <p>Everything you need to navigate the web with confidence</p>
       </div>
 
       <section>
-        <h2>Core Capabilities</h2>
+        <h2>🔬 Core Capabilities</h2>
         <div class="feature-grid">
           <div class="feature-item">
-
+            <span class="feature-icon">📝</span>
             <h3>Text Verification</h3>
-            <p><strong>Smart Content Analysis:</strong> Our AI examines text for misleading claims, biased language, and factual inaccuracies. Get instant feedback on the credibility of any written content.</p>
+            <p><strong>Multi-AI Ensemble Analysis:</strong> Our system combines 5 AI models for comprehensive text verification.</p>
             <ul style="margin-top: 1rem; color: #bbb; padding-left: 1.2rem;">
-              <li>Bias detection in articles and posts</li>
-              <li>Fact-checking against reliable sources</li>
-              <li>Sentiment and manipulation analysis</li>
-              <li>Context-aware verification</li>
+              <li><strong>Gemini AI</strong> - Contextual understanding and reasoning</li>
+              <li><strong>Vertex AI ML</strong> - Custom-trained fake news classifier</li>
+              <li><strong>Google Fact Check API</strong> - Professional fact-checker ratings</li>
+              <li><strong>Sentence Transformers</strong> - Semantic similarity matching</li>
+              <li><strong>Google Custom Search</strong> - Evidence corroboration from trusted sources</li>
             </ul>
           </div>
 
           <div class="feature-item">
-
+            <span class="feature-icon">🖼️</span>
             <h3>Image Authenticity</h3>
-            <p><strong>Visual Content Verification:</strong> Powered by Google Cloud Vision API, detect fake, altered, or AI-generated images instantly.</p>
+            <p><strong>Visual Content Verification:</strong> Powered by Google Cloud Vision + Vertex AI custom model.</p>
             <ul style="margin-top: 1rem; color: #bbb; padding-left: 1.2rem;">
-              <li>Deepfake and manipulation detection</li>
-              <li>AI-generated image identification</li>
-              <li>Metadata and EXIF analysis</li>
-              <li>Reverse image search integration</li>
+              <li><strong>Deepfake detection</strong> using AI confidence scores</li>
+              <li><strong>Manipulation detection</strong> via Vision API face/label analysis</li>
+              <li><strong>Reverse image search</strong> for web presence verification</li>
+              <li><strong>Similarity matching</strong> with known authentic images</li>
             </ul>
           </div>
 
           <div class="feature-item">
-
-            <h3>Trust Score & Explanations</h3>
-            <p><strong>Website Credibility Rating:</strong> Get a comprehensive trust score for any website with clear reasoning and supporting evidence.</p>
+            <span class="feature-icon">🌐</span>
+            <h3>Website Trust Score</h3>
+            <p><strong>Dynamic Domain Credibility:</strong> Real-time scoring powered by Firestore and community feedback.</p>
             <ul style="margin-top: 1rem; color: #bbb; padding-left: 1.2rem;">
-              <li>Domain reputation analysis</li>
-              <li>Content quality assessment</li>
-              <li>Source credibility verification</li>
-              <li>Transparent scoring methodology</li>
+              <li><strong>Domain reputation</strong> from historical verification results</li>
+              <li><strong>Content quality</strong> assessment via AI analysis</li>
+              <li><strong>Source credibility</strong> weighted by unique user votes</li>
+              <li><strong>Transparent scoring</strong> methodology with evidence links</li>
+              <li><strong>Real-time updates</strong> as new verifications occur</li>
             </ul>
           </div>
 
           <div class="feature-item">
-
-            <h3>On-Page Transparency</h3>
-            <p><strong>Seamless Integration:</strong> Results appear directly on the webpage you're viewing, no switching tabs or windows.</p>
+            <span class="feature-icon">⚡</span>
+            <h3>Smart Caching System</h3>
+            <p><strong>Pinecone Vector Database:</strong> Lightning-fast semantic search and result caching.</p>
             <ul style="margin-top: 1rem; color: #bbb; padding-left: 1.2rem;">
-              <li>Non-intrusive overlay design</li>
-              <li>Quick access sidebar</li>
-              <li>Visual indicators for flagged content</li>
-              <li>One-click detailed reports</li>
+              <li><strong>Semantic similarity</strong> search</li>
+              <li><strong>Cosine similarity metric</strong> for accurate semantic matching across paraphrased content</li>
+              <li><strong>15-day auto-expiry</strong> with automatic cleanup of stale entries</li>
+              <li><strong>Weighted scoring</strong> based on unique user confirmations</li>
+              <li><strong>Multi-level matching</strong> Exact hash match → Semantic similarity → Verified fakes search</li>
             </ul>
           </div>
 
-          <div class="feature-item">
-
-            <h3>Real-Time Analysis</h3>
-            <p><strong>Lightning-Fast Processing:</strong> Advanced AI models analyze content in milliseconds, providing instant feedback without slowing your browsing.</p>
+                    <div class="feature-item">
+            <span class="feature-icon">🎯</span>
+            <h3>Ensemble Scoring</h3>
+            <p><strong>Weighted AI Combination:</strong> Final verdict combines multiple AI signals intelligently.</p>
             <ul style="margin-top: 1rem; color: #bbb; padding-left: 1.2rem;">
-              <li>Sub-second response times</li>
-              <li>Cloud-powered computation</li>
-              <li>Batch processing for efficiency</li>
-              <li>Offline caching for repeated checks</li>
-            </ul>
-          </div>
-
-          <div class="feature-item">
-
-            <h3>Privacy & Security</h3>
-            <p><strong>Your Data, Protected:</strong> We prioritize your privacy with encrypted communications and minimal data collection.</p>
-            <ul style="margin-top: 1rem; color: #bbb; padding-left: 1.2rem;">
-              <li>End-to-end encryption</li>
-              <li>No browsing history stored</li>
-              <li>Optional anonymous mode</li>
-              <li>GDPR & CCPA compliant</li>
+              <li><strong>Gemini AI</strong> - Contextual reasoning weight</li>
+              <li><strong>Vertex AI</strong> - ML classification confidence</li>
+              <li><strong>Fact Check</strong> - Professional verifier ratings</li>
+              <li><strong>Domain bonus</strong> - Small boost for highly trusted sources</li>
             </ul>
           </div>
         </div>
       </section>
 
       <section>
-        <h2>See It In Action</h2>
+        <h2>🎬 See It In Action</h2>
         <div class="video-showcase">
-          <div class="video-card" onclick="openModal('textVerification.mp4', 'Text Verification Demo', 'Watch how TrustMeter analyzes and flags misleading text in real-time.')">
+          <div class="video-card" onclick="openModal('textVerification.mp4', '📝 Text Verification Demo', 'Watch how TrustMeter analyzes and flags misleading text using 5 AI models in real-time.')">
             <video muted loop playsinline onmouseenter="this.play()" onmouseleave="this.pause()">
               <source src="textVerification.mp4" type="video/mp4">
             </video>
-            <h3>Text Verification Demo</h3>
-            <p>Watch how TrustMeter analyzes and flags misleading text in real-time.</p>
+            <h3>📝 Text Verification Demo</h3>
+            <p>Watch how TrustMeter analyzes and flags misleading text using <strong>5 AI models</strong> in real-time.</p>
           </div>
 
-          <div class="video-card" onclick="openModal('imageVerification.mp4', 'Image Analysis Demo', 'See our AI detect manipulated and fake images with precision.')">
+          <div class="video-card" onclick="openModal('imageVerification.mp4', '🖼️ Image Analysis Demo', 'See our AI detect manipulated and fake images with precision using Google Vision + Vertex AI.')">
             <video muted loop playsinline onmouseenter="this.play()" onmouseleave="this.pause()">
               <source src="imageVerification.mp4" type="video/mp4">
             </video>
-            <h3>Image Analysis Demo</h3>
-            <p>See our AI detect manipulated and fake images with precision.</p>
+            <h3>🖼️ Image Analysis Demo</h3>
+            <p>See our AI detect manipulated and fake images with precision using <strong>Google Vision + Vertex AI</strong>.</p>
           </div>
 
-          <div class="video-card" onclick="openModal('websiteCheck.mp4', 'Trust Score Demo', 'Discover how we evaluate website credibility and provide actionable insights.')">
+          <div class="video-card" onclick="openModal('websiteCheck.mp4', '🌐 Trust Score Demo', 'Discover how we evaluate website credibility using Firestore domain scoring and provide actionable insights.')">
             <video muted loop playsinline onmouseenter="this.play()" onmouseleave="this.pause()">
               <source src="websiteCheck.mp4" type="video/mp4">
             </video>
-            <h3>Trust Score Demo</h3>
-            <p>Discover how we evaluate website credibility and provide actionable insights.</p>
+            <h3>🌐 Trust Score Demo</h3>
+            <p>Discover how we evaluate website credibility using <strong>Firestore domain scoring</strong> and provide actionable insights.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Technical Specifications -->
+      <section>
+        <h2>⚙️ Technical Specifications</h2>
+        <div class="architecture-section">
+          <div class="feature-grid">
+            <div class="feature-item">
+              <h3>🚀 Performance</h3>
+              <ul style="color: #bbb; padding-left: 1.2rem; margin-top: 0.5rem;">
+                <li>Sub-second cache hits (Pinecone)</li>
+                <li>Parallel processing for claims</li>
+                <li>Batch API calls for efficiency</li>
+                <li>Auto-cleanup of expired cache (15 days)</li>
+              </ul>
+            </div>
+            <div class="feature-item">
+              <h3>🧠 AI Models</h3>
+              <ul style="color: #bbb; padding-left: 1.2rem; margin-top: 0.5rem;">
+                <li>Gemini 2.5 Flash (reasoning)</li>
+                <li>Vertex AI Custom (fake news classifier)</li>
+                <li>Google Cloud Vision (image analysis)</li>
+                <li>Sentence-Transformers (embeddings)</li>
+                <li>Google Fact Check Tools API</li>
+              </ul>
+            </div>
+            <div class="feature-item">
+              <h3>💾 Data Storage</h3>
+              <ul style="color: #bbb; padding-left: 1.2rem; margin-top: 0.5rem;">
+                <li>Pinecone (vector cache, 384-dim)</li>
+                <li>Firestore (domain scores, feedback)</li>
+                <li>SHA-256 content hashing</li>
+                <li>TTL-based expiration</li>
+                <li>Namespace separation (default/verified)</li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>
@@ -816,111 +1027,155 @@
   <div id="architecture" class="page">
     <div class="container">
       <div class="hero">
-        <h1>System Architecture</h1>
+        <h1>🏗️ System Architecture</h1>
         <p>Built on robust, scalable technology for reliable verification</p>
       </div>
-      <!-- Added: Built With section -->
+
+      <!-- Tech Stack -->
       <section>
-        <h2>Built With</h2>
+        <h2>🛠️ Built With</h2>
         <p class="section-subtitle">
-          TrustMeter combines trusted open-source tools with scalable cloud services:
+          TrustMeter combines trusted open-source tools with scalable cloud services
         </p>
         <div class="feature-grid">
-          <div class="feature-item"><h3>Frontend</h3><p>Chrome Extension (UI, overlay, JS)</p></div>
-          <div class="feature-item"><h3>Backend</h3><p>Flask API serving AI models and vector search</p></div>
-          <div class="feature-item"><h3>AI Models</h3><p>Hugging Face Transformers + Gemini LLM + Google Vision</p></div>
-          <div class="feature-item"><h3>Database</h3><p>Pinecone Vector DB for caching and feedback</p></div>
+          <div class="feature-item">
+            <h3>🎨 Frontend</h3>
+            <p><strong>Chrome Extension</strong> - Content scripts, UI overlay, background workers</p>
+          </div>
+          <div class="feature-item">
+            <h3>⚙️ Backend</h3>
+            <p><strong>Flask API</strong> - Serving AI models, vector search, and caching logic</p>
+          </div>
+          <div class="feature-item">
+            <h3>🤖 AI Models</h3>
+            <p><strong>Gemini + Vertex AI + Vision</strong> - Multi-model ensemble verification</p>
+          </div>
+          <div class="feature-item">
+            <h3>💾 Databases</h3>
+            <p><strong>Pinecone (vector) + Firestore (document)</strong> - Caching and domain scoring</p>
+          </div>
+          <div class="feature-item">
+            <h3>🔍 External APIs</h3>
+            <p><strong>Google Fact Check + Custom Search</strong> - Professional verification and evidence</p>
+          </div>
         </div>
       </section>
+
+      <!-- Architecture Diagram -->
       <div class="architecture-section">
-        <h2>Technical Overview</h2>
+        <h2>📐 Technical Overview</h2>
         <p class="section-subtitle">
-          TrustMeter leverages a Chrome extension frontend with a Flask backend, integrating AI/ML models, vector databases, and external APIs for efficient misinformation detection.
+          TrustMeter leverages a Chrome extension frontend with a Flask backend, integrating AI/ML models, 
+          vector databases, and external APIs for efficient misinformation detection.
         </p>
 
         <div class="arch-diagram">
           <div class="arch-layer">
-            <h4> Frontend Layer - Browser Extension</h4>
+            <h4>🌐 Frontend Layer - Browser Extension</h4>
             <p style="color: #ccc; margin-bottom: 1rem;">
               Lightweight Chrome extension that integrates seamlessly into your browsing experience.
             </p>
             <div class="arch-components">
               <span class="arch-component">Content Script Injector</span>
               <span class="arch-component">UI Overlay Manager</span>
+              <span class="arch-component">Context Menu Handler</span>
               <span class="arch-component">Event Listeners</span>
               <span class="arch-component">Local Storage Cache</span>
               <span class="arch-component">API Client</span>
             </div>
           </div>
 
-       
+          <div class="arch-layer">
+            <h4>⚙️ Backend Layer - Flask API</h4>
+            <p style="color: #ccc; margin-bottom: 1rem;">
+              Python Flask server handling requests, orchestrating AI models, and managing data flow.
+            </p>
+            <div class="arch-components">
+              <span class="arch-component">REST API Endpoints</span>
+              <span class="arch-component">Request Router</span>
+              <span class="arch-component">Cache Manager (Pinecone)</span>
+              <span class="arch-component">AI Model Orchestrator</span>
+              <span class="arch-component">Domain Scorer (Firestore)</span>
+              <span class="arch-component">Feedback Aggregator</span>
+            </div>
+          </div>
 
           <div class="arch-layer">
-            <h4>AI/ML Processing Layer</h4>
+            <h4>🤖 AI/ML Processing Layer</h4>
             <p style="color: #ccc; margin-bottom: 1rem;">
               Advanced machine learning models for text analysis, image verification, and credibility scoring.
             </p>
             <div class="arch-components">
-              <span class="arch-component">Google Gemini API</span>
-              <span class="arch-component">Google Fact Check API</span>
-              <span class="arch-component">Google Cloud Vision API</span>
-              <span class="arch-component">Image Detection Model</span>
-              <span class="arch-component">Hugging Face Transformers (ML Classification)</span>
-              <span class="arch-component">Google Custom Search API</span>
-                  <span class="arch-component">Sentence Transformers (Embeddings)</span>
+              <span class="arch-component"> Gemini AI (Reasoning)</span>
+              <span class="arch-component"> Vertex AI (ML Classifier)</span>
+              <span class="arch-component"> Google Cloud Vision (Image)</span>
+              <span class="arch-component"> Google Fact Check API</span>
+              <span class="arch-component"> Google Custom Search</span>
+              <span class="arch-component"> Sentence Transformers (Embeddings)</span>
             </div>
           </div>
 
           <div class="arch-layer">
-            <h4> Data & Storage Layer</h4>
+            <h4>💾 Data & Storage Layer</h4>
             <p style="color: #ccc; margin-bottom: 1rem;">
-   Hybrid storage with document database and vector search for caching and feedback.
+              Hybrid storage with vector database and document database for caching and feedback.
             </p>
             <div class="arch-components">
-              <span class="arch-component">Firestore - Articles & Feedback</span>
-              <span class="arch-component">Normalized IDs & Embeddings</span>
+              <span class="arch-component">Pinecone Vector DB (384-dim)</span>
+              <span class="arch-component">Firestore (Domain Scores)</span>
+              <span class="arch-component">Semantic Search (cosine similarity)</span>
               <span class="arch-component">Anonymous User Tracking</span>
-              <span class="arch-component">
-Pinecone Vector Semantic Search</span>
-              <span class="arch-component">TTL Expiration - 15 days</span>
+              <span class="arch-component">TTL Expiration (15 days)</span>
+              <span class="arch-component">Namespace Separation</span>
             </div>
           </div>
-
         </div>
       </div>
 
+      <!-- Data Flow -->
       <section>
-        <h2>Data Flow</h2>
+        <h2>🔄 Data Flow</h2>
         <div class="feature-grid">
           <div class="feature-item">
             <h3>Step 1: Content Detection</h3>
-            <p>Extension monitors webpage for text, images, and links that need verification.</p>
+            <p>Extension monitors webpage for text, images, and links. User triggers verification via context menu or button click.</p>
           </div>
           <div class="feature-item">
-            <h3>Step 2: API Request</h3>
-            <p>Detected content is sent securely to our backend services via encrypted channels.</p>
+            <h3>Step 2: Cache Check</h3>
+            <p><strong>Pinecone semantic search</strong> queries for similar content. If found with similarity(cosine and verified fakes search) and 1+ user confirmation, return cached result.</p>
           </div>
           <div class="feature-item">
             <h3>Step 3: AI Analysis</h3>
-            <p>Multiple AI models process content simultaneously for comprehensive evaluation.</p>
+            <p>If cache miss, trigger <strong>parallel AI processing</strong>: Gemini extracts metadata, Vertex AI classifies, Vision analyzes images.</p>
           </div>
           <div class="feature-item">
-            <h3>Step 4: Score Calculation</h3>
-            <p>Results are aggregated and a trust score is computed with supporting evidence.</p>
+            <h3>Step 4: Fact Check</h3>
+            <p><strong>Google Fact Check API</strong> searches for professional fact-checker ratings. Gemini refines claim for better matching.</p>
           </div>
           <div class="feature-item">
-            <h3>Step 5: Result Delivery</h3>
-            <p>Findings are sent back to the extension and displayed in user-friendly format.</p>
+            <h3>Step 5: Evidence Corroboration</h3>
+            <p><strong>Google Custom Search</strong> with dynamic keywords finds supporting/contradicting evidence from trusted domains.</p>
           </div>
           <div class="feature-item">
-            <h3>Step 6: User Action</h3>
-            <p>Users can view details, report issues, or proceed with informed confidence.</p>
+            <h3>Step 6: Ensemble Scoring</h3>
+            <p>Weighted combination: <strong>50% Gemini + 30% Vertex + 20% Fact Check</strong> produces final prediction and confidence.</p>
+          </div>
+          <div class="feature-item">
+            <h3>Step 7: Domain Update</h3>
+            <p><strong>Firestore domain scores</strong> updated based on verification results. Weighted average by unique user votes.</p>
+          </div>
+          <div class="feature-item">
+            <h3>Step 8: Cache Storage</h3>
+            <p>Final result stored in <strong>Pinecone (vector)</strong> and <strong>Firestore (document)</strong> with 15-day TTL.</p>
+          </div>
+          <div class="feature-item">
+            <h3>Step 9: Result Delivery</h3>
+            <p>Findings sent back to extension and displayed in user-friendly overlay with explanation and evidence links.</p>
           </div>
         </div>
       </section>
 
-
-    
+      
     </div>
   </div>
 
@@ -928,19 +1183,19 @@ Pinecone Vector Semantic Search</span>
   <div id="project" class="page">
     <div class="container">
       <div class="hero">
-        <h1>Get Started</h1>
+        <h1>🚀 Get Started</h1>
         <p>Install TrustMeter in minutes and start browsing with confidence</p>
       </div>
 
       <section>
-        <h2>Installation Guide</h2>
+        <h2>📥 Installation Guide</h2>
         <div class="install-steps">
           <div class="step">
             <div class="step-number">1</div>
             <div class="step-content">
               <h3>Download the Extension</h3>
-              <p>Click the button below to download the latest version of TrustMeter.</p>
-              <button class="cta-button" onclick="downloadExtension()" style="margin-top: 1rem;">⬇ Download TrustMeter</button>
+              <p>Click the button below to download the latest version of TrustMeter from GitHub.</p>
+              <button class="cta-button" onclick="downloadExtension()" style="margin-top: 1rem;">⬇️ Download TrustMeter</button>
             </div>
           </div>
 
@@ -987,88 +1242,125 @@ Pinecone Vector Semantic Search</span>
       </section>
 
       <section>
-        <h2>Quick Start Guide</h2>
+        <h2>🎮 Quick Start Guide</h2>
         <div class="feature-grid">
           <div class="feature-item">
             <div class="feature-icon">1️⃣</div>
             <h3>Verify Text</h3>
-            <p>Highlight any text on a webpage and right-click, then select "Verify with TrustMeter" to check for accuracy and bias.</p>
+            <p>Highlight any text on a webpage and right-click, then select <strong>"Verify with TrustMeter"</strong> to check for accuracy and bias using <strong>5 AI models</strong>.</p>
           </div>
           <div class="feature-item">
             <div class="feature-icon">2️⃣</div>
             <h3>Check Images</h3>
-            <p>Right-click on any image and choose "Check Image Authenticity" to detect manipulation or AI generation.</p>
+            <p>Right-click on any image and choose <strong>"Check Image Authenticity"</strong> to detect manipulation or AI generation using <strong>Google Vision + Vertex AI</strong>.</p>
           </div>
           <div class="feature-item">
             <div class="feature-icon">3️⃣</div>
             <h3>Website Score</h3>
-            <p>Click the TrustMeter icon in your toolbar to get an instant credibility score for the current website.</p>
+            <p>Click the TrustMeter icon in your toolbar to get an instant credibility score for the current website using <strong>Firestore domain scoring</strong>.</p>
           </div>
         </div>
       </section>
 
       <section>
-        <h2>System Requirements</h2>
-        <div class="architecture-section">
-          <div class="feature-grid">
-            <div class="feature-item">
-              <h3>Browser Compatibility</h3>
-              <ul style="color: #bbb; padding-left: 1.2rem; margin-top: 0.5rem;">
-                <li>Google Chrome (v90+)</li>
-                <li>Microsoft Edge (v90+)</li>
-                <li>Brave Browser (latest)</li>
-                <li>Chromium-based browsers</li>
-              </ul>
-            </div>
-            <div class="feature-item">
-              <h3>System Specifications</h3>
-              <ul style="color: #bbb; padding-left: 1.2rem; margin-top: 0.5rem;">
-                <li>Windows 10/11, macOS 10.14+, or Linux</li>
-                <li>4GB RAM minimum (8GB recommended)</li>
-                <li>Active internet connection</li>
-                <li>50MB free disk space</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <h2>Troubleshooting</h2>
+        <h2>🛠️ Troubleshooting</h2>
         <div class="feature-grid">
           <div class="feature-item">
-            <h3>Extension Not Loading?</h3>
-            <p>Ensure Developer mode is enabled in <code>chrome://extensions/</code> and you've selected the correct <code>/app</code> folder.</p>
+            <h3>❌ Extension Not Loading?</h3>
+            <p>Ensure <strong>Developer mode</strong> is enabled in <code>chrome://extensions/</code> and you've selected the correct <code>/app</code> folder.</p>
           </div>
           <div class="feature-item">
-            <h3>Verification Not Working?</h3>
-            <p>Check your internet connection and ensure the extension has necessary permissions. Try refreshing the webpage.</p>
+            <h3>⚠️ Verification Not Working?</h3>
+            <p>Check your internet connection and ensure the backend API is running. Try refreshing the webpage and check browser console for errors.</p>
           </div>
           <div class="feature-item">
-            <h3>Slow Performance?</h3>
-            <p>Clear your browser cache and disable other extensions temporarily to identify conflicts.</p>
+            <h3>🐌 Slow Performance?</h3>
+            <p>Clear your browser cache and disable other extensions temporarily. First-time checks are slower; subsequent checks use <strong>Pinecone cache</strong>.</p>
+          </div>
+          <div class="feature-item">
+            <h3>🔑 API Key Issues?</h3>
+            <p>Verify all API keys are correctly set in your <code>.env</code> file: <code>GEMINI_API_KEY</code>, <code>PINECONE_API</code>, <code>GOOGLE_API_KEY</code>, <code>VERTEX_AI_API</code>, <code>FACT_CHECK_API</code>, <code>CUSTOM_SEARCH_API</code>, <code>FIRESTORE_API</code>,</p>
+            <button class="cta-button" onclick="showPage('setup')" style="margin-top: 1rem; padding: 0.7rem 1.3rem; font-size: 0.95rem;">
+            Go to API Setup Guide
+          </div>
+          <div class="feature-item">
+            <h3>💾 Cache Not Working?</h3>
+            <p>Check Pinecone index status and ensure <strong>Firestore rules</strong> allow read/write. Run <code>cleanup_expired()</code> if cache is stale.</p>
+          </div>
+          <div class="feature-item">
+            <h3>📊 Inaccurate Results?</h3>
+            <p>Provide feedback through the extension to improve accuracy. System learns from <strong>unique user votes</strong> and updates domain scores.</p>
           </div>
         </div>
       </section>
 
       <div class="problem-section" style="background: linear-gradient(135deg, rgba(77, 255, 166, 0.1) 0%, rgba(77, 166, 255, 0.1) 100%); border-color: rgba(77, 166, 255, 0.3);">
-        <h2>Project Information</h2>
+        <h2>📚 Project Information</h2>
         <div class="feature-grid">
           <div class="feature-item">
-            <h3> Repository</h3>
-            <p>Open source on GitHub. Contributions welcome!</p>
+            <h3>💻 GitHub Repository</h3>
+            <p>Open source on GitHub. Contributions, issues, and stars welcome!</p>
             <p style="margin-top: 0.5rem;"><code>github.com/akshaynair5/H2S_hackathon</code></p>
+            <a href="https://github.com/akshaynair5/H2S_hackathon" target="_blank" style="display:inline-block;margin-top:1rem;padding:0.5rem 1rem;background:rgba(77,166,255,0.2);border-radius:8px;text-decoration:none;color:#4da6ff;">⭐ Star on GitHub</a>
           </div>
           <div class="feature-item">
-            <h3>Team IPV3</h3>
-            <p>Built for the GenAI Hackathon by passionate developers committed to fighting misinformation.</p>
+            <h3>👥 Team IPV3</h3>
+            <p>Built for the <strong>GenAI Hackathon</strong> by passionate developers committed to fighting misinformation with cutting-edge AI.</p>
+            <p style="margin-top: 0.5rem; color: #bbb;">Contributors: <strong> Akshay Nair, Gokul Krishna and Sarath Rajendran</strong>.</p>
           </div>
           <div class="feature-item">
-            <h3> Support</h3>
-            <p>Need help? Have suggestions? Reach out to our team through GitHub issues.</p>
+            <h3>📞 Support & Contact</h3>
+            <p>Need help? Have suggestions? Found a bug?</p>
+            <ul style="color: #bbb; padding-left: 1.2rem; margin-top: 0.5rem;">
+              <li>Open an issue on GitHub</li>
+              <li>Check documentation in README</li>
+            </ul>
           </div>
         </div>
       </div>
+
+      <!-- Tech Stack Details -->
+      <section>
+        <h2>🔧 Tech Stack Details</h2>
+        <div class="architecture-section">
+          <h3 style="color: #4da6ff; margin-bottom: 1.5rem;">Core Technologies</h3>
+          <div class="feature-grid">
+            <div class="feature-item">
+              <h3>Backend</h3>
+              <div style="margin-top: 0.5rem;">
+                <span class="tech-badge">Python 3.8+</span>
+                <span class="tech-badge">Google Cloud SDK</span>
+                <span class="tech-badge">Flask</span>
+              </div>
+            </div>
+            <div class="feature-item">
+              <h3>AI/ML</h3>
+              <div style="margin-top: 0.5rem;">
+                <span class="tech-badge">Gemini AI</span>
+                <span class="tech-badge">Vertex AI</span>
+                <span class="tech-badge">Google Vision</span>
+                <span class="tech-badge">Transformers</span>
+              </div>
+            </div>
+            <div class="feature-item">
+              <h3>Databases</h3>
+              <div style="margin-top: 0.5rem;">
+                <span class="tech-badge">Pinecone</span>
+                <span class="tech-badge">Firestore</span>
+                <span class="tech-badge">Vector DB</span>
+              </div>
+            </div>
+            <div class="feature-item">
+              <h3>APIs</h3>
+              <div style="margin-top: 0.5rem;">
+                <span class="tech-badge">Fact Check API</span>
+                <span class="tech-badge">Custom Search</span>
+                <span class="tech-badge">REST</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -1079,18 +1371,336 @@ Pinecone Vector Semantic Search</span>
       <video id="modalVideo" controls autoplay loop>
         <source id="modalVideoSource" src="" type="video/mp4">
       </video>
-      <div style="text-align: center; margin-top: 1rem;">
+      <div style="text-align: center; margin-top: 1.5rem;">
         <h3 id="modalTitle" style="color: #4da6ff;"></h3>
-        <p id="modalDescription" style="color: #bbb; margin-top: 0.5rem;"></p>
+        <p id="modalDescription" style="color: #bbb; margin-top: 0.8rem; line-height: 1.6;"></p>
       </div>
     </div>
   </div>
+  <!-- API SETUP PAGE -->
+<div id="setup" class="page">
+  <div class="container">
+    <div class="hero">
+      <h1>🔑 API Setup Guide</h1>
+      <p>Get your API keys and configure TrustMeter in minutes</p>
+    </div>
+
+    <section>
+      <h2>📋 Prerequisites</h2>
+      <div class="feature-item" style="max-width: 900px; margin: 0 auto;">
+        <p style="color: #ccc; line-height: 1.8;">
+          TrustMeter uses several AI services to provide accurate verification. You'll need to create accounts 
+          and obtain API keys from Google Cloud Platform and Pinecone. <strong>Most services offer free tiers</strong> 
+          that are sufficient for personal use.
+        </p>
+      </div>
+    </section>
+
+    <!-- API Keys Required -->
+    <section>
+      <h2>🗝️ Required API Keys</h2>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <span class="feature-icon">🤖</span>
+          <h3>1. Gemini API Key</h3>
+          <p><strong>Service:</strong> Google Gemini AI</p>
+          <p><strong>Cost:</strong> Free tier available (60 requests/minute)</p>
+          <button class="cta-button" onclick="window.open('https://makersuite.google.com/app/apikey', '_blank')" style="margin-top: 1rem; padding: 0.8rem 1.5rem; font-size: 1rem;">
+            Get Gemini API Key →
+          </button>
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(77, 166, 255, 0.1); border-radius: 8px; border-left: 4px solid #4da6ff;">
+            <p style="font-size: 0.9rem; color: #bbb;">
+              <strong>Steps:</strong><br>
+              1. Visit <a href="https://makersuite.google.com/app/apikey" target="_blank" style="color: #4da6ff;">Google AI Studio</a><br>
+              2. Sign in with your Google account<br>
+              3. Click "Get API Key" → "Create API Key"<br>
+              4. Copy the generated key
+            </p>
+          </div>
+        </div>
+
+        <div class="feature-item">
+          <span class="feature-icon">📊</span>
+          <h3>2. Pinecone API Key</h3>
+          <p><strong>Service:</strong> Pinecone Vector Database</p>
+          <p><strong>Cost:</strong> Free tier (100K vectors)</p>
+          <button class="cta-button" onclick="window.open('https://www.pinecone.io/', '_blank')" style="margin-top: 1rem; padding: 0.8rem 1.5rem; font-size: 1rem;">
+            Get Pinecone API Key →
+          </button>
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(77, 166, 255, 0.1); border-radius: 8px; border-left: 4px solid #4da6ff;">
+            <p style="font-size: 0.9rem; color: #bbb;">
+              <strong>Steps:</strong><br>
+              1. Visit <a href="https://www.pinecone.io/" target="_blank" style="color: #4da6ff;">Pinecone.io</a><br>
+              2. Sign up for a free account<br>
+              3. Go to "API Keys" in the console<br>
+              4. Create a new index (dimension: 384, metric: cosine)<br>
+              5. Copy your API key and index name
+            </p>
+          </div>
+        </div>
+
+        <div class="feature-item">
+          <span class="feature-icon">☁️</span>
+          <h3>3. Google Cloud API Key</h3>
+          <p><strong>Services:</strong> Vision API, Custom Search</p>
+          <p><strong>Cost:</strong> $300 free credit for new users</p>
+          <button class="cta-button" onclick="window.open('https://console.cloud.google.com/', '_blank')" style="margin-top: 1rem; padding: 0.8rem 1.5rem; font-size: 1rem;">
+            Go to Google Cloud →
+          </button>
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(77, 166, 255, 0.1); border-radius: 8px; border-left: 4px solid #4da6ff;">
+            <p style="font-size: 0.9rem; color: #bbb;">
+              <strong>Steps:</strong><br>
+              1. Visit <a href="https://console.cloud.google.com/" target="_blank" style="color: #4da6ff;">Google Cloud Console</a><br>
+              2. Create a new project<br>
+              3. Enable these APIs: Vision API, Custom Search API<br>
+              4. Go to "Credentials" → "Create Credentials" → "API Key"<br>
+              5. Copy the API key
+            </p>
+          </div>
+        </div>
+
+        <div class="feature-item">
+          <span class="feature-icon">🧠</span>
+          <h3>4. Vertex AI Credentials</h3>
+          <p><strong>Service:</strong> Google Vertex AI ML</p>
+          <p><strong>Cost:</strong> Included in Google Cloud free tier</p>
+          <button class="cta-button" onclick="window.open('https://console.cloud.google.com/vertex-ai', '_blank')" style="margin-top: 1rem; padding: 0.8rem 1.5rem; font-size: 1rem;">
+            Go to Vertex AI →
+          </button>
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(77, 166, 255, 0.1); border-radius: 8px; border-left: 4px solid #4da6ff;">
+            <p style="font-size: 0.9rem; color: #bbb;">
+              <strong>Steps:</strong><br>
+              1. In Google Cloud Console, enable Vertex AI API<br>
+              2. Go to "IAM & Admin" → "Service Accounts"<br>
+              3. Create service account with "Vertex AI User" role<br>
+              4. Create JSON key and download it<br>
+              5. Note your Project ID
+            </p>
+          </div>
+        </div>
+
+        <div class="feature-item">
+          <span class="feature-icon">✅</span>
+          <h3>5. Fact Check API Key</h3>
+          <p><strong>Service:</strong> Google Fact Check Tools API</p>
+          <p><strong>Cost:</strong> Free (no quota limits)</p>
+          <button class="cta-button" onclick="window.open('https://console.cloud.google.com/', '_blank')" style="margin-top: 1rem; padding: 0.8rem 1.5rem; font-size: 1rem;">
+            Enable Fact Check API →
+          </button>
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(77, 166, 255, 0.1); border-radius: 8px; border-left: 4px solid #4da6ff;">
+            <p style="font-size: 0.9rem; color: #bbb;">
+              <strong>Steps:</strong><br>
+              1. In Google Cloud Console<br>
+              2. Enable "Fact Check Tools API"<br>
+              3. Use the same API key from step 3<br>
+              4. No separate key needed
+            </p>
+          </div>
+        </div>
+
+        <div class="feature-item">
+          <span class="feature-icon">🔍</span>
+          <h3>6. Custom Search Setup</h3>
+          <p><strong>Service:</strong> Google Custom Search API</p>
+          <p><strong>Cost:</strong> 100 queries/day free</p>
+          <button class="cta-button" onclick="window.open('https://programmablesearchengine.google.com/', '_blank')" style="margin-top: 1rem; padding: 0.8rem 1.5rem; font-size: 1rem;">
+            Create Search Engine →
+          </button>
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(77, 166, 255, 0.1); border-radius: 8px; border-left: 4px solid #4da6ff;">
+            <p style="font-size: 0.9rem; color: #bbb;">
+              <strong>Steps:</strong><br>
+              1. Visit <a href="https://programmablesearchengine.google.com/" target="_blank" style="color: #4da6ff;">Programmable Search Engine</a><br>
+              2. Create new search engine<br>
+              3. Set to search entire web<br>
+              4. Copy your Search Engine ID<br>
+              5. Use Google Cloud API key from step 3
+            </p>
+          </div>
+        </div>
+
+        <div class="feature-item">
+          <span class="feature-icon">🔥</span>
+          <h3>7. Firestore Setup</h3>
+          <p><strong>Service:</strong> Google Cloud Firestore</p>
+          <p><strong>Cost:</strong> Free tier (1GB storage)</p>
+          <button class="cta-button" onclick="window.open('https://console.firebase.google.com/', '_blank')" style="margin-top: 1rem; padding: 0.8rem 1.5rem; font-size: 1rem;">
+            Go to Firebase →
+          </button>
+          <div style="margin-top: 1rem; padding: 1rem; background: rgba(77, 166, 255, 0.1); border-radius: 8px; border-left: 4px solid #4da6ff;">
+            <p style="font-size: 0.9rem; color: #bbb;">
+              <strong>Steps:</strong><br>
+              1. Visit <a href="https://console.firebase.google.com/" target="_blank" style="color: #4da6ff;">Firebase Console</a><br>
+              2. Add Firebase to your Google Cloud project<br>
+              3. Enable Firestore Database<br>
+              4. Use the same service account JSON from step 4<br>
+              5. Note your Project ID
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive ENV File Generator -->
+    <section>
+      <h2>📝 Generate Your .env File</h2>
+      <p class="section-subtitle">
+        Enter your API keys below and we'll generate a ready-to-use .env file for you
+      </p>
+      
+      <div class="architecture-section">
+        <div style="max-width: 800px; margin: 0 auto;">
+          <div class="install-steps">
+            <div class="step">
+              <div class="step-number">1</div>
+              <div class="step-content" style="width: 100%;">
+                <h3>Gemini API Key</h3>
+                <input type="text" id="geminiKey" placeholder="Enter your Gemini API key" 
+                  style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(77, 166, 255, 0.3); border-radius: 8px; color: white; font-family: 'Courier New', monospace;">
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-number">2</div>
+              <div class="step-content" style="width: 100%;">
+                <h3>Pinecone Configuration</h3>
+                <input type="text" id="pineconeKey" placeholder="Pinecone API Key" 
+                  style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(77, 166, 255, 0.3); border-radius: 8px; color: white; font-family: 'Courier New', monospace;">
+                <input type="text" id="pineconeIndex" placeholder="Pinecone Index Name" 
+                  style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(77, 166, 255, 0.3); border-radius: 8px; color: white; font-family: 'Courier New', monospace;">
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-number">3</div>
+              <div class="step-content" style="width: 100%;">
+                <h3>Google Cloud API Key</h3>
+                <input type="text" id="googleKey" placeholder="Google Cloud API Key (for Vision & Fact Check)" 
+                  style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(77, 166, 255, 0.3); border-radius: 8px; color: white; font-family: 'Courier New', monospace;">
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-number">4</div>
+              <div class="step-content" style="width: 100%;">
+                <h3>Google Cloud Project ID</h3>
+                <input type="text" id="projectId" placeholder="Your GCP Project ID (for Vertex AI & Firestore)" 
+                  style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(77, 166, 255, 0.3); border-radius: 8px; color: white; font-family: 'Courier New', monospace;">
+                <p style="margin-top: 0.5rem; color: #bbb; font-size: 0.9rem;">
+                  ⚠️ You'll need to manually place your service account JSON file in the project root and name it <code>service-account.json</code>
+                </p>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-number">5</div>
+              <div class="step-content" style="width: 100%;">
+                <h3>Custom Search Configuration</h3>
+                <input type="text" id="searchKey" placeholder="Custom Search API Key (can be same as Google Cloud key)" 
+                  style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(77, 166, 255, 0.3); border-radius: 8px; color: white; font-family: 'Courier New', monospace;">
+                <input type="text" id="searchEngineId" placeholder="Search Engine ID" 
+                  style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(77, 166, 255, 0.3); border-radius: 8px; color: white; font-family: 'Courier New', monospace;">
+              </div>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin-top: 2rem;">
+            <button class="cta-button" onclick="generateEnvFile()" style="margin: 0.5rem;">
+              🎉 Generate .env File
+            </button>
+            <button class="cta-button" onclick="clearForm()" style="margin: 0.5rem; background: linear-gradient(135deg, #ff6b6b 0%, #cc5555 100%);">
+              🗑️ Clear Form
+            </button>
+          </div>
+
+          <!-- Output Area -->
+          <div id="envOutput" style="display: none; margin-top: 2rem;">
+            <h3 style="color: #4da6ff; margin-bottom: 1rem;">✅ Your .env File Content:</h3>
+            <div style="background: rgba(0, 0, 0, 0.4); padding: 1.5rem; border-radius: 12px; border: 2px solid rgba(77, 166, 255, 0.3); position: relative;">
+              <button onclick="copyEnvToClipboard()" style="position: absolute; top: 1rem; right: 1rem; padding: 0.5rem 1rem; background: rgba(77, 166, 255, 0.3); border: 1px solid #4da6ff; border-radius: 6px; color: white; cursor: pointer; font-size: 0.9rem;">
+                📋 Copy
+              </button>
+              <pre id="envContent" style="color: #4da6ff; font-family: 'Courier New', monospace; white-space: pre-wrap; word-wrap: break-word; margin-top: 2rem; line-height: 1.8;"></pre>
+            </div>
+            <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(255, 166, 77, 0.1); border-radius: 8px; border-left: 4px solid #ffa64d;">
+              <p style="color: #ffa64d; font-weight: 600; margin-bottom: 0.5rem;">📌 Next Steps:</p>
+              <ol style="color: #bbb; padding-left: 1.5rem; line-height: 1.8;">
+                <li>Copy the content above</li>
+                <li>Create a file named <code>.env</code> in your project root directory</li>
+                <li>Paste the content into the <code>.env</code> file</li>
+                <li>Download your Google Cloud service account JSON and save it as <code>service-account.json</code> in the project root</li>
+                <li>Make sure <code>.env</code> and <code>service-account.json</code> are in your <code>.gitignore</code></li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cost Breakdown -->
+    <section>
+      <h2>💰 Cost Breakdown</h2>
+      <p class="section-subtitle">
+        TrustMeter is designed to work within free tier limits for personal use
+      </p>
+      <div class="stats-grid">
+        <div class="stat-item" style="background: rgba(77, 255, 166, 0.1);">
+          <div class="stat-number" style="color: #4dffaa;">$0</div>
+          <div class="stat-label">Setup Cost</div>
+        </div>
+        <div class="stat-item" style="background: rgba(77, 255, 166, 0.1);">
+          <div class="stat-number" style="color: #4dffaa;">$0-5</div>
+          <div class="stat-label">Monthly Cost (light use)</div>
+        </div>
+        <div class="stat-item" style="background: rgba(77, 166, 255, 0.1);">
+          <div class="stat-number" style="color: #4da6ff;">$300</div>
+          <div class="stat-label">Google Cloud Free Credit</div>
+        </div>
+        <div class="stat-item" style="background: rgba(77, 166, 255, 0.1);">
+          <div class="stat-number" style="color: #4da6ff;">100K</div>
+          <div class="stat-label">Free Pinecone Vectors</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Troubleshooting -->
+    <section>
+      <h2>🛠️ Common Issues</h2>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <h3>❌ "API Key Invalid" Error</h3>
+          <p>Double-check that you've enabled the correct APIs in Google Cloud Console and that your keys have no extra spaces.</p>
+        </div>
+        <div class="feature-item">
+          <h3>⚠️ "Quota Exceeded" Error</h3>
+          <p>You may have hit the free tier limit. Check your usage in the respective consoles or upgrade to a paid plan.</p>
+        </div>
+        <div class="feature-item">
+          <h3>🔒 "Permission Denied" Error</h3>
+          <p>Ensure your service account has the correct roles: Vertex AI User, Firestore User, and Storage Object Viewer.</p>
+        </div>
+        <div class="feature-item">
+          <h3>📁 "Service Account JSON Not Found"</h3>
+          <p>Make sure <code>service-account.json</code> is in your project root directory, not in a subdirectory.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
 
   <footer>
-    <p> TrustMeter - AI-Powered Truth Verification</p>
-    <p style="margin-top: 0.5rem;">Built for the GenAI Hackathon | Team IPV3 | 2025</p>
-     <p style="margin-top: 0.5rem;"> Problem Statement: Combating Misinformation in Real-Time</p>
-    <p style="margin-top: 1rem; font-size: 0.9rem;">Empowering users to navigate the digital world with confidence and clarity.</p>
+    <p style="font-size: 1.2rem; font-weight: 600;">🛡️ TrustMeter - AI-Powered Truth Verification</p>
+    <p style="margin-top: 0.8rem; font-size: 1rem;">Built for the <strong>GenAI Hackathon</strong> | Team IPV3 | 2025</p>
+    <p style="margin-top: 0.5rem; color: #888;">🎯 Problem Statement: Combating Misinformation in Real-Time</p>
+    <p style="margin-top: 1.5rem; font-size: 0.95rem; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.7;">
+      Empowering users to navigate the digital world with confidence and clarity through cutting-edge AI technology.
+    </p>
+    <div style="margin-top: 2rem;">
+      <span class="tech-badge">🤖 5 AI Models</span>
+      <span class="tech-badge">⚡ Real-Time</span>
+      <span class="tech-badge">🔒 Privacy-First</span>
+      <span class="tech-badge">🌐 Open Source</span>
+    </div>
   </footer>
 
   <script>
@@ -1118,6 +1728,7 @@ Pinecone Vector Semantic Search</span>
 
     // Download Extension
     function downloadExtension() {
+      // Update with your actual GitHub release link
       window.location.href = "https://github.com/akshaynair5/H2S_hackathon/archive/refs/heads/main.zip";
     }
 
@@ -1178,6 +1789,233 @@ Pinecone Vector Semantic Search</span>
         });
       });
     }
+
+    // Smooth scroll for internal links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+
+    // Add animation on scroll
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.opacity = '1';
+          entry.target.style.transform = 'translateY(0)';
+        }
+      });
+    }, observerOptions);
+
+    // Observe feature items and cards for animation
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.feature-item, .video-card, .stat-item').forEach(el => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(20px)';
+        el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(el);
+      });
+    });
+
+  
+    function generateEnvFile() {
+      const geminiKey = document.getElementById('geminiKey').value.trim();
+      const pineconeKey = document.getElementById('pineconeKey').value.trim();
+      const pineconeIndex = document.getElementById('pineconeIndex').value.trim();
+      const googleKey = document.getElementById('googleKey').value.trim();
+      const projectId = document.getElementById('projectId').value.trim();
+      const searchKey = document.getElementById('searchKey').value.trim();
+      const searchEngineId = document.getElementById('searchEngineId').value.trim();
+
+      // Validation
+      if (!geminiKey || !pineconeKey || !pineconeIndex || !googleKey || !projectId || !searchKey || !searchEngineId) {
+        alert('⚠️ Please fill in all fields before generating the .env file');
+        return;
+      }
+
+      // Generate .env content
+      const envContent = `# TrustMeter Environment Configuration
+    # Generated on ${new Date().toLocaleString()}
+
+    # ============================================
+    # AI/ML API Keys
+    # ============================================
+
+    # Google Gemini AI (for contextual reasoning)
+    GEMINI_API_KEY=${geminiKey}
+
+    # ============================================
+    # Vector Database Configuration
+    # ============================================
+
+    # Pinecone Vector Database (for semantic caching)
+    PINECONE_API_KEY=${pineconeKey}
+    PINECONE_INDEX_NAME=${pineconeIndex}
+    PINECONE_ENVIRONMENT=gcp-starter
+
+    # ============================================
+    # Google Cloud Platform Configuration
+    # ============================================
+
+    # Google Cloud API Key (for Vision API, Fact Check API)
+    GOOGLE_API_KEY=${googleKey}
+
+    # GCP Project Configuration
+    GCP_PROJECT_ID=${projectId}
+    GOOGLE_APPLICATION_CREDENTIALS=./service-account.json
+
+    # ============================================
+    # Custom Search Configuration
+    # ============================================
+
+    # Google Custom Search (for evidence corroboration)
+    CUSTOM_SEARCH_API_KEY=${searchKey}
+    CUSTOM_SEARCH_ENGINE_ID=${searchEngineId}
+
+    # ============================================
+    # Application Configuration
+    # ============================================
+
+    # Flask Configuration
+    FLASK_ENV=production
+    FLASK_DEBUG=False
+    PORT=5000
+
+    # Cache Configuration
+    CACHE_TTL_DAYS=15
+    SEMANTIC_SIMILARITY_THRESHOLD=0.85
+
+    # ============================================
+    # Security Notes
+    # ============================================
+    # IMPORTANT: Never commit this file to version control!
+    # Add .env to your .gitignore file
+    # Keep your service-account.json file secure and in the project root
+    `;
+
+      // Display the output
+      document.getElementById('envContent').textContent = envContent;
+      document.getElementById('envOutput').style.display = 'block';
+      
+      // Scroll to output
+      document.getElementById('envOutput').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      
+      // Show success message
+      showNotification('✅ .env file generated successfully!', 'success');
+    }
+
+    function clearForm() {
+      document.getElementById('geminiKey').value = '';
+      document.getElementById('pineconeKey').value = '';
+      document.getElementById('pineconeIndex').value = '';
+      document.getElementById('googleKey').value = '';
+      document.getElementById('projectId').value = '';
+      document.getElementById('searchKey').value = '';
+      document.getElementById('searchEngineId').value = '';
+      document.getElementById('envOutput').style.display = 'none';
+      
+      showNotification('🗑️ Form cleared', 'info');
+    }
+
+    function copyEnvToClipboard() {
+      const envContent = document.getElementById('envContent').textContent;
+      
+      navigator.clipboard.writeText(envContent).then(() => {
+        showNotification('📋 Copied to clipboard!', 'success');
+      }).catch(err => {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = envContent;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          showNotification('📋 Copied to clipboard!', 'success');
+        } catch (err) {
+          showNotification('❌ Failed to copy. Please copy manually.', 'error');
+        }
+        document.body.removeChild(textArea);
+      });
+    }
+
+    function showNotification(message, type) {
+      // Create notification element
+      const notification = document.createElement('div');
+      notification.textContent = message;
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 1rem 1.5rem;
+        background: ${type === 'success' ? 'linear-gradient(135deg, #4dffaa 0%, #3dcc88 100%)' : 
+                      type === 'error' ? 'linear-gradient(135deg, #ff6b6b 0%, #cc5555 100%)' : 
+                      'linear-gradient(135deg, #4da6ff 0%, #3385cc 100%)'};
+        color: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        z-index: 10000;
+        font-weight: 600;
+        animation: slideIn 0.3s ease;
+      `;
+      
+      document.body.appendChild(notification);
+      
+      // Remove after 3 seconds
+      setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+          document.body.removeChild(notification);
+        }, 300);
+      }, 3000);
+    }
+
+    // Add CSS animations for notifications
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes slideIn {
+        from {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      
+      @keyframes slideOut {
+        from {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        to {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+      }
+      
+      input:focus {
+        outline: none;
+        border-color: #4da6ff !important;
+        box-shadow: 0 0 0 3px rgba(77, 166, 255, 0.2);
+      }
+      
+      .cta-button:active {
+        transform: translateY(-1px);
+      }
+    `;
+    document.head.appendChild(style);
   </script>
 </body>
 </html>
