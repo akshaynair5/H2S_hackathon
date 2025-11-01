@@ -244,6 +244,7 @@ def detect_text():
                 "prediction": prediction,
                 "explanation": explanation,
                 "article_id": article_id,
+                "norm_id":norm_id,
                 "source": "firestore_exact",
                 "session_id": session_id,  
                 "details": [{
@@ -299,6 +300,7 @@ def detect_text():
                 "prediction": prediction,
                 "explanation": explanation,
                 "article_id": article_id,
+                "norm_id":norm_id,
                 "source": "firestore_semantic",
                 "session_id": session_id,
                 "details": [{"score": best.get("text_score", 0.5), "prediction": prediction, "explanation": explanation, "source": "firestore_semantic", "article_id": best_article_id, "similarity": firestore_semantic['similarity']}]
@@ -313,6 +315,7 @@ def detect_text():
                 "article_id": article_id,
                 "source": "semantic_cache",
                 "session_id": session_id, 
+                "norm_id":norm_id,
                 "details": [{
                     "score": semantic_result.get("score", 0.5),
                     "prediction": semantic_result.get("prediction", "Unknown"),
@@ -362,6 +365,7 @@ def detect_text():
             "prediction": text_prediction,
             "explanation": explanation,
             "article_id": article_id,
+            "norm_id":norm_id,
             "source": "new_analysis",
             "session_id": session_id,
             "details": [safe_result],
