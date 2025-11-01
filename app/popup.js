@@ -370,7 +370,7 @@ async function handleTextCheck() {
         const sessionId = crypto.randomUUID();
 
         chrome.runtime.sendMessage(
-          { type: "ANALYZE_TEXT", payload: { text: textContent } },
+          { type: "ANALYZE_TEXT", payload: { text: textContent , session_id: sessionId } },
           (response) => {
             if (!response || response.error) {
               displayError(response?.error || "Text analysis failed.");

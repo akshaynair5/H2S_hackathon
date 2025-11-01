@@ -200,6 +200,9 @@ def detect_text():
         
         print(f"User selected text: '{original_text}' - \n")
         print(f"URL IS  '{url}'- \n")
+        
+        if len(original_text) < 10: 
+            return jsonify({"error": "Text too short or missing"}), 400
 
         if len(original_text) > 1000:  # Adjust threshold as needed
             return jsonify({"error": "Text is too large to analyze. Please provide shorter text (maximum 2 paragraphs)."}), 400
@@ -219,11 +222,10 @@ def detect_text():
         except Exception as e:
             print(f"Translation error: {e}")
             return jsonify({"error": "Failed to translate text. Please try again."}), 500
-        originalText = original_text.strip()
+        
         text = text_for_analysis.strip()
         print(f'Translated text ' , text)
-        if not text or len(text) < 5: 
-            return jsonify({"error": "Text too short or missing"}), 400
+        
 
         article_id = generate_id(url, text)
 
